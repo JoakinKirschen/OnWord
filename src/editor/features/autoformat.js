@@ -5,6 +5,7 @@ const MARKERS = {
   '##': ['format.block', 'h2'],
   '###': ['format.block', 'h3'],
   '####': ['format.block', 'h4'],
+  '#####': ['format.block', 'h5'],
   '>': ['format.block', 'blockquote'],
   '-': ['edit.exec', 'insertUnorderedList'],
   '*': ['edit.exec', 'insertUnorderedList'],

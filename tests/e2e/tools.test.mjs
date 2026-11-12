@@ -33,7 +33,7 @@ test('word count and autosave survive a reload', async () => {
   await page.fill('#title', 'My Report');
   await page.click('#editor');
   await page.keyboard.type('one two three');
-  assert.match(await page.textContent('#counts'), /^3 words · 13 characters/);
+  assert.match(await page.textContent('#counts'), /^1 page · 3 words · 13 characters$/);
   await waitSaved(page);
   await page.reload();
   assert.equal(await text(page), 'one two three');
@@ -85,17 +85,17 @@ test('outline lists headings and can be hidden', async () => {
 
 test('page setup changes the paper and is stored with the document', async () => {
   const page = await openEditor();
-  const pageWidth = () => page.evaluate(() => document.querySelector('#paper').style.getPropertyValue('--page-w'));
+  const pageWidth = () => page.evaluate(() => document.querySelector('#sheet').style.getPropertyValue('--page-w'));
   assert.equal(await page.evaluate(() => document.querySelector('#paper').getBoundingClientRect().width), 816);
   await menu(page, 'File', 'page.setup');
   await page.selectOption('#pageSize', 'a4');
   await page.selectOption('#pageOrientation', 'landscape');
   await page.selectOption('#pageMargin', 'narrow');
   await page.click('#pageDlg .primary');
-  await page.waitForFunction(() => document.querySelector('#paper').style.getPropertyValue('--page-w') === '1123px');
+  await page.waitForFunction(() => document.querySelector('#sheet').style.getPropertyValue('--page-w') === '1123px');
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#editor')).paddingLeft), '48px');
   assert.match(
-    await page.evaluate(() => document.querySelector('#editorView style').textContent),
+    await page.evaluate(() => document.querySelector('style[data-print="page"]').textContent),
     /size: A4 landscape; margin: 0.5in/,
   );
   await page.reload();
@@ -121,5 +121,27 @@ test('version history: save and restore', async () => {
   await menu(page, 'File', 'history.open');
   assert.equal(await page.locator('#versionList li').count(), 2, 'the replaced text was kept as a version');
   assert.match(await html(page), /first draft/);
+  assert.deepEqual(page.errors, []);
+});
+
+test('word count dialog reports the document and the selection', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('one two three');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('four');
+  await page.click('#counts');
+  const rows = () => page.locator('#wordCountTable tr').allInnerTexts();
+  assert.deepEqual(await rows(), [
+    'Pages\t1',
+    'Words\t4',
+    'Characters (no spaces)\t15',
+    'Characters (with spaces)\t17',
+    'Paragraphs\t2',
+  ]);
+  await page.click('#wordCountDlg .primary');
+  await page.click('#editor');
+  await page.keyboard.press('Control+A');
+  await page.click('#counts');
+  assert.match((await rows()).join('|'), /Words\t4\t4/);
   assert.deepEqual(page.errors, []);
 });

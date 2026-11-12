@@ -1,4 +1,7 @@
-/* Printing: only the page content. The @page size and margin are overridden by features/pageSetup.js. */
+/*
+ * Printing: only the page content. The @page size, margin and the header/footer margin boxes are
+ * written by features/pageSetup.js and features/headerFooter.js.
+ */
 @media print {
   body {
     background: #fff;
@@ -11,7 +14,9 @@
   .img-bar,
   .pop,
   .toast,
-  .outline {
+  .outline,
+  .ruler,
+  .page-band {
     display: none !important;
   }
   .view,
@@ -23,15 +28,21 @@
     padding: 0;
     background: #fff !important;
   }
+  .sheet {
+    width: auto;
+    zoom: 1 !important;
+  }
   .paper {
     box-shadow: none;
-    width: auto;
     min-height: 0;
-    zoom: 1 !important;
   }
   .doc-content {
     padding: 0;
     min-height: 0;
+    background-image: none;
+  }
+  .doc-content.show-marks ::after {
+    content: none !important;
   }
   .doc-content hr.page-break {
     border: 0;

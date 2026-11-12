@@ -17,9 +17,11 @@ const SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 30, 36, 48, 60, 72];
 const BLOCKS = [
   ['p', 'Normal text'],
   ['h1', 'Title'],
+  ['subtitle', 'Subtitle'],
   ['h2', 'Heading 1'],
   ['h3', 'Heading 2'],
   ['h4', 'Heading 3'],
+  ['h5', 'Heading 4'],
   ['blockquote', 'Quote'],
   ['pre', 'Code block'],
 ];
@@ -72,8 +74,9 @@ const SEP = '<span class="tb-sep"></span>';
 const tip = (label, key) => `title="${label}${key ? ` (${MOD}${key})` : ''}" aria-label="${label}"`;
 /** Button running a browser editing command. */
 const cmd = (name, inner, label, key) => `<button class="tb" data-cmd="${name}" ${tip(label, key)}>${inner}</button>`;
-/** Button running a registered app command. */
-const act = (name, inner, label, key) => `<button class="tb" data-act="${name}" ${tip(label, key)}>${inner}</button>`;
+/** Button running a registered app command, optionally with an argument and a shortcut hint. */
+const act = (name, inner, label, { key = '', arg = '' } = {}) =>
+  `<button class="tb" data-act="${name}" ${arg && `data-arg="${arg}"`} ${tip(label, key)}>${inner}</button>`;
 const glyph = (text, style = '') => `<span class="glyph" style="${style}">${text}</span>`;
 const select = (id, label, options, placeholder = '') =>
   `<select id="${id}" title="${label}" aria-label="${label}"><option value="" hidden>${placeholder}</option>${options.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>`;
@@ -83,8 +86,9 @@ const colorButton = (command, letter, label, color) =>
 const TOOLBAR_HTML = [
   cmd('undo', icon('undo'), 'Undo', 'Z'),
   cmd('redo', icon('redo'), 'Redo', 'Y'),
-  act('file.print', icon('print'), 'Print', 'P'),
-  act('find.open', icon('search'), 'Find and replace', 'F'),
+  act('file.print', icon('print'), 'Print', { key: 'P' }),
+  act('find.open', icon('search'), 'Find and replace', { key: 'F' }),
+  act('format.painter', icon('painter'), 'Format painter'),
   SEP,
   select('selBlock', 'Paragraph style', BLOCKS),
   SEP,
@@ -107,7 +111,7 @@ const TOOLBAR_HTML = [
   colorButton('foreColor', 'A', 'Text colour', '#c0352b'),
   colorButton('hiliteColor', 'H', 'Highlight colour', '#f1c40f'),
   SEP,
-  act('link.edit', icon('link'), 'Insert link', 'K'),
+  act('link.edit', icon('link'), 'Insert link', { key: 'K' }),
   act('image.pick', icon('image'), 'Insert image'),
   act('table.dialog', icon('table'), 'Insert table'),
   SEP,
@@ -120,8 +124,8 @@ const TOOLBAR_HTML = [
   cmd('insertUnorderedList', icon('ul'), 'Bulleted list'),
   cmd('insertOrderedList', icon('ol'), 'Numbered list'),
   act('format.checklist', icon('checklist'), 'Checklist'),
-  cmd('outdent', icon('outdent'), 'Decrease indent'),
-  cmd('indent', icon('indent'), 'Increase indent'),
+  act('format.indent', icon('outdent'), 'Decrease indent', { arg: 'out' }),
+  act('format.indent', icon('indent'), 'Increase indent'),
   SEP,
   cmd('removeFormat', icon('clear'), 'Clear formatting'),
 ].join('');
@@ -181,8 +185,9 @@ export function initToolbar(ctx) {
       }
       $(`[data-cmd="${name}"]`, bar)?.classList.toggle('on', on);
     }
-    const block = el.closest('h1,h2,h3,h4,blockquote,pre,p');
-    selBlock.value = block && content.contains(block) ? block.tagName.toLowerCase() : 'p';
+    const block = el.closest('h1,h2,h3,h4,h5,blockquote,pre,p');
+    const tag = block && content.contains(block) ? block.tagName.toLowerCase() : 'p';
+    selBlock.value = block?.classList.contains('subtitle') ? 'subtitle' : tag;
     const style = getComputedStyle(el);
     const family = style.fontFamily.split(',')[0].replace(/["']/g, '').trim().toLowerCase();
     selFont.value = FONTS.find((f) => f.toLowerCase() === family) || '';

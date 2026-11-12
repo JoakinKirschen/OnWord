@@ -98,3 +98,12 @@ test('page break and date from the Insert menu', async () => {
   assert.match(await html(page), /<p>before<\/p><hr class="page-break"><p>after<\/p>/);
   assert.deepEqual(page.errors, []);
 });
+
+test('special characters picker', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('Price: 5');
+  await menu(page, 'Insert', 'insert.symbols');
+  await page.click('.symbol-grid [data-arg="€"]');
+  assert.equal(await page.innerText('#editor'), 'Price: 5€');
+  assert.deepEqual(page.errors, []);
+});

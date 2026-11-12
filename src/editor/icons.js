@@ -15,6 +15,7 @@ const PATHS = {
   table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14M15 5v14',
   clear: 'M4 7V5h13v2M10.5 5 8 19M5 19h6M15 14l5 5M20 14l-5 5',
   checklist: 'M4 5h5v5H4zM4 14h5v5H4zM13 7.5h7M13 16.5h7M5.3 16.5l1 1 1.7-2',
+  painter: 'M5 4h12v5H5zM17 6h2v6h-8v3M10 15h2v6h-2z',
   search: 'M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14zM21 21l-4.5-4.5',
 };
 

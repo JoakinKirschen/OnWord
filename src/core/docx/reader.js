@@ -1,18 +1,16 @@
 /** Converts a .docx file to editor HTML. */
 
 import { sanitize } from '../html.js';
-import { PX_PER_INCH, matchPage } from '../page.js';
 import { readZip } from '../zip.js';
 import { STYLE } from './parts.js';
+import { paragraphStyleAttr } from './paragraph.js';
 import { inlineHtml } from './runs.js';
+import { readSection } from './section.js';
 import { all, attr, isOn, kid, kids, parseXml, val } from './xml.js';
 
-const TWIPS_PER_PX = 1440 / PX_PER_INCH;
-const ALIGN = { center: 'center', right: 'right', end: 'right', both: 'justify', distribute: 'justify' };
-const SINGLE_LINE = 240;
-const MAX_HEADING = 4;
+const MAX_HEADING = 5;
+const SUBTITLE = 'p.subtitle'; // a styles-map value: tag plus class
 const LIST_TAGS = ['ul', 'ol'];
-const DEFAULT_LINE_HEIGHT = 1.5; // styles/document.css; not worth repeating on every paragraph
 const CHECKBOX = /^([☐☑])\s?/;
 
 /**
@@ -25,7 +23,8 @@ function tagForStyle(/** @type {string} */ id, /** @type {string} */ name) {
   const key = `${id} ${name}`.toLowerCase();
   const heading = key.match(/heading\s*(\d)/);
   if (heading) return 'h' + Math.min(Number(heading[1]) + 1, MAX_HEADING); // the app's "Heading 1" is <h2>
-  if (/\btitle\b/.test(key) && !/sub/.test(key)) return 'h1';
+  if (/subtitle/.test(key)) return SUBTITLE;
+  if (/\btitle\b/.test(key)) return 'h1';
   if (/quote|block\s*text/.test(key)) return 'blockquote';
   if (/list\s*bullet/.test(key)) return 'ul'; // list styles carry their numbering in the style itself
   if (/list\s*number/.test(key)) return 'ol';
@@ -58,25 +57,17 @@ function readNumbering(/** @type {Document | null} */ doc) {
 function readRelationships(/** @type {Document | null} */ doc) {
   const links = new Map();
   const images = new Map();
+  const parts = new Map(); // headers and footers
   for (const rel of all(doc, 'Relationship')) {
     const id = rel.getAttribute('Id');
+    const type = rel.getAttribute('Type')?.split('/').pop();
     const target = rel.getAttribute('Target') || '';
-    if (rel.getAttribute('Type')?.endsWith('/hyperlink')) links.set(id, target);
-    if (rel.getAttribute('Type')?.endsWith('/image'))
-      images.set(id, target.startsWith('/') ? target.slice(1) : 'word/' + target);
+    const path = target.startsWith('/') ? target.slice(1) : 'word/' + target;
+    if (type === 'hyperlink') links.set(id, target);
+    else if (type === 'image') images.set(id, path);
+    else if (type === 'header' || type === 'footer') parts.set(id, path);
   }
-  return { links, images };
-}
-
-function paragraphStyle(/** @type {Element | undefined} */ pPr) {
-  const css = [];
-  const align = ALIGN[val(pPr, 'jc')];
-  const spacing = kid(pPr, 'spacing');
-  const line = Number(attr(spacing, 'line'));
-  if (align) css.push(`text-align: ${align}`);
-  const lineHeight = (attr(spacing, 'lineRule') ?? 'auto') === 'auto' ? +(line / SINGLE_LINE).toFixed(2) : 0;
-  if (lineHeight && lineHeight !== DEFAULT_LINE_HEIGHT) css.push(`line-height: ${lineHeight}`);
-  return css.length ? ` style="${css.join('; ')};"` : '';
+  return { links, images, parts };
 }
 
 /** Collects output while tracking which lists are open, so consecutive list paragraphs nest correctly. */
@@ -144,7 +135,9 @@ function paragraph(
   } else if (!inner && kid(kid(pPr, 'pBdr'), 'bottom')) {
     out.block('<hr>'); // an empty paragraph with a bottom border is how Word draws a horizontal line
   } else if (inner || !flags.pageBreak) {
-    out.block(`<${tag}${paragraphStyle(pPr)}>${inner || '<br>'}</${tag}>`);
+    const [name, className] = tag.split('.');
+    const attrs = (className ? ` class="${className}"` : '') + paragraphStyleAttr(pPr);
+    out.block(`<${name}${attrs}>${inner || '<br>'}</${name}>`);
   }
   if (flags.pageBreak) out.block('<hr class="page-break">');
 }
@@ -179,18 +172,6 @@ function blocks(/** @type {Element} */ container, /** @type {Context} */ ctx) {
   return out.html();
 }
 
-function pageSetup(/** @type {Element} */ body) {
-  const section = kid(body, 'sectPr') || all(body, 'sectPr').pop();
-  const size = kid(section, 'pgSz');
-  if (!size) return undefined;
-  const px = (/** @type {string | null} */ twips) => Number(twips) / TWIPS_PER_PX;
-  return matchPage({
-    width: px(attr(size, 'w')),
-    height: px(attr(size, 'h')),
-    margin: px(attr(kid(section, 'pgMar'), 'left') ?? '1440'),
-  });
-}
-
 /**
  * @param {ArrayBuffer | Uint8Array} source the .docx file
  * @returns {Promise<{ html: string, page?: import('../page.js').PageSetup }>}
@@ -199,12 +180,13 @@ export async function readDocx(source) {
   const files = await readZip(source);
   const body = kid(parseXml(files.get('word/document.xml'))?.documentElement, 'body');
   if (!body) throw new Error('Not a Word document');
+  const relationships = readRelationships(parseXml(files.get('word/_rels/document.xml.rels')));
   /** @type {Context} */
   const ctx = {
     files,
-    ...readRelationships(parseXml(files.get('word/_rels/document.xml.rels'))),
+    ...relationships,
     styles: readStyles(parseXml(files.get('word/styles.xml'))),
     ordered: readNumbering(parseXml(files.get('word/numbering.xml'))),
   };
-  return { html: sanitize(blocks(body, ctx)), page: pageSetup(body) };
+  return { html: sanitize(blocks(body, ctx)), page: readSection(body, { files, parts: relationships.parts }) };
 }

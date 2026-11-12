@@ -1,11 +1,12 @@
 /** Converts document content (a DOM subtree) to a .docx file. */
 
-import { PX_PER_INCH, pageGeometry } from '../page.js';
+import { PX_PER_INCH, normalizePage, pageGeometry } from '../page.js';
 import { writeZip } from '../zip.js';
 import { inlineRuns, textRun } from './inline.js';
+import { paragraphXml } from './paragraph.js';
 import {
   BULLET_NUM_ID,
-  CONTENT_TYPES,
+  contentTypes,
   DOCUMENT_NAMESPACES,
   documentRels,
   numbering,
@@ -14,12 +15,11 @@ import {
   STYLES,
   XML_HEADER,
 } from './parts.js';
+import { runningXml, sectionXml } from './section.js';
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const TWIPS_PER_PX = 1440 / PX_PER_INCH;
-const SINGLE_LINE = 240; // w:spacing line units for line-height 1
 const BLOCKS = /^(P|DIV|H[1-6]|BLOCKQUOTE|PRE|UL|OL|TABLE|HR)$/;
-const ALIGN = { left: 'left', center: 'center', right: 'right', justify: 'both' };
 const BORDER =
   '<w:top w:val="single" w:sz="4" w:color="9A9EAC"/><w:left w:val="single" w:sz="4" w:color="9A9EAC"/><w:bottom w:val="single" w:sz="4" w:color="9A9EAC"/><w:right w:val="single" w:sz="4" w:color="9A9EAC"/><w:insideH w:val="single" w:sz="4" w:color="9A9EAC"/><w:insideV w:val="single" w:sz="4" w:color="9A9EAC"/>';
 const RULE =
@@ -28,7 +28,7 @@ const PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
 const CHECKBOX = { open: '☐ ', done: '☑ ' };
 
 const isBlock = (/** @type {Node} */ node) => node.nodeType === 1 && BLOCKS.test(/** @type {Element} */ (node).tagName);
-const headingStyle = (/** @type {string} */ tag) => STYLE[tag.toLowerCase()] || STYLE.h4; // H5/H6 fall back to the smallest
+const headingStyle = (/** @type {string} */ tag) => STYLE[tag.toLowerCase()] || STYLE.h5; // H6 falls back to the smallest
 
 /** Text of a <pre>, with <br> as a line break (`textContent` drops them). */
 function preformattedText(/** @type {Node} */ node) {
@@ -39,27 +39,8 @@ function preformattedText(/** @type {Node} */ node) {
 
 /**
  * @typedef {{ pkg: import('./inline.js').Package, nextNumId: () => number, contentWidth: number }} State
- * @typedef {{ style?: string, numbering?: string, indent?: number }} ParagraphOptions
+ * @typedef {import('./paragraph.js').ParagraphOptions} ParagraphOptions
  */
-
-/** Paragraph properties from options and the element's own alignment / line spacing. */
-function paragraphProperties(/** @type {HTMLElement | null} */ el, /** @type {ParagraphOptions} */ options) {
-  const lineHeight = Number(el?.style.lineHeight);
-  const parts = [
-    options.style && `<w:pStyle w:val="${options.style}"/>`,
-    options.numbering,
-    lineHeight && `<w:spacing w:line="${Math.round(lineHeight * SINGLE_LINE)}" w:lineRule="auto"/>`,
-    options.indent && `<w:ind w:left="${options.indent}"/>`,
-    ALIGN[el?.style.textAlign] && `<w:jc w:val="${ALIGN[el.style.textAlign]}"/>`,
-  ].filter(Boolean);
-  return parts.length ? `<w:pPr>${parts.join('')}</w:pPr>` : '';
-}
-
-const paragraph = (
-  /** @type {string} */ runs,
-  /** @type {HTMLElement | null} */ el = null,
-  /** @type {ParagraphOptions} */ options = {},
-) => `<w:p>${paragraphProperties(el, options)}${runs}</w:p>`;
 
 /** Paragraphs for a list. Nested lists may sit inside an item or (as Chrome writes them) beside it. */
 function list(
@@ -80,10 +61,10 @@ function list(
     const runs = inlineRuns(item, {}, state.pkg);
     if (el.classList.contains('checklist')) {
       const box = textRun(item.classList.contains('checked') ? CHECKBOX.done : CHECKBOX.open);
-      out.push(paragraph(box + runs, item, { indent: 360 * (level + 1) }));
+      out.push(paragraphXml(box + runs, item, { indent: 360 * (level + 1) }));
     } else {
       const numPr = `<w:numPr><w:ilvl w:val="${Math.min(level, 8)}"/><w:numId w:val="${numId}"/></w:numPr>`;
-      out.push(paragraph(runs, item, { numbering: numPr }));
+      out.push(paragraphXml(runs, item, { numbering: numPr }));
     }
     for (const sub of item.querySelectorAll(':scope > ul, :scope > ol')) out.push(nested(sub));
   }
@@ -112,10 +93,13 @@ function block(/** @type {HTMLElement} */ el, /** @type {State} */ state, /** @t
   if (tagName === 'TABLE') return table(/** @type {HTMLTableElement} */ (el), state);
   if (tagName === 'HR') return el.classList.contains('page-break') ? PAGE_BREAK : RULE;
   if (tagName === 'BLOCKQUOTE') return blocks(el, state, { style: STYLE.quote });
-  if (tagName === 'PRE') return paragraph(textRun(preformattedText(el), { preserve: true }), el, { style: STYLE.code });
-  if (/^H[1-6]$/.test(tagName)) return paragraph(inlineRuns(el, {}, state.pkg), el, { style: headingStyle(tagName) });
+  if (tagName === 'PRE')
+    return paragraphXml(textRun(preformattedText(el), { preserve: true }), el, { style: STYLE.code });
+  if (/^H[1-6]$/.test(tagName))
+    return paragraphXml(inlineRuns(el, {}, state.pkg), el, { style: headingStyle(tagName) });
   if ([...el.childNodes].some(isBlock)) return blocks(el, state, options); // a wrapper <div>
-  return paragraph(inlineRuns(el, {}, state.pkg), el, options);
+  const style = el.classList.contains('subtitle') ? { ...options, style: STYLE.subtitle } : options;
+  return paragraphXml(inlineRuns(el, {}, state.pkg), el, style);
 }
 
 /** Body XML for a container's children; consecutive inline nodes share one paragraph. */
@@ -127,7 +111,7 @@ function blocks(
   const out = [];
   let loose = '';
   const flush = () => {
-    if (loose) out.push(paragraph(loose, null, options));
+    if (loose) out.push(paragraphXml(loose, null, options));
     loose = '';
   };
   for (const node of container.childNodes) {
@@ -141,56 +125,58 @@ function blocks(
   return out.join('');
 }
 
-function sectionProperties(/** @type {import('../page.js').PageGeometry} */ page) {
-  const twips = (/** @type {number} */ px) => Math.round(px * TWIPS_PER_PX);
-  const orient = page.orientation === 'landscape' ? ' w:orient="landscape"' : '';
-  const m = twips(page.margin);
-  return `<w:sectPr><w:pgSz w:w="${twips(page.width)}" w:h="${twips(page.height)}"${orient}/><w:pgMar w:top="${m}" w:right="${m}" w:bottom="${m}" w:left="${m}" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>`;
-}
-
 /**
  * @param {Element} content the document body element
  * @param {{ page?: Partial<import('../page.js').PageSetup> }} [options]
  * @returns {Promise<Uint8Array>} the .docx file
  */
 export async function writeDocx(content, { page } = {}) {
-  const geometry = pageGeometry(page);
+  const setup = normalizePage(page);
+  const geometry = pageGeometry(setup);
   const contentWidth = geometry.width - 2 * geometry.margin;
-  /** @type {{ id: string, type: 'hyperlink' | 'image', target: string }[]} */
+  /** @type {import('./parts.js').Relationship[]} */
   const rels = [];
-  /** @type {{ name: string, data: Uint8Array }[]} */
-  const media = [];
+  /** @type {{ name: string, data: Uint8Array | string }[]} */
+  const extraParts = [];
   const orderedNumIds = [];
-  const relId = () => `rId${rels.length + 1}`;
+  /** Registers a relationship from the document to `target` and returns its id. */
+  const relate = (/** @type {import('./parts.js').Relationship['type']} */ type, /** @type {string} */ target) => {
+    const id = `rId${rels.length + 1}`;
+    rels.push({ id, type, target });
+    return id;
+  };
   /** @type {State} */
   const state = {
     contentWidth,
     nextNumId: () => orderedNumIds[orderedNumIds.push(BULLET_NUM_ID + 1 + orderedNumIds.length) - 1],
     pkg: {
       maxImageWidth: contentWidth,
-      addLink(url) {
-        const id = relId();
-        rels.push({ id, type: 'hyperlink', target: url });
-        return id;
-      },
+      addLink: (url) => relate('hyperlink', url),
       addImage(bytes, extension) {
-        const id = relId();
-        const name = `media/image${media.length + 1}.${extension}`;
-        rels.push({ id, type: 'image', target: name });
-        media.push({ name: 'word/' + name, data: bytes });
-        return id;
+        const name = `media/image${extraParts.length + 1}.${extension}`;
+        extraParts.push({ name: 'word/' + name, data: bytes });
+        return relate('image', name);
       },
     },
   };
   const body = blocks(content, state) || '<w:p/>';
-  const document = `${XML_HEADER}<w:document ${DOCUMENT_NAMESPACES}><w:body>${body}${sectionProperties(geometry)}</w:body></w:document>`;
+
+  /** @type {{ header?: string, footer?: string }} */
+  const refs = {};
+  const running = /** @type {const} */ (['header', 'footer']).filter((kind) => setup[kind].text);
+  for (const kind of running) {
+    extraParts.push({ name: `word/${kind}1.xml`, data: runningXml(kind, setup[kind]) });
+    refs[kind] = relate(kind, `${kind}1.xml`);
+  }
+
+  const document = `${XML_HEADER}<w:document ${DOCUMENT_NAMESPACES}><w:body>${body}${sectionXml(setup, refs)}</w:body></w:document>`;
   return writeZip([
-    { name: '[Content_Types].xml', data: CONTENT_TYPES },
+    { name: '[Content_Types].xml', data: contentTypes(running) },
     { name: '_rels/.rels', data: ROOT_RELS },
     { name: 'word/document.xml', data: document },
     { name: 'word/_rels/document.xml.rels', data: documentRels(rels) },
     { name: 'word/styles.xml', data: STYLES },
     { name: 'word/numbering.xml', data: numbering(orderedNumIds) },
-    ...media,
+    ...extraParts,
   ]);
 }

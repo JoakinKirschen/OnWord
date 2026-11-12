@@ -18,7 +18,7 @@ const URL_ATTRS = ['href', 'src', 'xlink:href', 'action', 'formaction', 'backgro
 const SAFE_URL = /^(https?:|mailto:|tel:|#|data:image\/(png|jpe?g|gif|webp);)/i;
 
 /** Classes with a meaning in documents; every other class is dropped. */
-const ALLOWED_CLASSES = ['page-break', 'checklist', 'checked'];
+const ALLOWED_CLASSES = ['page-break', 'checklist', 'checked', 'subtitle'];
 
 /** Reduces `class` to the allowed names. Returns false when none remain. */
 function keepAllowedClasses(/** @type {Element} */ el) {

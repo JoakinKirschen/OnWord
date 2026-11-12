@@ -1,0 +1,42 @@
+/* Page furniture: header and footer bands, page boundaries, columns (features/headerFooter.js, pageSetup.js). */
+.page-band {
+  position: absolute;
+  left: var(--page-margin, 96px);
+  right: var(--page-margin, 96px);
+  min-height: 16px;
+  font:
+    9pt/16px Arial,
+    Helvetica,
+    sans-serif;
+  color: #7a7f8e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 3px;
+  cursor: default;
+  user-select: none;
+}
+.page-header {
+  top: calc(var(--page-margin, 96px) / 2 - 8px);
+}
+.page-footer {
+  bottom: calc(var(--page-margin, 96px) / 2 - 8px);
+}
+.page-band:hover {
+  background: #f1f2f7;
+}
+.paper:hover .page-band:empty::before {
+  content: attr(title);
+  opacity: 0.55;
+}
+
+/* A faint line wherever the printed page would end. */
+.doc-content {
+  background: linear-gradient(to bottom, transparent calc(100% - 1px), #d3d7e2 0) content-box top left / 100%
+    var(--page-body-h, 864px) repeat-y content-box;
+}
+.sheet.multi-column .doc-content {
+  background: none;
+  column-count: var(--page-columns, 1);
+  column-gap: 48px;
+}

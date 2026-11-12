@@ -28,7 +28,7 @@ test('imports a document written by python-docx', async () => {
       '<table style="width: 100%;"><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>' +
       '<hr class="page-break"><p>After the break</p>',
   );
-  assert.equal(await page.evaluate(() => document.querySelector('#paper').style.getPropertyValue('--page-w')), '794px');
+  assert.equal(await page.evaluate(() => document.querySelector('#sheet').style.getPropertyValue('--page-w')), '794px');
   assert.deepEqual(page.errors, []);
 });
 
@@ -50,7 +50,8 @@ test('imports a document written by pandoc (nested lists, links, code)', async (
 test('a document survives export to .docx and re-import', async () => {
   const page = await openEditor();
   const source =
-    '<h1>Report</h1><h2>Summary</h2>' +
+    '<h1>Report</h1><p class="subtitle">A subtitle</p><h2>Summary</h2><h5>Fine print</h5>' +
+    '<p style="margin-left: 48px; margin-right: 24px; text-indent: -24px; margin-top: 6pt; margin-bottom: 12pt;">Indented</p>' +
     '<p>Plain <b>bold</b> <i>italic</i> <u>under</u> <s>gone</s> x<sup>2</sup> ' +
     '<span style="color: #C0352B; font-size: 18pt; font-family: Georgia">styled</span> ' +
     '<span style="background-color: #F1C40F">marked</span> <a href="https://example.com/?a=1&amp;b=2">a link</a></p>' +
@@ -69,7 +70,14 @@ test('a document survives export to .docx and re-import', async () => {
   await menu(page, 'File', 'page.setup');
   await page.selectOption('#pageSize', 'a4');
   await page.selectOption('#pageOrientation', 'landscape');
+  await page.selectOption('#pageColumns', '2');
   await page.click('#pageDlg .primary');
+  await menu(page, 'File', 'page.headerFooter');
+  await page.fill('#headerText', 'Draft & confidential');
+  await page.selectOption('#headerAlign', 'left');
+  await page.fill('#footerText', 'Page {page} of {pages}');
+  await page.click('#headerFooterDlg .primary');
+  await page.waitForFunction(() => document.querySelector('#pageFooter').textContent !== '');
 
   const [download] = await Promise.all([page.waitForEvent('download'), menu(page, 'File', 'file.downloadDocx')]);
   assert.equal(download.suggestedFilename(), 'Untitled document.docx');
@@ -80,8 +88,12 @@ test('a document survives export to .docx and re-import', async () => {
   await page.waitForSelector('#home:not([hidden])');
   await importDocx(page, 'Round trip.docx', file);
   assert.equal(strip(await html(page)), strip(source));
+  assert.equal(await page.textContent('#pageHeader'), 'Draft & confidential');
+  assert.equal(await page.evaluate(() => document.querySelector('#pageHeader').style.textAlign), 'left');
+  assert.match(await page.textContent('#pageFooter'), /^Page 1 of \d+$/);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#editor')).columnCount), '2');
   assert.equal(
-    await page.evaluate(() => document.querySelector('#paper').style.getPropertyValue('--page-w')),
+    await page.evaluate(() => document.querySelector('#sheet').style.getPropertyValue('--page-w')),
     '1123px',
   );
   assert.deepEqual(page.errors, []);

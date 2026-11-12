@@ -126,3 +126,29 @@
   color: #8a8fa0;
   text-decoration: line-through;
 }
+
+.doc-content p.subtitle {
+  font-size: 14pt;
+  color: #666;
+  margin: 0 0 12pt;
+}
+.doc-content h5 {
+  font-size: 11pt;
+  font-weight: 700;
+  font-style: italic;
+  margin: 10pt 0 4pt;
+  color: #555;
+}
+
+/* Formatting marks (View → Formatting marks) and the format painter cursor. */
+.doc-content.show-marks :is(p, h1, h2, h3, h4, h5, li, blockquote)::after {
+  content: '¶';
+  color: #8fa0c8;
+  margin-left: 2px;
+  font-weight: 400;
+  font-style: normal;
+  text-decoration: none;
+}
+.doc-content.painting {
+  cursor: copy;
+}

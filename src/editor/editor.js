@@ -9,6 +9,13 @@ import { initClipboard } from './features/clipboard.js';
 import { initExporter } from './features/exporter.js';
 import { initFileCommands } from './features/fileCommands.js';
 import { initFind } from './features/find.js';
+import { initFormatPainter } from './features/formatPainter.js';
+import { initHeaderFooter } from './features/headerFooter.js';
+import { initParagraph } from './features/paragraph.js';
+import { initRuler } from './features/ruler.js';
+import { initSymbols } from './features/symbols.js';
+import { initTextCase } from './features/textCase.js';
+import { initWordCount } from './features/wordCount.js';
 import { initFormatting } from './features/formatting.js';
 import { initHistory } from './features/history.js';
 import { initImages } from './features/images.js';
@@ -23,6 +30,7 @@ import { initView } from './features/view.js';
 
 const FEATURES = [
   initFormatting,
+  initParagraph,
   initToolbar,
   initMenus,
   initTables,
@@ -31,12 +39,19 @@ const FEATURES = [
   initClipboard,
   initAutoformat,
   initChecklist,
+  initTextCase,
+  initSymbols,
+  initFormatPainter,
   initFind,
   initExporter,
   initFileCommands,
   initView,
   initOutline,
   initHistory,
+  initRuler,
+  initHeaderFooter,
+  initWordCount,
+  // Last of the layout features: it emits 'layout' on open, which the ones above listen for.
   initPageSetup,
   initShortcuts,
 ];
@@ -46,7 +61,8 @@ const FEATURES = [
  * every feature; features communicate only through `ctx.commands` and `ctx.events`.
  *
  * Events: 'open' (document loaded), 'input' (user typed, before save; payload: the InputEvent), 'change' (document
- * modified), 'selection' (caret moved / formatting changed), 'dismiss' (Escape pressed).
+ * modified), 'selection' (caret moved / formatting changed), 'dismiss' (Escape pressed), 'layout' (page
+ * geometry or zoom changed).
  *
  * @typedef {object} EditorDeps
  * @property {HTMLElement} root
@@ -128,8 +144,11 @@ export function createEditor({ root, store, prefs, commands, popover, toast, nav
 
   return {
     open(id) {
-      if (!session.open(id)) return false;
-      root.hidden = false;
+      root.hidden = false; // before loading: features measure the page when the document opens
+      if (!session.open(id)) {
+        root.hidden = true;
+        return false;
+      }
       scroller.scrollTop = 0;
       content.focus();
       return true;

@@ -1,0 +1,61 @@
+/* Horizontal ruler with indent markers (src/editor/features/ruler.js). */
+.ruler {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 22px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  /* No side borders: marker positions are measured from the ruler's edge, which must match the paper's. */
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1;
+  user-select: none;
+  /* The page margins are shaded; the white part is where text goes. */
+  background-image:
+    linear-gradient(var(--surface-2), var(--surface-2)), linear-gradient(var(--surface-2), var(--surface-2));
+  background-size: var(--page-margin, 96px) 100%;
+  background-position:
+    left top,
+    right top;
+  background-repeat: no-repeat;
+}
+.ruler[hidden] + .paper {
+  margin-top: 22px;
+}
+.ruler-scale {
+  position: absolute;
+  inset: 0 var(--page-margin, 96px);
+  background: repeating-linear-gradient(to right, currentColor 0 1px, transparent 1px var(--ruler-tick, 12px)) left
+    bottom / 100% 4px no-repeat;
+}
+.ruler-scale span {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+}
+.ruler-marker {
+  position: absolute;
+  width: 11px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  background: var(--accent);
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.ruler-marker.first-line {
+  top: 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.ruler-marker.left,
+.ruler-marker.right {
+  bottom: 0;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.ruler-marker:hover {
+  filter: brightness(1.25);
+}

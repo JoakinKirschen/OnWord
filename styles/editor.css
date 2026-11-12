@@ -153,14 +153,17 @@
   flex: 1;
   min-width: 0;
   overflow: auto;
-  padding: 22px 12px 60px;
+  padding: 0 12px 60px;
 }
-/* Page geometry comes from custom properties set by features/pageSetup.js. */
-.paper {
+/* Page geometry comes from custom properties set on the sheet by features/pageSetup.js. */
+.sheet {
   width: var(--page-w, 816px);
   max-width: 100%;
-  min-height: var(--page-h, 1056px);
   margin: 0 auto;
+}
+.paper {
+  position: relative;
+  min-height: var(--page-h, 1056px);
   background: #fff;
   color: #000;
   box-shadow: var(--shadow);
@@ -169,18 +172,49 @@
 }
 .status {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  padding: 4px 14px;
+  padding: 2px 14px;
   font-size: 12px;
   color: var(--muted);
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
+.status-btn {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.status-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.zoom input {
+  width: 110px;
+  accent-color: var(--accent);
+}
+.zoom span {
+  min-width: 36px;
+  text-align: right;
+}
 
 @media (max-width: 700px) {
   .scroller {
-    padding: 10px 0 40px;
+    padding: 0 0 40px;
+  }
+  .zoom input {
+    display: none;
   }
   .status-hint {
     display: none;

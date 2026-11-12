@@ -7,6 +7,7 @@ import { toMarkdown } from '../markdown.js';
 const EXPORT_CSS = `body{font:11pt/1.5 Arial,Helvetica,sans-serif;max-width:6.5in;margin:1in auto;padding:0 16px;color:#000;overflow-wrap:break-word}
 p{margin:0 0 8pt}h1{font-size:24pt;font-weight:400;margin:18pt 0 8pt;line-height:1.2}h2{font-size:18pt;font-weight:400;margin:16pt 0 6pt}
 h3{font-size:14pt;margin:14pt 0 4pt;color:#333}h4{font-size:12pt;margin:12pt 0 4pt;color:#555}
+h5{font-size:11pt;font-style:italic;margin:10pt 0 4pt;color:#555}p.subtitle{font-size:14pt;color:#666;margin:0 0 12pt}
 blockquote{margin:0 0 8pt;padding:2pt 0 2pt 14pt;border-left:3px solid #c5c8d4;color:#444}
 pre{background:#f3f4f7;padding:10pt 12pt;font:10pt/1.45 "Courier New",monospace;white-space:pre-wrap}
 img{max-width:100%;height:auto}table{border-collapse:collapse;margin:0 0 8pt}td,th{border:1px solid #9a9eac;padding:4pt 6pt;vertical-align:top}

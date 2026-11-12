@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { html, useApp } from './harness.mjs';
+import { html, menu, text, useApp } from './harness.mjs';
 
 const { openEditor } = useApp();
 
@@ -108,5 +108,66 @@ test('typing "[] " starts a checklist without changing a neighbouring list', asy
   await page.keyboard.press('Enter');
   await page.keyboard.type('[] task');
   assert.equal(await html(page), '<ul><li>plain</li></ul><ul class="checklist"><li>task</li></ul>');
+  assert.deepEqual(page.errors, []);
+});
+
+test('subtitle and heading 4 styles', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('Tagline');
+  await page.selectOption('#selBlock', 'subtitle');
+  assert.equal(await html(page), '<p class="subtitle">Tagline</p>');
+  assert.equal(await page.inputValue('#selBlock'), 'subtitle');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('Body');
+  assert.equal(await html(page), '<p class="subtitle">Tagline</p><p>Body</p>', 'Enter returns to normal text');
+  await page.keyboard.press('Control+Home');
+  await page.selectOption('#selBlock', 'h5');
+  assert.equal(await html(page), '<h5>Tagline</h5><p>Body</p>');
+  await page.selectOption('#selBlock', 'p');
+  assert.equal(await html(page), '<p>Tagline</p><p>Body</p>');
+  assert.deepEqual(page.errors, []);
+});
+
+test('change case applies to the selection only', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('hello big world. second sentence');
+  await page.keyboard.press('Control+A');
+  await menu(page, 'Format', 'format.case', 'title');
+  assert.equal(await text(page), 'Hello Big World. Second Sentence');
+  await menu(page, 'Format', 'format.case', 'sentence');
+  assert.equal(await text(page), 'Hello big world. Second sentence');
+  await page.dblclick('#editor p', { position: { x: 8, y: 8 } });
+  await menu(page, 'Format', 'format.case', 'upper');
+  assert.equal(await text(page), 'HELLO big world. Second sentence');
+  assert.deepEqual(page.errors, []);
+});
+
+test('format painter copies character formatting to the next selection', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('styled plain');
+  await page.dblclick('#editor p', { position: { x: 8, y: 8 } });
+  await page.click('[data-cmd=bold]');
+  await page.click('[data-colors=foreColor]');
+  await page.click('.swatches button:nth-child(9)');
+  await page.selectOption('#selSize', '18');
+
+  await page.click('[data-act="format.painter"]');
+  assert.ok(await page.evaluate(() => document.querySelector('#editor').classList.contains('painting')));
+  const plain = await page.evaluate(() => {
+    const range = document.createRange();
+    const node = [...document.querySelector('#editor p').childNodes].at(-1);
+    range.setStart(node, node.length - 3);
+    range.setEnd(node, node.length);
+    const box = range.getBoundingClientRect();
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  });
+  await page.mouse.dblclick(plain.x, plain.y);
+  await page.waitForFunction(() => !document.querySelector('#editor').classList.contains('painting'));
+  const painted = await page.evaluate(() => {
+    const style = getComputedStyle(document.getSelection().anchorNode.parentElement);
+    return [style.fontWeight, style.color, style.fontSize];
+  });
+  assert.deepEqual(painted, ['700', 'rgb(192, 53, 43)', '24px']);
+  assert.match(await text(page), /^styled plain$/);
   assert.deepEqual(page.errors, []);
 });

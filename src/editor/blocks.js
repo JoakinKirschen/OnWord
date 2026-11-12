@@ -1,4 +1,5 @@
 import { $$ } from '../core/dom.js';
+import { cssPx } from '../core/units.js';
 
 const isContainer = (el, content) => el === content || /^(TD|TH|LI|BLOCKQUOTE)$/.test(el.tagName);
 
@@ -51,4 +52,36 @@ export function insertBlock(ctx, node, focus = (n) => n) {
   }
   selection.caretInto(focus(node));
   ctx.changed();
+}
+
+const BLOCK_SELECTOR = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div';
+
+/**
+ * The innermost block elements touched by the selection (the paragraphs a paragraph-level format applies to).
+ * @param {import('./editor.js').EditorContext} ctx
+ * @returns {HTMLElement[]}
+ */
+export function selectedBlocks({ content, selection }) {
+  const s = selection.current();
+  if (!s) return [];
+  const range = s.getRangeAt(0);
+  const blocks = $$(BLOCK_SELECTOR, content).filter((b) => range.intersectsNode(b));
+  return blocks.filter((b) => !blocks.some((other) => other !== b && b.contains(other)));
+}
+
+/** @typedef {{ left: number, right: number, firstLine: number }} Indents in CSS pixels; `firstLine` is relative to `left` */
+
+/** @param {HTMLElement | undefined} block @returns {Indents} */
+export const indentsOf = (block) => ({
+  left: cssPx(block?.style.marginLeft),
+  right: cssPx(block?.style.marginRight),
+  firstLine: cssPx(block?.style.textIndent),
+});
+
+/** @param {HTMLElement} block @param {Indents} indents */
+export function setIndents(block, { left, right, firstLine }) {
+  const px = (/** @type {number} */ value) => (value ? `${Math.round(value)}px` : '');
+  block.style.marginLeft = px(left);
+  block.style.marginRight = px(right);
+  block.style.textIndent = px(firstLine);
 }

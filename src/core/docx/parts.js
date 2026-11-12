@@ -8,6 +8,9 @@ const PKG_REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
 const WML = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const CT = 'application/vnd.openxmlformats-officedocument.wordprocessingml';
 
+/** Namespace declarations for parts that only use text (headers, footers). */
+export const NAMESPACES = `xmlns:w="${WML}" xmlns:r="${REL}"`;
+
 export const DOCUMENT_NAMESPACES =
   `xmlns:w="${WML}" xmlns:r="${REL}" ` +
   'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ' +
@@ -15,7 +18,16 @@ export const DOCUMENT_NAMESPACES =
   'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
 
 /** Paragraph style ids used by the writer, and understood by the reader. */
-export const STYLE = { h1: 'Title', h2: 'Heading1', h3: 'Heading2', h4: 'Heading3', quote: 'Quote', code: 'Code' };
+export const STYLE = {
+  h1: 'Title',
+  subtitle: 'Subtitle',
+  h2: 'Heading1',
+  h3: 'Heading2',
+  h4: 'Heading3',
+  h5: 'Heading4',
+  quote: 'Quote',
+  code: 'Code',
+};
 export const BULLET_NUM_ID = 1;
 const BULLET_ABSTRACT = 0;
 const DECIMAL_ABSTRACT = 1;
@@ -24,7 +36,13 @@ const INDENT_PER_LEVEL = 720; // twips
 const BULLETS = ['•', '◦', '▪'];
 const NUMBER_FORMATS = ['decimal', 'lowerLetter', 'lowerRoman'];
 
-export const CONTENT_TYPES = `${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+/**
+ * [Content_Types].xml
+ * @param {('header' | 'footer')[]} running which header/footer parts the package contains
+ */
+export function contentTypes(running) {
+  const overrides = running.map((kind) => `<Override PartName="/word/${kind}1.xml" ContentType="${CT}.${kind}+xml"/>`);
+  return `${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Default Extension="png" ContentType="image/png"/>
@@ -33,15 +51,19 @@ export const CONTENT_TYPES = `${XML_HEADER}<Types xmlns="http://schemas.openxmlf
 <Override PartName="/word/document.xml" ContentType="${CT}.document.main+xml"/>
 <Override PartName="/word/styles.xml" ContentType="${CT}.styles+xml"/>
 <Override PartName="/word/numbering.xml" ContentType="${CT}.numbering+xml"/>
+${overrides.join('\n')}
 </Types>`;
+}
 
 export const ROOT_RELS = `${XML_HEADER}<Relationships xmlns="${PKG_REL}">
 <Relationship Id="rId1" Type="${REL}/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
+/** @typedef {{ id: string, type: 'hyperlink' | 'image' | 'header' | 'footer', target: string }} Relationship */
+
 /**
  * word/_rels/document.xml.rels
- * @param {{ id: string, type: 'hyperlink' | 'image', target: string }[]} extra links and images
+ * @param {Relationship[]} extra links, images, header and footer
  */
 export function documentRels(extra) {
   const items = extra.map(({ id, type, target }) => {
@@ -78,6 +100,8 @@ ${paragraphStyle({ id: 'Title', name: 'Title', pPr: '<w:keepNext/><w:spacing w:b
 ${heading(1, '<w:spacing w:before="320" w:after="120" w:line="300" w:lineRule="auto"/>', size(18))}
 ${heading(2, '<w:spacing w:before="280" w:after="80"/>', `<w:b/><w:color w:val="333333"/>${size(14)}`)}
 ${heading(3, '<w:spacing w:before="240" w:after="80"/>', `<w:b/><w:color w:val="555555"/>${size(12)}`)}
+${heading(4, '<w:spacing w:before="200" w:after="80"/>', `<w:b/><w:i/><w:color w:val="555555"/>${size(11)}`)}
+${paragraphStyle({ id: 'Subtitle', name: 'Subtitle', pPr: '<w:spacing w:after="240"/>', rPr: `<w:color w:val="666666"/>${size(14)}` })}
 ${paragraphStyle({ id: 'Quote', name: 'Quote', next: 'Quote', pPr: '<w:pBdr><w:left w:val="single" w:sz="18" w:space="10" w:color="C5C8D4"/></w:pBdr><w:ind w:left="280"/>', rPr: '<w:color w:val="444444"/>' })}
 ${paragraphStyle({ id: 'Code', name: 'Code', next: 'Code', pPr: '<w:shd w:val="clear" w:color="auto" w:fill="F3F4F7"/><w:spacing w:line="276" w:lineRule="auto"/>', rPr: `<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/>${size(10)}` })}
 </w:styles>`;

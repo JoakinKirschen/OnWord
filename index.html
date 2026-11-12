@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="styles/document.css">
 <link rel="stylesheet" href="styles/overlays.css">
 <link rel="stylesheet" href="styles/outline.css">
+<link rel="stylesheet" href="styles/ruler.css">
+<link rel="stylesheet" href="styles/page.css">
 <link rel="stylesheet" href="styles/find.css">
 <link rel="stylesheet" href="styles/images.css">
 <link rel="stylesheet" href="styles/history.css">
@@ -68,15 +70,27 @@
       <nav id="outlineList"></nav>
     </aside>
     <div id="scroller" class="scroller">
-      <div id="paper" class="paper">
-        <div id="editor" class="doc-content" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Document body"></div>
+      <div id="sheet" class="sheet">
+        <div id="ruler" class="ruler" aria-hidden="true">
+          <div id="rulerScale" class="ruler-scale"></div>
+          <button class="ruler-marker first-line" data-marker="firstLine" title="First line indent" tabindex="-1"></button>
+          <button class="ruler-marker left" data-marker="left" title="Left indent" tabindex="-1"></button>
+          <button class="ruler-marker right" data-marker="right" title="Right indent" tabindex="-1"></button>
+        </div>
+        <div id="paper" class="paper">
+          <div id="pageHeader" class="page-band page-header" title="Double-click to edit the header"></div>
+          <div id="editor" class="doc-content" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Document body"></div>
+          <div id="pageFooter" class="page-band page-footer" title="Double-click to edit the footer"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <footer class="status">
-    <span id="counts"></span>
+    <button id="counts" class="status-btn" data-act="view.wordCount" title="Word count"></button>
     <span class="status-hint">Saved in this browser</span>
+    <span class="spacer"></span>
+    <label class="zoom"><input id="zoom" type="range" min="50" max="200" step="10" value="100" aria-label="Zoom"><span id="zoomLabel">100%</span></label>
   </footer>
 
   <!-- Find & replace -->
@@ -133,7 +147,11 @@
         <label>Orientation<select id="pageOrientation">
           <option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
       </div>
-      <label>Margins<select id="pageMargin"></select></label>
+      <div class="dlg-cols">
+        <label>Margins<select id="pageMargin"></select></label>
+        <label>Columns<select id="pageColumns">
+          <option value="1">One</option><option value="2">Two</option><option value="3">Three</option></select></label>
+      </div>
       <div class="dlg-actions">
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate>Cancel</button>
@@ -148,6 +166,64 @@
       <ul id="versionList" class="version-list"></ul>
       <div class="dlg-actions">
         <button class="btn" type="button" data-act="history.save">Save version now</button>
+        <span class="spacer"></span>
+        <button class="btn primary" value="close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="headerFooterDlg" class="dlg wide">
+    <form method="dialog">
+      <h2>Header and footer</h2>
+      <div class="dlg-row">
+        <label>Header<input id="headerText" type="text" maxlength="200" placeholder="Shown at the top of every page"></label>
+        <label>Align<select id="headerAlign">
+          <option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></label>
+      </div>
+      <div class="dlg-row">
+        <label>Footer<input id="footerText" type="text" maxlength="200" placeholder="Shown at the bottom of every page"></label>
+        <label>Align<select id="footerAlign">
+          <option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></label>
+      </div>
+      <p class="dlg-hint">Use <code>{page}</code> for the page number and <code>{pages}</code> for the page count.</p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" data-act="page.numberFooter">Add page numbers</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Apply</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="paragraphDlg" class="dlg wide">
+    <form method="dialog">
+      <h2>Paragraph</h2>
+      <div class="dlg-cols three">
+        <label>Alignment<select id="paraAlign">
+          <option value="">Left</option><option value="center">Centre</option><option value="right">Right</option><option value="justify">Justified</option></select></label>
+        <label>Indent left (in)<input id="paraLeft" type="number" min="0" max="6" step="0.125"></label>
+        <label>Indent right (in)<input id="paraRight" type="number" min="0" max="6" step="0.125"></label>
+        <label>Special<select id="paraSpecial">
+          <option value="none">None</option><option value="first">First line</option><option value="hanging">Hanging</option></select></label>
+        <label>By (in)<input id="paraBy" type="number" min="0" max="6" step="0.125"></label>
+        <label>Line spacing<select id="paraLine">
+          <option value="">Default (1.5)</option><option value="1">Single</option><option value="1.15">1.15</option><option value="2">Double</option><option value="2.5">2.5</option><option value="3">Triple</option></select></label>
+        <label>Space before (pt)<input id="paraBefore" type="number" min="0" max="200" step="1"></label>
+        <label>Space after (pt)<input id="paraAfter" type="number" min="0" max="200" step="1"></label>
+      </div>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Apply</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="wordCountDlg" class="dlg">
+    <form method="dialog">
+      <h2>Word count</h2>
+      <table id="wordCountTable" class="stats"></table>
+      <div class="dlg-actions">
         <span class="spacer"></span>
         <button class="btn primary" value="close">Close</button>
       </div>

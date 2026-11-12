@@ -25,25 +25,28 @@ The app must be served over HTTP (`npm start`); ES modules do not load from `fil
 ```
 index.html              static markup for both screens; no inline scripts or handlers
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        overlays, outline, find, images, history, print)
+                        overlays, outline, ruler, page, find, images, history, print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
-                        storage (documents + versions), preferences, page (paper geometry), zip,
-                        download, platform
-    docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts)
+                        storage (documents + versions), preferences, page (page setup model and
+                        geometry), units, zip, download, platform
+    docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
+                        paragraph and section convert in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
   library/              the document list screen: library, templates, importer (files), backup
   editor/
     editor.js           composition root of the editor: builds `ctx`, initialises every feature
     session.js          the open document: load, autosave, title, counts
     selection.js        caret/selection utilities
-    blocks.js           block-level insertion and DOM repair
+    blocks.js           block-level insertion, DOM repair, selected paragraphs and their indents
+    metrics.js          page, word, character and paragraph counts
     markdown.js         document → Markdown conversion
     icons.js            toolbar icons
-    features/           one file per feature: toolbar, menus, formatting, autoformat, checklist, tables,
-                        links, images, clipboard, find, outline, history, pageSetup, exporter,
-                        fileCommands, shortcuts, view
+    features/           one file per feature: toolbar, menus, shortcuts; formatting, paragraph, textCase,
+                        formatPainter, autoformat, checklist; tables, links, images, symbols,
+                        clipboard; ruler, pageSetup, headerFooter, view, outline; find, wordCount,
+                        history, exporter, fileCommands
 tests/
   unit/                 node:test, no browser — pure logic in core/
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
@@ -77,7 +80,7 @@ Features are decoupled. They share exactly three channels:
    Names are `area.verb`: `app.*`, `library.*`, `file.*`, `edit.*`, `format.*`, `insert.*`, `table.*`,
    `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`. Registering a duplicate name throws.
 2. **Events** (`ctx.events`) — notifications a feature may react to: `open`, `input`, `change`,
-   `selection`, `dismiss`. They are documented at the top of `editor/editor.js`; add new ones there.
+   `selection`, `dismiss`, `layout`. They are documented at the top of `editor/editor.js`; add new ones there.
 3. **`ctx`** — the context object every feature receives: `root`, `content`, `scroller`, `selection`,
    `session`, `store`, `prefs`, `commands`, `events`, `popover`, `toast`, `navigate`, `exec`, `changed`.
    Its type is `EditorContext` in `editor/editor.js`; keep that typedef in step with the object.
@@ -170,7 +173,22 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   imported file (headers/footers, comments, tracked deletions, footnotes, merged cells, floating shapes)
   is dropped or flattened. When the editor gains a block or format, add it to the writer, the reader and
   the round-trip test in `tests/e2e/docx.test.mjs` in the same change.
-- The app's "Title" is `<h1>` and "Heading 1–3" are `<h2>`–`<h4>`; Word's Title/Heading 1–3 styles map to
-  those in both directions.
+- The app's "Title" is `<h1>`, "Subtitle" is `<p class="subtitle">` and "Heading 1–4" are `<h2>`–`<h5>`;
+  Word's Title/Subtitle/Heading 1–4 styles map to those in both directions.
+- Paragraph formatting lives in the block's inline style: `text-align`, `line-height`, `margin-left` /
+  `margin-right` / `text-indent` in px (the ruler's unit) and `margin-top` / `margin-bottom` in pt. Use
+  `selectedBlocks()`, `indentsOf()` and `setIndents()` from `editor/blocks.js` rather than
+  `execCommand('indent')`, which wraps paragraphs in a blockquote.
+- Everything about the page is one object in the document's metadata (`meta.page`, type `PageSetup` in
+  `core/page.js`): size, orientation, margin, columns, header and footer. Always pass it through
+  `normalizePage()`, and when saving a part of it spread the current value first so the rest survives.
+  `pageSetup.js` publishes the geometry as CSS custom properties on `#sheet` and emits `layout`.
+- There is no real pagination: the document is one continuous page. Page boundaries are a background
+  drawn every printable-page height and the page count is an estimate (`countPages`); explicit page
+  breaks and columns are not accounted for. Printing is exact because the browser paginates.
+- Headers and footers are a single line of plain text with `{page}` / `{pages}` tokens, printed through
+  `@page` margin boxes (the only place CSS exposes page counters; Chromium 131+).
+- State that is a view preference, not document content (formatting marks, painter cursor), goes in a
+  class on `#editor` itself — never inside it, where it would be saved with the document.
 - Classes are stripped from foreign HTML except the ones in `ALLOWED_CLASSES` (`core/html.js`). A feature
   that stores state in a class (as checklists do) must add it there.

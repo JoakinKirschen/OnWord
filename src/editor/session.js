@@ -1,5 +1,6 @@
 import { $ } from '../core/dom.js';
 import { tidy } from './blocks.js';
+import { countPages, countText, plural } from './metrics.js';
 
 const UNTITLED = 'Untitled document';
 
@@ -21,10 +22,12 @@ export function createSession({ root, content, store, events }) {
   const title = () => titleEl.value.trim() || UNTITLED;
 
   function updateCounts() {
-    const text = content.innerText;
-    const words = (text.match(/\S+/g) || []).length;
-    const chars = text.replace(/\n/g, '').length;
-    countsEl.textContent = `${words.toLocaleString()} word${words === 1 ? '' : 's'} · ${chars.toLocaleString()} character${chars === 1 ? '' : 's'}`;
+    const { words, characters } = countText(content.innerText);
+    countsEl.textContent = [
+      plural(countPages(content), 'page'),
+      plural(words, 'word'),
+      plural(characters, 'character'),
+    ].join(' · ');
   }
 
   function saveNow({ force = false } = {}) {
@@ -85,6 +88,8 @@ export function createSession({ root, content, store, events }) {
   titleEl.addEventListener('blur', () => {
     if (!titleEl.value.trim()) titleEl.value = UNTITLED;
   });
+
+  events.on('layout', updateCounts);
 
   /** Stored metadata of the open document. */
   const meta = () => (id ? store.meta(id) : undefined);

@@ -1,4 +1,13 @@
 import { $$ } from '../../core/dom.js';
+import { selectedBlocks } from '../blocks.js';
+
+const SUBTITLE = 'subtitle';
+
+/** Adds or removes a class without leaving an empty `class` attribute behind. */
+function setClass(/** @type {HTMLElement} */ el, /** @type {string} */ name, /** @type {boolean} */ on) {
+  el.classList.toggle(name, on);
+  if (!el.classList.length) el.removeAttribute('class');
+}
 
 /**
  * Paragraph style, font, font size and line spacing.
@@ -23,20 +32,17 @@ export function initFormatting(ctx) {
     }
   }
 
-  function selectedBlocks() {
-    const s = selection.current();
-    if (!s) return [];
-    const range = s.getRangeAt(0);
-    const blocks = $$('p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div', content).filter((b) => range.intersectsNode(b));
-    return blocks.filter((b) => !blocks.some((other) => other !== b && b.contains(other))); // innermost only
-  }
-
   commands.register({
-    'format.block'(tag) {
+    /** `style` is a tag name, or 'subtitle' (a paragraph with a class). */
+    'format.block'(style) {
       selection.restore();
+      const tag = style === SUBTITLE ? 'p' : style;
       // Leaving a quote: Chrome nests the new block inside the blockquote unless it is unwrapped first.
       if (tag !== 'blockquote' && selection.closest('blockquote')) doc.execCommand('outdent');
       ctx.exec('formatBlock', `<${tag}>`);
+      for (const block of selectedBlocks(ctx)) setClass(block, SUBTITLE, style === SUBTITLE);
+      ctx.changed();
+      events.emit('selection'); // the toolbar shows the style, which the class has just changed
     },
     'format.font'(name) {
       ctx.exec('fontName', name);
@@ -54,13 +60,16 @@ export function initFormatting(ctx) {
     },
     'format.spacing'(value) {
       selection.restore();
-      selectedBlocks().forEach((b) => (b.style.lineHeight = value));
+      selectedBlocks(ctx).forEach((b) => (b.style.lineHeight = value));
       ctx.changed();
     },
   });
 
-  events.on('input', () => {
+  events.on('input', (/** @type {InputEvent} */ e) => {
     if (pendingSize) fixFontSizes(pendingSize);
+    // Enter after a subtitle starts a normal paragraph, but Chrome copies the class to the new one.
+    const paragraph = e?.inputType === 'insertParagraph' && selection.closest(`p.${SUBTITLE}`);
+    if (paragraph && !paragraph.textContent) setClass(paragraph, SUBTITLE, false);
   });
   events.on('open', () => {
     pendingSize = null;

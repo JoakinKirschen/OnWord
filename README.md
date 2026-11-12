@@ -8,13 +8,17 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
   résumé, project brief)
 - Word documents: open `.docx` files and download as `.docx`
 - Back up every document to one file and restore it in another browser
-- Rich text: paragraph styles, fonts, sizes, bold/italic/underline/strikethrough, text and highlight colours,
+- Rich text: paragraph styles (Title, Subtitle, Heading 1–4, Quote, Code), fonts, sizes, bold/italic/underline/strikethrough, text and highlight colours,
   alignment, line spacing, lists, checklists, indentation, super/subscript
 - Links, images (paste, drop or upload, with resizing and alignment), tables (add/remove rows and columns, Tab between cells),
   horizontal lines and page breaks
 - Document outline, find and replace, word and character count, zoom, dark mode
 - Markdown shortcuts while typing (`# `, `## `, `- `, `1. `, `[] `, `> `)
-- Page setup per document: paper size, orientation and margins
+- Ruler with draggable left, first-line and right indent markers; Paragraph dialog for alignment,
+  indents (first line or hanging) and spacing before/after
+- Header and footer with page numbers, printed on every page
+- Page setup per document: paper size, orientation, margins and columns; page boundaries and a page count
+- Format painter, change case, special characters, formatting marks (¶), word count dialog, zoom slider
 - Version history with restore
 - Autosave to the browser (`localStorage`)
 - Import `.docx`, `.html`, `.txt` and `.md`; download as `.docx`, `.html`, `.md` or `.txt`; print / save as PDF
@@ -60,8 +64,9 @@ Headers and footers, comments, footnotes, tracked changes and merged cells are n
 | Strikethrough | Ctrl+Shift+X |
 | Insert link | Ctrl+K |
 | Find and replace | Ctrl+F |
-| Normal text, Heading 1–3 | Ctrl+Alt+0, 1–3 |
+| Normal text, Heading 1–4 | Ctrl+Alt+0, 1–4 |
 | Numbered / bulleted list / checklist | Ctrl+Shift+7 / 8 / 9 |
 | Align left / centre / right / justify | Ctrl+Shift+L / E / R / J |
+| Page break | Ctrl+Enter |
 | Clear formatting | Ctrl+\ |
 | Open a link | Ctrl+click |

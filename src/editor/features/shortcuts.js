@@ -1,14 +1,31 @@
-const HEADING_KEYS = { Digit0: 'p', Digit1: 'h2', Digit2: 'h3', Digit3: 'h4' };
-const SHIFT_KEYS = {
-  KeyX: 'strikeThrough',
-  KeyL: 'justifyLeft',
-  KeyE: 'justifyCenter',
-  KeyR: 'justifyRight',
-  KeyJ: 'justifyFull',
-  Digit7: 'insertOrderedList',
-  Digit8: 'insertUnorderedList',
+const INDENT = String.fromCharCode(0xa0).repeat(4); // non-breaking spaces: ordinary ones would collapse
+
+/** Ctrl/⌘ + key → [command, argument]. Keys are `KeyboardEvent.code`, which ignores the keyboard layout. */
+const PLAIN = {
+  KeyS: ['file.save'],
+  KeyK: ['link.edit'],
+  KeyF: ['find.open'],
+  KeyH: ['find.open'],
+  Backslash: ['edit.exec', 'removeFormat'],
+  Enter: ['insert.pageBreak'],
 };
-const INDENT = '\u00a0'.repeat(4);
+const WITH_SHIFT = {
+  KeyX: ['edit.exec', 'strikeThrough'],
+  KeyL: ['edit.exec', 'justifyLeft'],
+  KeyE: ['edit.exec', 'justifyCenter'],
+  KeyR: ['edit.exec', 'justifyRight'],
+  KeyJ: ['edit.exec', 'justifyFull'],
+  Digit7: ['edit.exec', 'insertOrderedList'],
+  Digit8: ['edit.exec', 'insertUnorderedList'],
+  Digit9: ['format.checklist'],
+};
+const WITH_ALT = {
+  Digit0: ['format.block', 'p'],
+  Digit1: ['format.block', 'h2'],
+  Digit2: ['format.block', 'h3'],
+  Digit3: ['format.block', 'h4'],
+  Digit4: ['format.block', 'h5'],
+};
 
 /**
  * Keyboard handling: Tab behaviour inside the document and Ctrl/⌘ shortcuts.
@@ -16,6 +33,13 @@ const INDENT = '\u00a0'.repeat(4);
  */
 export function initShortcuts(ctx) {
   const { content, selection, session, events, commands, popover, toast } = ctx;
+
+  commands.register({
+    'file.save'() {
+      session.saveNow({ force: true });
+      toast('Saved.', 1200);
+    },
+  });
 
   content.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -32,23 +56,10 @@ export function initShortcuts(ctx) {
       return;
     }
     if (!session.id || !(e.ctrlKey || e.metaKey)) return;
-    const run = (fn) => {
-      e.preventDefault();
-      fn();
-    };
-    const key = e.key.toLowerCase();
-    if (e.altKey) {
-      if (HEADING_KEYS[e.code]) run(() => commands.run('format.block', HEADING_KEYS[e.code]));
-    } else if (e.shiftKey) {
-      if (SHIFT_KEYS[e.code]) run(() => ctx.exec(SHIFT_KEYS[e.code]));
-      else if (e.code === 'Digit9') run(() => commands.run('format.checklist'));
-    } else if (key === 's') {
-      run(() => {
-        session.saveNow({ force: true });
-        toast('Saved.', 1200);
-      });
-    } else if (key === 'k') run(() => commands.run('link.edit'));
-    else if (key === 'f' || key === 'h') run(() => commands.run('find.open'));
-    else if (key === '\\') run(() => ctx.exec('removeFormat'));
+    const keys = e.altKey ? WITH_ALT : e.shiftKey ? WITH_SHIFT : PLAIN;
+    const action = keys[e.code];
+    if (!action) return;
+    e.preventDefault();
+    commands.run(action[0], action[1]);
   });
 }
