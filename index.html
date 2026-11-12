@@ -17,7 +17,7 @@
       <span>OnWord</span>
     </a>
     <input id="search" class="search" type="search" placeholder="Search documents" aria-label="Search documents">
-    <button class="icon-btn" data-act="theme" title="Toggle dark mode" aria-label="Toggle dark mode">
+    <button class="icon-btn" data-act="app.theme" title="Toggle dark mode" aria-label="Toggle dark mode">
       <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>
     </button>
   </header>
@@ -25,8 +25,8 @@
     <div class="home-head">
       <h1>Your documents</h1>
       <div class="home-actions">
-        <button class="btn" data-act="import">Import file</button>
-        <button class="btn primary" data-act="new">+ New document</button>
+        <button class="btn" data-act="library.import">Import file</button>
+        <button class="btn primary" data-act="library.new">+ New document</button>
       </div>
     </div>
     <div id="grid" class="grid"></div>
@@ -67,17 +67,48 @@
     <div class="find-row">
       <input id="findInput" type="text" placeholder="Find" aria-label="Find">
       <span id="findCount" class="find-count">0 of 0</span>
-      <button class="icon-btn sm" data-act="findPrev" title="Previous" aria-label="Previous match"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
-      <button class="icon-btn sm" data-act="findNext" title="Next" aria-label="Next match"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
-      <button class="icon-btn sm" data-act="findClose" title="Close" aria-label="Close find"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <button class="icon-btn sm" data-act="find.prev" title="Previous" aria-label="Previous match"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg></button>
+      <button class="icon-btn sm" data-act="find.next" title="Next" aria-label="Next match"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="icon-btn sm" data-act="find.close" title="Close" aria-label="Close find"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
     <div class="find-row">
       <input id="replaceInput" type="text" placeholder="Replace with" aria-label="Replace with">
-      <button class="btn sm" data-act="replaceOne">Replace</button>
-      <button class="btn sm" data-act="replaceAll">All</button>
+      <button class="btn sm" data-act="find.replace">Replace</button>
+      <button class="btn sm" data-act="find.replaceAll">All</button>
     </div>
     <label class="find-opt"><input id="findCase" type="checkbox"> Match case</label>
   </div>
+
+  <!-- Dialogs -->
+  <dialog id="linkDlg" class="dlg">
+    <form method="dialog">
+      <h2>Link</h2>
+      <label>Text<input id="linkText" type="text"></label>
+      <label>Address<input id="linkUrl" type="text" placeholder="https://example.com" required></label>
+      <div class="dlg-actions">
+        <button id="linkRemove" class="btn danger-text" value="remove" formnovalidate>Remove link</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Apply</button>
+      </div>
+    </form>
+  </dialog>
+  
+  <dialog id="tableDlg" class="dlg">
+    <form method="dialog">
+      <h2>Insert table</h2>
+      <div class="dlg-cols">
+        <label>Rows<input id="tblRows" type="number" min="1" max="50" value="3" required></label>
+        <label>Columns<input id="tblCols" type="number" min="1" max="12" value="3" required></label>
+      </div>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Insert</button>
+      </div>
+    </form>
+  </dialog>
+  <input id="imgInput" type="file" accept="image/*" hidden>
 
   <!-- Floating image controls -->
   <div id="imgBar" class="img-bar" hidden>
@@ -90,39 +121,8 @@
 <div id="pop" class="pop" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
-<!-- Dialogs -->
-<dialog id="linkDlg" class="dlg">
-  <form method="dialog">
-    <h2>Link</h2>
-    <label>Text<input id="linkText" type="text"></label>
-    <label>Address<input id="linkUrl" type="text" placeholder="https://example.com" required></label>
-    <div class="dlg-actions">
-      <button id="linkRemove" class="btn danger-text" value="remove" formnovalidate>Remove link</button>
-      <span class="spacer"></span>
-      <button class="btn" value="cancel" formnovalidate>Cancel</button>
-      <button class="btn primary" value="ok">Apply</button>
-    </div>
-  </form>
-</dialog>
-
-<dialog id="tableDlg" class="dlg">
-  <form method="dialog">
-    <h2>Insert table</h2>
-    <div class="dlg-cols">
-      <label>Rows<input id="tblRows" type="number" min="1" max="50" value="3" required></label>
-      <label>Columns<input id="tblCols" type="number" min="1" max="12" value="3" required></label>
-    </div>
-    <div class="dlg-actions">
-      <span class="spacer"></span>
-      <button class="btn" value="cancel" formnovalidate>Cancel</button>
-      <button class="btn primary" value="ok">Insert</button>
-    </div>
-  </form>
-</dialog>
-
-<input id="imgInput" type="file" accept="image/*" hidden>
 <input id="importInput" type="file" accept=".txt,.md,.html,.htm,text/plain,text/html" hidden>
 
-<script src="app.js"></script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -1,0 +1,14 @@
+{
+  "name": "onword",
+  "private": true,
+  "description": "Browser-based word processor. The app itself has no dependencies; these are development tools only.",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "check": "node tools/check-architecture.mjs",
+    "test": "node tests/smoke.mjs",
+    "verify": "npm run check && npm test"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

@@ -16,14 +16,23 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
 
 ## Run
 
-Open `index.html` directly, or serve the folder:
+The app uses ES modules, so it must be served over HTTP (opening `index.html` from disk will not work):
 
 ```bash
-python3 -m http.server 8000
+npm start
 ```
 
 Then visit <http://localhost:8000>. Because it is a static site, it can be hosted on any static host
 (GitHub Pages, Netlify, …) as-is.
+
+## Develop
+
+The app has no runtime dependencies. Architecture rules and the module layout are in [CLAUDE.md](CLAUDE.md).
+
+```bash
+npm install      # development tools only (Playwright for the smoke test)
+npm run verify   # architecture check + end-to-end smoke test
+```
 
 ## Limitations
 
