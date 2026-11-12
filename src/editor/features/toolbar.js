@@ -119,6 +119,7 @@ const TOOLBAR_HTML = [
   select('selSpacing', 'Line spacing', SPACINGS, 'Spacing'),
   cmd('insertUnorderedList', icon('ul'), 'Bulleted list'),
   cmd('insertOrderedList', icon('ol'), 'Numbered list'),
+  act('format.checklist', icon('checklist'), 'Checklist'),
   cmd('outdent', icon('outdent'), 'Decrease indent'),
   cmd('indent', icon('indent'), 'Increase indent'),
   SEP,

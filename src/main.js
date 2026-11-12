@@ -31,7 +31,7 @@ const navigate = (hash) => {
 const shared = { store, commands, popover, toast, navigate };
 const library = createLibrary({ root: $('#home', document), ...shared });
 const editor = createEditor({ root: $('#editorView', document), prefs, ...shared });
-initImporter({ input: $('#importInput', document), store, commands, navigate });
+initImporter({ input: $('#importInput', document), ...shared, refresh: library.render });
 commands.register({ 'app.theme': theme.toggle });
 
 /** Shows the screen named by the URL hash: `#/d/<id>` opens a document, anything else the library. */

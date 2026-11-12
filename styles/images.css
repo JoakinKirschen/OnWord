@@ -24,3 +24,8 @@
 .img-bar .danger {
   color: var(--danger);
 }
+.img-sep {
+  width: 1px;
+  background: var(--border);
+  margin: 3px 2px;
+}

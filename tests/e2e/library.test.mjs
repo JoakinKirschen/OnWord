@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { text, useApp, waitSaved } from './harness.mjs';
 
@@ -64,4 +65,56 @@ test('an unknown document address falls back to the library', async () => {
   await page.goto(page.url() + '#/d/missing');
   await page.waitForSelector('#home:not([hidden])');
   assert.equal(new URL(page.url()).hash, '#/');
+});
+
+test('templates create a pre-filled document', async () => {
+  const page = await openApp();
+  assert.deepEqual(await page.locator('.template-name').allTextContents(), [
+    'Blank',
+    'Letter',
+    'Meeting notes',
+    'Résumé',
+    'Project brief',
+  ]);
+  await page.click('.template[data-arg="meeting"]');
+  await page.waitForSelector('#editorView:not([hidden])');
+  assert.equal(await page.inputValue('#title'), 'Meeting notes');
+  assert.equal(await page.locator('#editor ul.checklist > li').count(), 2);
+  assert.deepEqual(await page.locator('#outlineList button').allTextContents(), [
+    'Meeting notes',
+    'Agenda',
+    'Notes',
+    'Action items',
+  ]);
+  assert.deepEqual(page.errors, []);
+});
+
+test('backup downloads every document and restores into another browser', async () => {
+  const page = await openApp();
+  await page.click('[data-act="library.backup"]');
+  assert.match(await page.textContent('#toast'), /no documents/);
+
+  for (const template of ['letter', 'brief']) {
+    await page.click(`.template[data-arg="${template}"]`);
+    await page.waitForSelector('#editorView:not([hidden])');
+    await page.click('.doc-bar .brand');
+    await page.waitForSelector('#home:not([hidden])');
+  }
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="library.backup"]')]);
+  assert.match(download.suggestedFilename(), /^onword-backup-\d{4}-\d{2}-\d{2}\.json$/);
+
+  const other = await openApp();
+  const backup = {
+    name: download.suggestedFilename(),
+    mimeType: 'application/json',
+    buffer: await readFile(await download.path()),
+  };
+  await other.setInputFiles('#importInput', backup);
+  await other.waitForSelector('.card');
+  assert.deepEqual((await other.locator('.card-title').allTextContents()).sort(), ['Letter', 'Project brief']);
+  assert.match(await other.textContent('#toast'), /Restored 2 documents/);
+  await other.click('.card >> nth=0');
+  await other.waitForSelector('#editorView:not([hidden])');
+  assert.ok((await text(other)).length > 50, 'content was restored');
+  assert.deepEqual([...page.errors, ...other.errors], []);
 });

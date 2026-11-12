@@ -72,3 +72,41 @@ test('markdown shortcuts while typing', async () => {
   assert.match(await html(page), /a - b/, 'markers in the middle of a line are left alone');
   assert.deepEqual(page.errors, []);
 });
+
+test('checklists: create, tick, continue and convert back', async () => {
+  const page = await openEditor();
+  const tick = async (index) => {
+    const box = await page.locator('#editor ul.checklist > li').nth(index).boundingBox();
+    await page.mouse.click(box.x - 15, box.y + 8);
+  };
+  await page.keyboard.type('buy milk');
+  await page.click('[data-act="format.checklist"]');
+  assert.equal(await html(page), '<ul class="checklist"><li>buy milk</li></ul>');
+
+  await tick(0);
+  assert.equal(await html(page), '<ul class="checklist"><li class="checked">buy milk</li></ul>');
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('call home');
+  assert.match(
+    await html(page),
+    /<li class="checked">buy milk<\/li><li class="">call home<\/li>|<li class="checked">buy milk<\/li><li>call home<\/li>/,
+  );
+  await tick(0);
+  assert.doesNotMatch(await html(page), /class="checked"/);
+
+  await page.click('[data-act="format.checklist"]');
+  assert.doesNotMatch(await html(page), /checklist/);
+  assert.match(await html(page), /<ul[^>]*><li[^>]*>buy milk<\/li>/);
+  assert.deepEqual(page.errors, []);
+});
+
+test('typing "[] " starts a checklist without changing a neighbouring list', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('- plain');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('[] task');
+  assert.equal(await html(page), '<ul><li>plain</li></ul><ul class="checklist"><li>task</li></ul>');
+  assert.deepEqual(page.errors, []);
+});

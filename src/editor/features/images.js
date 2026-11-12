@@ -3,6 +3,13 @@ import { esc } from '../../core/html.js';
 
 const KEEP_ORIGINAL_BELOW = 350_000; // bytes
 const MAX_WIDTH = 1400;
+/** Inline styles for each alignment offered in the image bar; 'inline' clears them. */
+const ALIGNMENTS = {
+  left: { float: 'left', display: '', margin: '0 16px 8px 0' },
+  center: { float: '', display: 'block', margin: '0 auto' },
+  right: { float: 'right', display: '', margin: '0 0 8px 16px' },
+  inline: { float: '', display: '', margin: '' },
+};
 
 /** Reads an image file as a data URL, scaling large images down to protect the storage quota. */
 function fileToDataUrl(file) {
@@ -91,6 +98,9 @@ export function initImages(ctx) {
     if (value === 'remove') {
       active.remove();
       hideBar();
+    } else if (value in ALIGNMENTS) {
+      Object.assign(active.style, ALIGNMENTS[value]);
+      placeBar();
     } else {
       active.style.width = value + '%';
       active.style.height = 'auto';

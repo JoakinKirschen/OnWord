@@ -4,6 +4,7 @@ import { EMPTY_DOC } from '../core/html.js';
 import { createSelection } from './selection.js';
 import { createSession } from './session.js';
 import { initAutoformat } from './features/autoformat.js';
+import { initChecklist } from './features/checklist.js';
 import { initClipboard } from './features/clipboard.js';
 import { initExporter } from './features/exporter.js';
 import { initFileCommands } from './features/fileCommands.js';
@@ -29,6 +30,7 @@ const FEATURES = [
   initImages,
   initClipboard,
   initAutoformat,
+  initChecklist,
   initFind,
   initExporter,
   initFileCommands,

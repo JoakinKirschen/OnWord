@@ -29,9 +29,11 @@ styles/                 one stylesheet per area, linked from index.html (base, l
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
-                        storage (documents + versions), preferences, download, platform
+                        storage (documents + versions), preferences, page (paper geometry), zip,
+                        download, platform
+    docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts)
   ui/                   reusable widgets shared by screens: popover, toast, theme
-  library/              the document list screen and file import
+  library/              the document list screen: library, templates, importer (files), backup
   editor/
     editor.js           composition root of the editor: builds `ctx`, initialises every feature
     session.js          the open document: load, autosave, title, counts
@@ -39,12 +41,13 @@ src/
     blocks.js           block-level insertion and DOM repair
     markdown.js         document → Markdown conversion
     icons.js            toolbar icons
-    features/           one file per feature: toolbar, menus, formatting, autoformat, tables, links,
-                        images, clipboard, find, outline, history, pageSetup, exporter, fileCommands,
-                        shortcuts, view
+    features/           one file per feature: toolbar, menus, formatting, autoformat, checklist, tables,
+                        links, images, clipboard, find, outline, history, pageSetup, exporter,
+                        fileCommands, shortcuts, view
 tests/
   unit/                 node:test, no browser — pure logic in core/
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
+  fixtures/             .docx files written by other programs (python-docx, pandoc) for import tests
 tools/                  development scripts (not shipped)
 ```
 
@@ -158,5 +161,16 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - Documents live in `localStorage` (a few MB). There is no server, sync or collaboration yet. Version
   snapshots share that quota, so the store keeps at most 10 per document and drops old ones silently when
   space runs out.
-- The export stylesheet (`EXPORT_CSS` in `features/exporter.js`) duplicates `styles/document.css`; change
-  both together.
+- The look of a document is defined in three places that must change together: `styles/document.css`
+  (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download) and `STYLES` in `core/docx/parts.js`
+  (Word download).
+- Word support is hand-written (`core/zip.js` + `core/docx/`) because the app takes no dependencies. It
+  covers what the editor can produce: headings, character formatting, alignment, line spacing, lists,
+  checklists, tables, links, embedded images, rules, page breaks and page setup. Anything else in an
+  imported file (headers/footers, comments, tracked deletions, footnotes, merged cells, floating shapes)
+  is dropped or flattened. When the editor gains a block or format, add it to the writer, the reader and
+  the round-trip test in `tests/e2e/docx.test.mjs` in the same change.
+- The app's "Title" is `<h1>` and "Heading 1–3" are `<h2>`–`<h4>`; Word's Title/Heading 1–3 styles map to
+  those in both directions.
+- Classes are stripped from foreign HTML except the ones in `ALLOWED_CLASSES` (`core/html.js`). A feature
+  that stores state in a class (as checklists do) must add it there.

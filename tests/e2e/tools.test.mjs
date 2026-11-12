@@ -54,6 +54,9 @@ test('downloads: HTML and Markdown', async () => {
   await page.keyboard.type('- one');
   await page.keyboard.press('Enter');
   await page.keyboard.type('two');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('[] task');
 
   const web = await downloadFrom(page, 'file.downloadHtml');
   assert.equal(web.name, 'Notes draft.html');
@@ -62,7 +65,7 @@ test('downloads: HTML and Markdown', async () => {
 
   const md = await downloadFrom(page, 'file.downloadMarkdown');
   assert.equal(md.name, 'Notes draft.md');
-  assert.equal(md.body, '# Title\n\nplain **bold**\n\n- one\n- two\n');
+  assert.equal(md.body, '# Title\n\nplain **bold**\n\n- one\n- two\n\n- [ ] task\n');
   assert.deepEqual(page.errors, []);
 });
 

@@ -41,6 +41,7 @@ export function initShortcuts(ctx) {
       if (HEADING_KEYS[e.code]) run(() => commands.run('format.block', HEADING_KEYS[e.code]));
     } else if (e.shiftKey) {
       if (SHIFT_KEYS[e.code]) run(() => ctx.exec(SHIFT_KEYS[e.code]));
+      else if (e.code === 'Digit9') run(() => commands.run('format.checklist'));
     } else if (key === 's') {
       run(() => {
         session.saveNow({ force: true });

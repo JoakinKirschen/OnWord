@@ -27,7 +27,7 @@ const setup = (limit) => {
 
 test('create, read, write and index', () => {
   const { store } = setup();
-  const doc = store.create('Plan');
+  const doc = store.create({ title: 'Plan' });
   assert.equal(store.read(doc.id), EMPTY_DOC);
   assert.ok(store.write(doc.id, '<p>x</p>', { title: 'Plan B', snippet: 'x' }));
   assert.equal(store.read(doc.id), '<p>x</p>');
@@ -37,7 +37,7 @@ test('create, read, write and index', () => {
 
 test('write with null html only updates metadata', () => {
   const { store } = setup();
-  const doc = store.create('A', '<p>keep</p>');
+  const doc = store.create({ title: 'A', html: '<p>keep</p>' });
   store.write(doc.id, null, { page: { size: 'a4', orientation: 'portrait', margin: 'normal' } });
   assert.equal(store.read(doc.id), '<p>keep</p>');
   assert.equal(store.meta(doc.id).page.size, 'a4');
@@ -45,17 +45,23 @@ test('write with null html only updates metadata', () => {
 
 test('duplicate copies content under a new id', () => {
   const { store } = setup();
-  const doc = store.create('A', '<p>a</p>', 'a');
+  const doc = store.create({
+    title: 'A',
+    html: '<p>a</p>',
+    snippet: 'a',
+    page: { size: 'a4', orientation: 'portrait', margin: 'wide' },
+  });
   const copy = store.duplicate(doc.id);
   assert.notEqual(copy.id, doc.id);
   assert.equal(copy.title, 'Copy of A');
   assert.equal(store.read(copy.id), '<p>a</p>');
+  assert.equal(copy.page.margin, 'wide', 'page setup is copied');
   assert.equal(store.duplicate('missing'), null);
 });
 
 test('remove deletes content, versions and the index entry', () => {
   const { store, storage } = setup();
-  const doc = store.create('A');
+  const doc = store.create({ title: 'A' });
   store.addVersion(doc.id, '<p>v</p>', 'v');
   store.remove(doc.id);
   assert.deepEqual(store.index(), []);
@@ -64,7 +70,7 @@ test('remove deletes content, versions and the index entry', () => {
 
 test('versions are newest first and capped', () => {
   const { store } = setup();
-  const doc = store.create('A');
+  const doc = store.create({ title: 'A' });
   for (let i = 0; i < 14; i++) store.addVersion(doc.id, `<p>${i}</p>`, String(i));
   const versions = store.versions(doc.id);
   assert.equal(versions.length, 10);
@@ -74,10 +80,10 @@ test('versions are newest first and capped', () => {
 test('a full quota is reported for documents and absorbed for versions', (t) => {
   t.mock.method(console, 'error', () => {});
   const { store, failures } = setup(400);
-  const doc = store.create('A');
+  const doc = store.create({ title: 'A' });
   assert.equal(store.write(doc.id, 'x'.repeat(1000), {}), false);
   assert.deepEqual(failures, ['write']);
-  assert.equal(store.create('B', 'x'.repeat(1000)), null);
+  assert.equal(store.create({ title: 'B', html: 'x'.repeat(1000) }), null);
   assert.deepEqual(failures, ['write', 'create']);
   assert.equal(store.index().length, 1, 'the failed document left nothing behind');
   assert.equal(store.addVersion(doc.id, 'x'.repeat(1000), ''), false);

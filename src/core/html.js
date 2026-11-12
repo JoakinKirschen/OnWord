@@ -17,6 +17,16 @@ const REMOVED_TAGS =
 const URL_ATTRS = ['href', 'src', 'xlink:href', 'action', 'formaction', 'background'];
 const SAFE_URL = /^(https?:|mailto:|tel:|#|data:image\/(png|jpe?g|gif|webp);)/i;
 
+/** Classes with a meaning in documents; every other class is dropped. */
+const ALLOWED_CLASSES = ['page-break', 'checklist', 'checked'];
+
+/** Reduces `class` to the allowed names. Returns false when none remain. */
+function keepAllowedClasses(/** @type {Element} */ el) {
+  const kept = [...el.classList].filter((name) => ALLOWED_CLASSES.includes(name));
+  if (kept.length) el.className = kept.join(' ');
+  return kept.length > 0;
+}
+
 /** Strip anything executable or app-specific from foreign HTML (paste, import). */
 export function sanitize(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -34,7 +44,7 @@ export function sanitize(html) {
         n.startsWith('data-') ||
         n === 'srcset' ||
         n === 'contenteditable' ||
-        (n === 'class' && value !== 'page-break') ||
+        (n === 'class' && !keepAllowedClasses(el)) ||
         (URL_ATTRS.includes(n) && !SAFE_URL.test(value.trim())) ||
         (n === 'style' && /url\s*\(|expression|position\s*:/i.test(value));
       if (unsafe) el.removeAttribute(name);

@@ -96,3 +96,33 @@
     padding: 28px 22px;
   }
 }
+
+/* Checklists (features/checklist.js): the box is drawn in the gutter and toggled by a click there. */
+.doc-content ul.checklist {
+  list-style: none;
+}
+.doc-content ul.checklist > li {
+  position: relative;
+}
+.doc-content ul.checklist > li::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  top: 0.28em;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1.5px solid #6b7080;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.doc-content ul.checklist > li.checked::before {
+  border-color: #4338ca;
+  background: #4338ca
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 10px no-repeat;
+}
+.doc-content ul.checklist > li.checked {
+  color: #8a8fa0;
+  text-decoration: line-through;
+}

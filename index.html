@@ -34,10 +34,12 @@
     <div class="home-head">
       <h1>Your documents</h1>
       <div class="home-actions">
-        <button class="btn" data-act="library.import">Import file</button>
+        <button class="btn" data-act="library.backup" title="Download all documents as one file">Back up</button>
+        <button class="btn" data-act="library.import" title="Word, HTML, text or an OnWord backup">Import</button>
         <button class="btn primary" data-act="library.new">+ New document</button>
       </div>
     </div>
+    <div id="templates" class="templates" aria-label="Start from a template"></div>
     <div id="grid" class="grid"></div>
     <p id="empty" class="empty" hidden></p>
   </main>
@@ -157,6 +159,9 @@
   <!-- Floating image controls -->
   <div id="imgBar" class="img-bar" hidden>
     <button data-img="25">25%</button><button data-img="50">50%</button><button data-img="75">75%</button><button data-img="100">100%</button>
+    <span class="img-sep"></span>
+    <button data-img="left" title="Wrap text, image on the left">Left</button><button data-img="center" title="Centre on its own line">Centre</button><button data-img="right" title="Wrap text, image on the right">Right</button><button data-img="inline" title="In line with text">Inline</button>
+    <span class="img-sep"></span>
     <button data-img="remove" class="danger">Remove</button>
   </div>
 </div>
@@ -165,7 +170,7 @@
 <div id="pop" class="pop" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
-<input id="importInput" type="file" accept=".txt,.md,.html,.htm,text/plain,text/html" hidden>
+<input id="importInput" type="file" accept=".docx,.txt,.md,.html,.htm,.json" hidden>
 
 <script type="module" src="src/main.js"></script>
 </body>

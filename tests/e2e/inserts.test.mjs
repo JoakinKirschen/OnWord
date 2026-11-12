@@ -48,7 +48,7 @@ test('links: insert through the dialog with a normalised address', async () => {
   assert.deepEqual(page.errors, []);
 });
 
-test('images: insert from a file and resize', async () => {
+test('images: insert from a file, resize, align and remove', async () => {
   const page = await openEditor();
   await page.setInputFiles('#imgInput', { name: 'a.png', mimeType: 'image/png', buffer: PIXEL });
   await page.waitForSelector('#editor img');
@@ -58,6 +58,16 @@ test('images: insert from a file and resize', async () => {
   await page.click('#editor img');
   await page.click('[data-img="50"]');
   assert.equal(await page.evaluate(() => document.querySelector('#editor img').style.width), '50%');
+  await page.click('[data-img="right"]');
+  assert.equal(await page.evaluate(() => document.querySelector('#editor img').style.float), 'right');
+  await page.click('[data-img="center"]');
+  assert.deepEqual(
+    await page.evaluate(() => {
+      const { float, display, margin } = document.querySelector('#editor img').style;
+      return [float, display, margin];
+    }),
+    ['', 'block', '0px auto'],
+  );
   await page.click('[data-img="remove"]');
   assert.equal(await page.locator('#editor img').count(), 0);
   assert.deepEqual(page.errors, []);

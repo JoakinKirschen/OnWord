@@ -14,6 +14,7 @@ const PATHS = {
   image: 'M3 5h18v14H3zM3 16l5-5 4 4 3-3 6 6M15.5 9.5h.01',
   table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14M15 5v14',
   clear: 'M4 7V5h13v2M10.5 5 8 19M5 19h6M15 14l5 5M20 14l-5 5',
+  checklist: 'M4 5h5v5H4zM4 14h5v5H4zM13 7.5h7M13 16.5h7M5.3 16.5l1 1 1.7-2',
   search: 'M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14zM21 21l-4.5-4.5',
 };
 

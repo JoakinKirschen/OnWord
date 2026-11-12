@@ -43,7 +43,8 @@ function list(listEl, depth) {
       continue;
     }
     number++;
-    const marker = listEl.tagName === 'OL' ? `${number}. ` : '- ';
+    const box = child.classList.contains('checked') ? '[x] ' : '[ ] ';
+    const marker = listEl.tagName === 'OL' ? `${number}. ` : '- ' + (listEl.classList.contains('checklist') ? box : '');
     lines.push('  '.repeat(depth) + marker + inline(child).trim().replace(/\n/g, ' '));
     for (const nested of child.querySelectorAll(':scope > ul, :scope > ol')) lines.push(...list(nested, depth + 1));
   }

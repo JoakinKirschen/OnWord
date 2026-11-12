@@ -14,6 +14,11 @@ const CASES = [
   ['data: HTML is dropped', '<img src="data:text/html,<script>1</script>">', '<img>'],
   ['ids, classes and data attributes are removed', '<p id="a" class="b" data-c="d">a</p>', '<p>a</p>'],
   ['the page-break class survives', '<hr class="page-break">', '<hr class="page-break">'],
+  [
+    'checklist classes survive, others on the same element do not',
+    '<ul class="checklist x"><li class="checked y">a</li></ul>',
+    '<ul class="checklist"><li class="checked">a</li></ul>',
+  ],
   ['style with url() is removed', '<p style="background:url(http://x/y)">a</p>', '<p>a</p>'],
   ['harmless style is kept', '<p style="color: red;">a</p>', '<p style="color: red;">a</p>'],
   ['embedded content is removed', '<iframe src="https://x"></iframe><object></object><form><input></form>b', 'b'],

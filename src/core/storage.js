@@ -6,7 +6,7 @@ const docKey = (/** @type {string} */ id) => 'onword:doc:' + id;
 const versionsKey = (/** @type {string} */ id) => 'onword:versions:' + id;
 
 /**
- * @typedef {{ size: string, orientation: string, margin: string }} PageSetup
+ * @typedef {import('./page.js').PageSetup} PageSetup
  * @typedef {{ id: string, title: string, created: number, updated: number, snippet: string, page?: PageSetup }} DocMeta
  * @typedef {{ at: number, html: string, snippet: string }} DocVersion
  * @typedef {ReturnType<typeof createDocumentStore>} DocumentStore
@@ -32,16 +32,15 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
   const meta = (/** @type {string} */ id) => index().find((d) => d.id === id);
   const read = (/** @type {string} */ id) => storage.getItem(docKey(id)) ?? EMPTY_DOC;
 
-  /** @returns {DocMeta | null} */
-  function create(title = 'Untitled document', html = EMPTY_DOC, snippet = '') {
+  /**
+   * @param {{ title?: string, html?: string, snippet?: string, page?: PageSetup }} [options]
+   * @returns {DocMeta | null} null when storage is full
+   */
+  function create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page } = {}) {
     const now = Date.now();
-    const entry = {
-      id: now.toString(36) + Math.random().toString(36).slice(2, 8),
-      title,
-      created: now,
-      updated: now,
-      snippet,
-    };
+    const id = now.toString(36) + Math.random().toString(36).slice(2, 8);
+    /** @type {DocMeta} */
+    const entry = { id, title, created: now, updated: now, snippet, ...(page && { page }) };
     try {
       storage.setItem(docKey(entry.id), html);
       saveIndex([...index(), entry]);
@@ -77,7 +76,8 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
 
   function duplicate(/** @type {string} */ id) {
     const src = meta(id);
-    return src ? create('Copy of ' + src.title, read(id), src.snippet) : null;
+    if (!src) return null;
+    return create({ title: 'Copy of ' + src.title, html: read(id), snippet: src.snippet, page: src.page });
   }
 
   function remove(/** @type {string} */ id) {

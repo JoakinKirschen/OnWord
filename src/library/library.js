@@ -1,5 +1,7 @@
 import { $ } from '../core/dom.js';
+import { esc } from '../core/html.js';
 import { menuHtml } from '../ui/popover.js';
+import { TEMPLATES } from './templates.js';
 
 const MORE_ICON =
   '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
@@ -65,8 +67,10 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
   }
 
   commands.register({
-    'library.new'() {
-      const entry = store.create();
+    /** Creates a document, optionally from the template with the given id, and opens it. */
+    'library.new'(templateId) {
+      const template = TEMPLATES.find((t) => t.id === templateId);
+      const entry = store.create(template && { title: template.title, html: template.html });
       if (entry) navigate('#/d/' + entry.id);
     },
     'library.open'(id) {
@@ -94,6 +98,10 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
     },
   });
 
+  $('#templates', root).innerHTML = TEMPLATES.map(
+    (t) =>
+      `<button class="template" data-act="library.new" data-arg="${t.id}"><span class="template-page">${t.html}</span><span class="template-name">${esc(t.name)}</span></button>`,
+  ).join('');
   search.addEventListener('input', render);
 
   return {
