@@ -24,15 +24,17 @@ The app must be served over HTTP (`npm start`); ES modules do not load from `fil
 
 ```
 index.html              static markup for both screens; no inline scripts or handlers
+.htaccess               Apache settings for the web host: MIME type, security policy, caching
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        overlays, outline, ruler, page, find, images, history, print)
+                        overlays, outline, ruler, page, find, images, history, review, print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
                         storage (documents + versions), preferences, page (page setup model and
-                        geometry), units, zip, download, platform
+                        geometry), units, tableGrid (merged cells), zip, download, platform
     docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
-                        paragraph and section convert in both directions
+                        paragraph, section, tables and notes (footnotes, comments, table of
+                        contents) convert in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
   library/              the document list screen: library, templates, importer (files), backup
   editor/
@@ -40,18 +42,20 @@ src/
     session.js          the open document: load, autosave, title, counts
     selection.js        caret/selection utilities
     blocks.js           block-level insertion, DOM repair, selected paragraphs and their indents
-    metrics.js          page, word, character and paragraph counts
+    metrics.js          page, word, character and paragraph counts; geometry of the paged view
+    pagination.js       pure page-break arithmetic (unit-tested)
     markdown.js         document → Markdown conversion
     icons.js            toolbar icons
     features/           one file per feature: toolbar, menus, shortcuts; formatting, paragraph, textCase,
-                        formatPainter, autoformat, checklist; tables, links, images, symbols,
-                        clipboard; ruler, pageSetup, headerFooter, view, outline; find, wordCount,
-                        history, exporter, fileCommands
+                        formatPainter, autoformat, checklist; tables, tableMerge, links, images,
+                        symbols, clipboard, toc, footnotes; comments, trackChanges; ruler, pageSetup,
+                        pagination, headerFooter, view, outline; find, wordCount, history, exporter,
+                        fileCommands
 tests/
-  unit/                 node:test, no browser — pure logic in core/
+  unit/                 node:test, no browser — pure logic in core/ and editor/pagination.js
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
   fixtures/             .docx files written by other programs (python-docx, pandoc) for import tests
-tools/                  development scripts (not shipped)
+tools/                  development scripts (not shipped): architecture check, site packaging
 ```
 
 ## Dependency rules (enforced by `npm run check`)
@@ -78,9 +82,9 @@ Features are decoupled. They share exactly three channels:
    `data-act="name"` (optional `data-arg`) runs that command on click — that is how buttons and menu items
    are wired, so never add per-button click handlers for actions.
    Names are `area.verb`: `app.*`, `library.*`, `file.*`, `edit.*`, `format.*`, `insert.*`, `table.*`,
-   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`. Registering a duplicate name throws.
+   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*`. Registering a duplicate name throws.
 2. **Events** (`ctx.events`) — notifications a feature may react to: `open`, `input`, `change`,
-   `selection`, `dismiss`, `layout`. They are documented at the top of `editor/editor.js`; add new ones there.
+   `selection`, `dismiss`, `layout`, `pages`. They are documented at the top of `editor/editor.js`; add new ones there.
 3. **`ctx`** — the context object every feature receives: `root`, `content`, `scroller`, `selection`,
    `session`, `store`, `prefs`, `commands`, `events`, `popover`, `toast`, `navigate`, `exec`, `changed`.
    Its type is `EditorContext` in `editor/editor.js`; keep that typedef in step with the object.
@@ -168,10 +172,11 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download) and `STYLES` in `core/docx/parts.js`
   (Word download).
 - Word support is hand-written (`core/zip.js` + `core/docx/`) because the app takes no dependencies. It
-  covers what the editor can produce: headings, character formatting, alignment, line spacing, lists,
-  checklists, tables, links, embedded images, rules, page breaks and page setup. Anything else in an
-  imported file (headers/footers, comments, tracked deletions, footnotes, merged cells, floating shapes)
-  is dropped or flattened. When the editor gains a block or format, add it to the writer, the reader and
+  covers what the editor can produce: headings, character and paragraph formatting, lists, checklists,
+  tables with merged cells, links, embedded images, rules, page breaks, page setup, header and footer,
+  table of contents, footnotes, comments and tracked changes. Anything else in an imported file
+  (endnotes, text boxes, floating shapes, section-specific layouts, formatting changes in tracked
+  revisions) is dropped or flattened. When the editor gains a block or format, add it to the writer, the reader and
   the round-trip test in `tests/e2e/docx.test.mjs` in the same change.
 - The app's "Title" is `<h1>`, "Subtitle" is `<p class="subtitle">` and "Heading 1–4" are `<h2>`–`<h5>`;
   Word's Title/Subtitle/Heading 1–4 styles map to those in both directions.
@@ -183,12 +188,28 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   `core/page.js`): size, orientation, margin, columns, header and footer. Always pass it through
   `normalizePage()`, and when saving a part of it spread the current value first so the rest survives.
   `pageSetup.js` publishes the geometry as CSS custom properties on `#sheet` and emits `layout`.
-- There is no real pagination: the document is one continuous page. Page boundaries are a background
-  drawn every printable-page height and the page count is an estimate (`countPages`); explicit page
-  breaks and columns are not accounted for. Printing is exact because the browser paginates.
+- The paged view never changes the document. `features/pagination.js` measures the top-level blocks (and
+  the items of top-level lists), `editor/pagination.js` decides which start a new page, and the result is
+  applied as generated `margin-top` rules in a `<style>` outside `#editor`. A block moves as a whole, so a
+  paragraph is never split between two sheets, and a block taller than a page runs over the gap. Printing
+  is paginated by the browser instead and may break at slightly different places. Pagination runs
+  synchronously on every `change` and `layout` and then emits `pages`; anything that depends on page
+  numbers (counts, header/footer bands, table of contents) listens for `pages`, not `change`.
+- Features that keep generated content inside the document (table of contents, footnote numbers) rebuild
+  it in an event handler without calling `ctx.changed()` again; they must only touch the DOM when the
+  result differs, or they would loop.
 - Headers and footers are a single line of plain text with `{page}` / `{pages}` tokens, printed through
   `@page` margin boxes (the only place CSS exposes page counters; Chromium 131+).
 - State that is a view preference, not document content (formatting marks, painter cursor), goes in a
   class on `#editor` itself — never inside it, where it would be saved with the document.
-- Classes are stripped from foreign HTML except the ones in `ALLOWED_CLASSES` (`core/html.js`). A feature
-  that stores state in a class (as checklists do) must add it there.
+- Classes, ids and `data-*` attributes are stripped from foreign HTML except those listed in
+  `core/html.js` (`ALLOWED_CLASSES`, `ALLOWED_ID`, `ALLOWED_DATA`). A feature that stores state in one must
+  add it there. Current uses: checklists and styles (classes), footnotes (`fnref-x` / `fn-x` ids tie a
+  reference to its note), comments (`span.comment` with the text in `title`) and tracked changes
+  (`<ins>` / `<del>`), the last two carrying `data-author` and `data-date`.
+- Track changes intercepts `beforeinput` and edits the DOM itself for typing and deleting only; pasting,
+  formatting and paragraph breaks are not tracked.
+- The site is deployed as static files to an Apache host. `npm run package` zips exactly what is served
+  (`index.html`, `.htaccess`, `styles/`, `src/`). The end-to-end tests send the Content-Security-Policy
+  from `.htaccess`, so anything it would block (inline scripts, third-party scripts) fails in tests.
+  Adding a new kind of resource means updating that policy.

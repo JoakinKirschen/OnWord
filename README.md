@@ -16,7 +16,9 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
 - Markdown shortcuts while typing (`# `, `## `, `- `, `1. `, `[] `, `> `)
 - Ruler with draggable left, first-line and right indent markers; Paragraph dialog for alignment,
   indents (first line or hanging) and spacing before/after
-- Header and footer with page numbers, printed on every page
+- Paged view: the document is shown as separate sheets, with header, footer and page numbers on each
+- Table of contents that updates itself, footnotes, merging and splitting of table cells
+- Reviewing: comments with a side panel, and tracked changes that can be accepted or rejected
 - Page setup per document: paper size, orientation, margins and columns; page boundaries and a page count
 - Format painter, change case, special characters, formatting marks (¶), word count dialog, zoom slider
 - Version history with restore
@@ -34,6 +36,25 @@ npm start
 
 Then visit <http://localhost:8000>. Because it is a static site, it can be hosted on any static host
 (GitHub Pages, Netlify, …) as-is.
+
+## Deploy to a web host
+
+OnWord is static files, so any web host works, including shared hosting managed with DirectAdmin. There
+is nothing to install on the server: no database, PHP or Node.
+
+```bash
+npm run package
+```
+
+This writes `dist/onword-site.zip`. In DirectAdmin open **File Manager**, go to
+`domains/<your-domain>/public_html` (or a subfolder of it), upload the zip and choose **Extract**. The
+site is then live at your domain. Uploading the contents over FTP works just as well.
+
+- The included `.htaccess` sets the JavaScript MIME type, a Content-Security-Policy and cache headers.
+  File managers often hide files that start with a dot; make sure it was extracted.
+- Use HTTPS (DirectAdmin: **SSL Certificates → Let's Encrypt**).
+- To update, upload and extract a new zip over the old files.
+- Documents are stored in each visitor's own browser, not on the server (see Limitations).
 
 ## Develop
 

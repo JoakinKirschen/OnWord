@@ -1,0 +1,25 @@
+# OnWord on an Apache web host (DirectAdmin and similar). The whole app is static files.
+
+AddDefaultCharset utf-8
+# ES modules are refused by browsers unless they are served as JavaScript.
+AddType text/javascript .js
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "same-origin"
+  # Scripts may only come from this site. Inline styles are needed for document formatting, and
+  # documents may contain embedded (data:) or linked images.
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+
+  # The page itself is always revalidated so an update is picked up; scripts and styles briefly cached.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=300, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript
+</IfModule>

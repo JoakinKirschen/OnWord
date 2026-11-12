@@ -1,5 +1,6 @@
 /** Shared setup for end-to-end tests: a static server for the repo and a headless browser. */
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { after, before } from 'node:test';
@@ -8,6 +9,8 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+// Tests run under the Content-Security-Policy the web host will send, so a violation fails here first.
+const CSP = readFileSync(join(ROOT, '.htaccess'), 'utf8').match(/Content-Security-Policy "([^"]+)"/)[1];
 
 /**
  * Registers before/after hooks for the calling test file and returns helpers.
@@ -23,7 +26,8 @@ export function useApp() {
       try {
         const file = join(ROOT, path === '/' ? 'index.html' : path);
         const body = await readFile(file);
-        res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' });
+        const type = TYPES[extname(file)] || 'application/octet-stream';
+        res.writeHead(200, { 'content-type': type, 'content-security-policy': CSP });
         res.end(body);
       } catch {
         res.writeHead(404).end();
