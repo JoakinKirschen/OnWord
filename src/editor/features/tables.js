@@ -1,11 +1,16 @@
 import { $, $$ } from '../../core/dom.js';
 import { insertBlock } from '../blocks.js';
 
-/** Table insertion, row/column editing and Tab navigation between cells. */
+/**
+ * Table insertion, row/column editing and Tab navigation between cells.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initTables(ctx) {
   const { root, content, selection, commands, toast } = ctx;
   const doc = content.ownerDocument;
-  const dialog = $('#tableDlg', root), rowsInput = $('#tblRows', root), colsInput = $('#tblCols', root);
+  const dialog = $('#tableDlg', root),
+    rowsInput = $('#tblRows', root),
+    colsInput = $('#tblCols', root);
 
   const newCell = () => {
     const td = doc.createElement('td');
@@ -18,21 +23,25 @@ export function initTables(ctx) {
     const table = doc.createElement('table');
     table.style.width = '100%';
     table.innerHTML = '<tbody>' + ('<tr>' + '<td><br></td>'.repeat(cols) + '</tr>').repeat(rows) + '</tbody>';
-    insertBlock(ctx, table, (t) => t.rows[0].cells[0]);
+    insertBlock(ctx, table, () => table.rows[0].cells[0]);
   }
 
   function edit(op) {
     selection.restore();
     const cell = selection.closest('td,th');
     if (!cell) return toast('Place the cursor inside a table first.');
-    const row = cell.parentElement, table = cell.closest('table'), col = cell.cellIndex;
+    const row = cell.parentElement,
+      table = cell.closest('table'),
+      col = cell.cellIndex;
     const rows = [...table.rows];
     if (op === 'rowAbove' || op === 'rowBelow') {
       const tr = doc.createElement('tr');
       for (let i = 0; i < row.cells.length; i++) tr.append(newCell());
       row[op === 'rowAbove' ? 'before' : 'after'](tr);
     } else if (op === 'colLeft' || op === 'colRight') {
-      rows.forEach((r) => r.cells[Math.min(col, r.cells.length - 1)]?.[op === 'colLeft' ? 'before' : 'after'](newCell()));
+      rows.forEach((r) =>
+        r.cells[Math.min(col, r.cells.length - 1)]?.[op === 'colLeft' ? 'before' : 'after'](newCell()),
+      );
     } else if (op === 'delRow') {
       if (rows.length === 1) table.remove();
       else {

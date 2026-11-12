@@ -1,0 +1,56 @@
+/* Document outline sidebar (src/editor/features/outline.js). */
+.outline {
+  width: 230px;
+  flex: none;
+  overflow: auto;
+  padding: 18px 8px 40px 14px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.outline h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 10px 8px;
+  font-weight: 600;
+}
+.outline button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.outline button:hover {
+  background: var(--surface-2);
+}
+.outline button[data-level='1'] {
+  font-weight: 600;
+}
+.outline button[data-level='3'] {
+  padding-left: 20px;
+  color: var(--muted);
+}
+.outline button[data-level='4'] {
+  padding-left: 32px;
+  color: var(--muted);
+}
+.outline-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+@media (max-width: 900px) {
+  .outline {
+    display: none;
+  }
+}

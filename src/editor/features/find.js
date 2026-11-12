@@ -2,12 +2,18 @@ import { $ } from '../../core/dom.js';
 
 const canHighlight = typeof Highlight !== 'undefined' && !!CSS.highlights;
 
-/** Find-and-replace panel. Matches are painted with the CSS Custom Highlight API (no DOM changes). */
+/**
+ * Find-and-replace panel. Matches are painted with the CSS Custom Highlight API (no DOM changes).
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initFind(ctx) {
   const { root, content, scroller, selection, events, commands, toast } = ctx;
   const doc = content.ownerDocument;
-  const panel = $('#findPanel', root), findInput = $('#findInput', root), replaceInput = $('#replaceInput', root);
-  const countEl = $('#findCount', root), caseBox = $('#findCase', root);
+  const panel = $('#findPanel', root),
+    findInput = $('#findInput', root),
+    replaceInput = $('#replaceInput', root);
+  const countEl = $('#findCount', root),
+    caseBox = $('#findCase', root);
   let ranges = [];
   let index = -1;
 
@@ -20,7 +26,8 @@ export function initFind(ctx) {
       else CSS.highlights.delete('ow-find-cur');
     }
     if (current && scroll) {
-      const r = current.getBoundingClientRect(), box = scroller.getBoundingClientRect();
+      const r = current.getBoundingClientRect(),
+        box = scroller.getBoundingClientRect();
       if (r.top < box.top + 20 || r.bottom > box.bottom - 20) scroller.scrollTop += r.top - box.top - box.height / 3;
     }
   }
@@ -30,7 +37,8 @@ export function initFind(ctx) {
     const query = findInput.value;
     ranges = [];
     if (query) {
-      const exact = caseBox.checked, needle = exact ? query : query.toLowerCase();
+      const exact = caseBox.checked,
+        needle = exact ? query : query.toLowerCase();
       const walker = doc.createTreeWalker(content, NodeFilter.SHOW_TEXT);
       for (let node; (node = walker.nextNode());) {
         const hay = exact ? node.data : node.data.toLowerCase();
@@ -113,5 +121,7 @@ export function initFind(ctx) {
     }
   });
   events.on('open', close);
-  events.on('change', () => { if (!panel.hidden) search(true); });
+  events.on('change', () => {
+    if (!panel.hidden) search(true);
+  });
 }

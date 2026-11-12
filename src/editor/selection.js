@@ -1,6 +1,11 @@
-/** Selection utilities scoped to the editable `content` element. */
+/**
+ * Selection utilities scoped to the editable `content` element.
+ * @typedef {ReturnType<typeof createSelection>} EditorSelection
+ * @param {HTMLElement} content
+ */
 export function createSelection(content) {
   const doc = content.ownerDocument;
+  /** @type {Range | null} */
   let saved = null; // last range seen inside the editor, restored after focus moves to the chrome
 
   /** The live Selection if it is inside the editor, otherwise null. */
@@ -13,10 +18,11 @@ export function createSelection(content) {
     s.removeAllRanges();
     s.addRange(range);
   }
+  /** @returns {HTMLElement | null} the element containing the caret */
   function anchorElement() {
     const node = current()?.anchorNode;
     if (!node) return null;
-    return node.nodeType === 1 ? node : node.parentElement;
+    return /** @type {HTMLElement} */ (node.nodeType === 1 ? node : node.parentElement);
   }
 
   return {

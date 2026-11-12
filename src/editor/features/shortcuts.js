@@ -1,8 +1,19 @@
 const HEADING_KEYS = { Digit0: 'p', Digit1: 'h2', Digit2: 'h3', Digit3: 'h4' };
-const SHIFT_KEYS = { KeyX: 'strikeThrough', KeyL: 'justifyLeft', KeyE: 'justifyCenter', KeyR: 'justifyRight', KeyJ: 'justifyFull', Digit7: 'insertOrderedList', Digit8: 'insertUnorderedList' };
-const INDENT = ' '.repeat(4);
+const SHIFT_KEYS = {
+  KeyX: 'strikeThrough',
+  KeyL: 'justifyLeft',
+  KeyE: 'justifyCenter',
+  KeyR: 'justifyRight',
+  KeyJ: 'justifyFull',
+  Digit7: 'insertOrderedList',
+  Digit8: 'insertUnorderedList',
+};
+const INDENT = '\u00a0'.repeat(4);
 
-/** Keyboard handling: Tab behaviour inside the document and Ctrl/⌘ shortcuts. */
+/**
+ * Keyboard handling: Tab behaviour inside the document and Ctrl/⌘ shortcuts.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initShortcuts(ctx) {
   const { content, selection, session, events, commands, popover, toast } = ctx;
 

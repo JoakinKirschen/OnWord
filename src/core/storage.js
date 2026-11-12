@@ -1,24 +1,47 @@
 import { EMPTY_DOC } from './html.js';
 
 const INDEX_KEY = 'onword:index';
-const docKey = (id) => 'onword:doc:' + id;
+const MAX_VERSIONS = 10;
+const docKey = (/** @type {string} */ id) => 'onword:doc:' + id;
+const versionsKey = (/** @type {string} */ id) => 'onword:versions:' + id;
+
+/**
+ * @typedef {{ size: string, orientation: string, margin: string }} PageSetup
+ * @typedef {{ id: string, title: string, created: number, updated: number, snippet: string, page?: PageSetup }} DocMeta
+ * @typedef {{ at: number, html: string, snippet: string }} DocVersion
+ * @typedef {ReturnType<typeof createDocumentStore>} DocumentStore
+ */
 
 /**
  * Document repository. The only module that knows how documents are persisted; swap the
  * implementation here (e.g. for a server) without touching features.
- * `onQuotaExceeded(operation)` is called with 'write' or 'create' when storage is full.
+ * @param {{ storage: Storage, onQuotaExceeded: (operation: 'write' | 'create') => void }} deps
  */
 export function createDocumentStore({ storage, onQuotaExceeded }) {
-  const index = () => {
-    try { return JSON.parse(storage.getItem(INDEX_KEY)) || []; } catch { return []; }
+  /** @returns {any} */
+  const readJson = (/** @type {string} */ key) => {
+    try {
+      return JSON.parse(storage.getItem(key)) || [];
+    } catch {
+      return [];
+    }
   };
-  const saveIndex = (ix) => storage.setItem(INDEX_KEY, JSON.stringify(ix));
-  const meta = (id) => index().find((d) => d.id === id);
-  const read = (id) => storage.getItem(docKey(id)) ?? EMPTY_DOC;
+  /** @returns {DocMeta[]} */
+  const index = () => readJson(INDEX_KEY);
+  const saveIndex = (/** @type {DocMeta[]} */ ix) => storage.setItem(INDEX_KEY, JSON.stringify(ix));
+  const meta = (/** @type {string} */ id) => index().find((d) => d.id === id);
+  const read = (/** @type {string} */ id) => storage.getItem(docKey(id)) ?? EMPTY_DOC;
 
+  /** @returns {DocMeta | null} */
   function create(title = 'Untitled document', html = EMPTY_DOC, snippet = '') {
     const now = Date.now();
-    const entry = { id: now.toString(36) + Math.random().toString(36).slice(2, 8), title, created: now, updated: now, snippet };
+    const entry = {
+      id: now.toString(36) + Math.random().toString(36).slice(2, 8),
+      title,
+      created: now,
+      updated: now,
+      snippet,
+    };
     try {
       storage.setItem(docKey(entry.id), html);
       saveIndex([...index(), entry]);
@@ -31,7 +54,12 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
     }
   }
 
-  /** Writes content (pass null to keep it) and merges `patch` into the metadata. Returns success. */
+  /**
+   * Writes content (pass null to keep it) and merges `patch` into the metadata. Returns success.
+   * @param {string} id
+   * @param {string | null} html
+   * @param {Partial<DocMeta>} patch
+   */
   function write(id, html, patch) {
     try {
       if (html != null) storage.setItem(docKey(id), html);
@@ -47,15 +75,39 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
     }
   }
 
-  function duplicate(id) {
+  function duplicate(/** @type {string} */ id) {
     const src = meta(id);
     return src ? create('Copy of ' + src.title, read(id), src.snippet) : null;
   }
 
-  function remove(id) {
+  function remove(/** @type {string} */ id) {
     storage.removeItem(docKey(id));
+    storage.removeItem(versionsKey(id));
     saveIndex(index().filter((d) => d.id !== id));
   }
 
-  return { indexKey: INDEX_KEY, index, meta, read, create, write, duplicate, remove };
+  /** Saved snapshots of a document, newest first. @returns {DocVersion[]} */
+  const versions = (/** @type {string} */ id) => readJson(versionsKey(id));
+
+  /**
+   * Stores a snapshot, keeping the newest MAX_VERSIONS. Versions are expendable: when storage is
+   * full the oldest are dropped rather than reporting an error. Returns whether it was stored.
+   * @param {string} id
+   * @param {string} html
+   * @param {string} snippet
+   */
+  function addVersion(id, html, snippet) {
+    let list = [{ at: Date.now(), html, snippet }, ...versions(id)].slice(0, MAX_VERSIONS);
+    while (list.length) {
+      try {
+        storage.setItem(versionsKey(id), JSON.stringify(list));
+        return true;
+      } catch {
+        list = list.slice(0, Math.floor(list.length / 2));
+      }
+    }
+    return false;
+  }
+
+  return { indexKey: INDEX_KEY, index, meta, read, create, write, duplicate, remove, versions, addVersion };
 }

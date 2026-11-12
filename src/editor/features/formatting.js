@@ -1,6 +1,9 @@
 import { $$ } from '../../core/dom.js';
 
-/** Paragraph style, font, font size and line spacing. */
+/**
+ * Paragraph style, font, font size and line spacing.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initFormatting(ctx) {
   const { content, selection, events, commands } = ctx;
   const doc = content.ownerDocument;
@@ -35,11 +38,13 @@ export function initFormatting(ctx) {
       if (tag !== 'blockquote' && selection.closest('blockquote')) doc.execCommand('outdent');
       ctx.exec('formatBlock', `<${tag}>`);
     },
-    'format.font'(name) { ctx.exec('fontName', name); },
+    'format.font'(name) {
+      ctx.exec('fontName', name);
+    },
     'format.size'(pt) {
       selection.restore();
       const collapsed = selection.current()?.isCollapsed;
-      doc.execCommand('styleWithCSS', false, true);
+      doc.execCommand('styleWithCSS', false, 'true');
       doc.execCommand('fontSize', false, '7');
       if (collapsed) pendingSize = pt;
       else {
@@ -54,7 +59,13 @@ export function initFormatting(ctx) {
     },
   });
 
-  events.on('input', () => { if (pendingSize) fixFontSizes(pendingSize); });
-  events.on('open', () => { pendingSize = null; });
-  content.addEventListener('mousedown', () => { pendingSize = null; });
+  events.on('input', () => {
+    if (pendingSize) fixFontSizes(pendingSize);
+  });
+  events.on('open', () => {
+    pendingSize = null;
+  });
+  content.addEventListener('mousedown', () => {
+    pendingSize = null;
+  });
 }

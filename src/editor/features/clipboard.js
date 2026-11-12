@@ -2,7 +2,10 @@ import { sanitize } from '../../core/html.js';
 
 const imagesIn = (transfer) => [...(transfer?.files || [])].filter((f) => f.type.startsWith('image/'));
 
-/** Paste (sanitised HTML, images) and image drag-and-drop. */
+/**
+ * Paste (sanitised HTML, images) and image drag-and-drop.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initClipboard(ctx) {
   const { content, selection, commands } = ctx;
   const doc = content.ownerDocument;

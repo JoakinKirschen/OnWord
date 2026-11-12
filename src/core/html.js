@@ -3,12 +3,17 @@ import { $$ } from './dom.js';
 export const EMPTY_DOC = '<p><br></p>';
 
 export const esc = (s) =>
-  String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export const textToHtml = (text) =>
-  text.replace(/\r\n?/g, '\n').split('\n').map((line) => `<p>${esc(line) || '<br>'}</p>`).join('') || EMPTY_DOC;
+  text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => `<p>${esc(line) || '<br>'}</p>`)
+    .join('') || EMPTY_DOC;
 
-const REMOVED_TAGS = 'script,style,iframe,frame,object,embed,link,meta,title,base,form,input,button,textarea,select,noscript,svg,math,template,audio,video';
+const REMOVED_TAGS =
+  'script,style,iframe,frame,object,embed,link,meta,title,base,form,input,button,textarea,select,noscript,svg,math,template,audio,video';
 const URL_ATTRS = ['href', 'src', 'xlink:href', 'action', 'formaction', 'background'];
 const SAFE_URL = /^(https?:|mailto:|tel:|#|data:image\/(png|jpe?g|gif|webp);)/i;
 
@@ -23,7 +28,12 @@ export function sanitize(html) {
   for (const el of $$('*', doc.body)) {
     for (const { name, value } of [...el.attributes]) {
       const n = name.toLowerCase();
-      const unsafe = n.startsWith('on') || n === 'id' || n.startsWith('data-') || n === 'srcset' || n === 'contenteditable' ||
+      const unsafe =
+        n.startsWith('on') ||
+        n === 'id' ||
+        n.startsWith('data-') ||
+        n === 'srcset' ||
+        n === 'contenteditable' ||
         (n === 'class' && value !== 'page-break') ||
         (URL_ATTRS.includes(n) && !SAFE_URL.test(value.trim())) ||
         (n === 'style' && /url\s*\(|expression|position\s*:/i.test(value));

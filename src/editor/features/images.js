@@ -1,4 +1,4 @@
-import { $ } from '../../core/dom.js';
+import { $, targetOf } from '../../core/dom.js';
 import { esc } from '../../core/html.js';
 
 const KEEP_ORIGINAL_BELOW = 350_000; // bytes
@@ -10,7 +10,7 @@ function fileToDataUrl(file) {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error);
     reader.onload = () => {
-      if (file.size < KEEP_ORIGINAL_BELOW) return resolve(reader.result);
+      if (file.size < KEEP_ORIGINAL_BELOW) return resolve(String(reader.result));
       const img = new Image();
       img.onerror = () => reject(new Error('Could not read image'));
       img.onload = () => {
@@ -24,17 +24,21 @@ function fileToDataUrl(file) {
         g.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
-      img.src = reader.result;
+      img.src = String(reader.result);
     };
     reader.readAsDataURL(file);
   });
 }
 
-/** Image insertion plus the floating resize/remove bar shown for a clicked image. */
+/**
+ * Image insertion plus the floating resize/remove bar shown for a clicked image.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initImages(ctx) {
   const { root, content, scroller, selection, events, commands, toast } = ctx;
   const view = root.ownerDocument.defaultView;
-  const input = $('#imgInput', root), bar = $('#imgBar', root);
+  const input = $('#imgInput', root),
+    bar = $('#imgBar', root);
   let active = null;
 
   async function insertFiles(files) {
@@ -54,7 +58,8 @@ export function initImages(ctx) {
   }
   function placeBar() {
     if (!active?.isConnected) return hideBar();
-    const img = active.getBoundingClientRect(), box = scroller.getBoundingClientRect();
+    const img = active.getBoundingClientRect(),
+      box = scroller.getBoundingClientRect();
     if (img.bottom < box.top || img.top > box.bottom) return (bar.hidden = true);
     bar.hidden = false;
     bar.style.left = Math.max(6, Math.min(img.left, view.innerWidth - bar.offsetWidth - 6)) + 'px';
@@ -74,14 +79,14 @@ export function initImages(ctx) {
     input.value = '';
   });
   content.addEventListener('click', (e) => {
-    if (e.target.tagName !== 'IMG') return hideBar();
-    active = e.target;
+    if (targetOf(e).tagName !== 'IMG') return hideBar();
+    active = targetOf(e);
     selection.selectNode(active);
     placeBar();
   });
   bar.addEventListener('mousedown', (e) => e.preventDefault());
   bar.addEventListener('click', (e) => {
-    const value = e.target.dataset.img;
+    const value = targetOf(e).dataset.img;
     if (!value || !active) return;
     if (value === 'remove') {
       active.remove();
@@ -94,7 +99,9 @@ export function initImages(ctx) {
     }
     ctx.changed();
   });
-  scroller.addEventListener('scroll', () => { if (active) placeBar(); });
+  scroller.addEventListener('scroll', () => {
+    if (active) placeBar();
+  });
   view.addEventListener('resize', hideBar);
   events.on('open', hideBar);
   events.on('dismiss', hideBar);

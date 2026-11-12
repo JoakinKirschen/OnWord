@@ -5,7 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OnWord</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='2' width='22' height='28' rx='4' fill='%234338ca'/%3E%3Cpath d='M10 10h12M10 16h12M10 22h7' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/library.css">
+<link rel="stylesheet" href="styles/editor.css">
+<link rel="stylesheet" href="styles/document.css">
+<link rel="stylesheet" href="styles/overlays.css">
+<link rel="stylesheet" href="styles/outline.css">
+<link rel="stylesheet" href="styles/find.css">
+<link rel="stylesheet" href="styles/images.css">
+<link rel="stylesheet" href="styles/history.css">
+<link rel="stylesheet" href="styles/print.css">
 </head>
 <body>
 
@@ -51,9 +60,15 @@
 
   <div id="toolbar" class="toolbar" role="toolbar" aria-label="Formatting"></div>
 
-  <div id="scroller" class="scroller">
-    <div id="paper" class="paper">
-      <div id="editor" class="doc-content" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Document body"></div>
+  <div class="workspace">
+    <aside id="outline" class="outline" aria-label="Document outline" hidden>
+      <h2>Outline</h2>
+      <nav id="outlineList"></nav>
+    </aside>
+    <div id="scroller" class="scroller">
+      <div id="paper" class="paper">
+        <div id="editor" class="doc-content" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Document body"></div>
+      </div>
     </div>
   </div>
 
@@ -108,6 +123,35 @@
       </div>
     </form>
   </dialog>
+  <dialog id="pageDlg" class="dlg">
+    <form method="dialog">
+      <h2>Page setup</h2>
+      <div class="dlg-cols">
+        <label>Paper size<select id="pageSize"></select></label>
+        <label>Orientation<select id="pageOrientation">
+          <option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
+      </div>
+      <label>Margins<select id="pageMargin"></select></label>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Apply</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="historyDlg" class="dlg wide">
+    <form method="dialog">
+      <h2>Version history</h2>
+      <ul id="versionList" class="version-list"></ul>
+      <div class="dlg-actions">
+        <button class="btn" type="button" data-act="history.save">Save version now</button>
+        <span class="spacer"></span>
+        <button class="btn primary" value="close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
   <input id="imgInput" type="file" accept="image/*" hidden>
 
   <!-- Floating image controls -->

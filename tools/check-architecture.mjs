@@ -24,14 +24,15 @@ const ALLOWED = {
   ui: ['core', 'ui'],
   library: ['core', 'ui', 'library'],
   editor: ['core', 'ui', 'editor', 'feature'], // only editor.js may import features (checked below)
-  feature: ['core', 'ui', 'editor'],           // never another feature
+  feature: ['core', 'ui', 'editor'], // never another feature
   main: ['core', 'ui', 'library', 'editor'],
 };
 
-const walk = (dir) => readdirSync(dir).flatMap((name) => {
-  const path = join(dir, name);
-  return statSync(path).isDirectory() ? walk(path) : path.endsWith('.js') ? [path] : [];
-});
+const walk = (dir) =>
+  readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? walk(path) : path.endsWith('.js') ? [path] : [];
+  });
 
 const errors = [];
 for (const path of walk(SRC)) {
@@ -46,20 +47,26 @@ for (const path of walk(SRC)) {
 
   lines.forEach((text, i) => {
     const n = i + 1;
-    const imported = text.match(/^\s*(?:import|export)\b.*\bfrom\s+['"]([^'"]+)['"]/)?.[1] ?? text.match(/\bimport\(\s*['"]([^'"]+)['"]/)?.[1];
+    const imported =
+      text.match(/^\s*(?:import|export)\b.*\bfrom\s+['"]([^'"]+)['"]/)?.[1] ??
+      text.match(/\bimport\(\s*['"]([^'"]+)['"]/)?.[1];
     if (imported) {
       if (!imported.startsWith('.')) fail(n, `bare import "${imported}" — the app has no dependencies`);
       else {
         const target = posix.normalize(posix.join(posix.dirname(file), imported));
         const targetLayer = layerOf(target);
-        if (!ALLOWED[layer]?.includes(targetLayer)) fail(n, `${layer} must not import from ${targetLayer} ("${imported}")`);
-        if (targetLayer === 'feature' && file !== 'editor/editor.js') fail(n, 'only editor/editor.js may import a feature');
+        if (!ALLOWED[layer]?.includes(targetLayer))
+          fail(n, `${layer} must not import from ${targetLayer} ("${imported}")`);
+        if (targetLayer === 'feature' && file !== 'editor/editor.js')
+          fail(n, 'only editor/editor.js may import a feature');
         if (targetLayer === 'main') fail(n, 'nothing may import main.js');
       }
     }
-    if (/^(let|var)\s/.test(text) && layer !== 'main') fail(n, 'module-level mutable state — keep state inside a create*/init* function');
+    if (/^(let|var)\s/.test(text) && layer !== 'main')
+      fail(n, 'module-level mutable state — keep state inside a create*/init* function');
     if (/\b(window|globalThis|self)\.[A-Za-z_$][\w$]*\s*=[^=]/.test(text)) fail(n, 'assignment to a global');
-    if (/\bdocument\.(getElementById|querySelector(All)?)\(/.test(text)) fail(n, 'document-wide lookup — use $(selector, root) with the root you were given');
+    if (/\bdocument\.(getElementById|querySelector(All)?)\(/.test(text))
+      fail(n, 'document-wide lookup — use $(selector, root) with the root you were given');
   });
 }
 

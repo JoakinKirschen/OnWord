@@ -1,6 +1,9 @@
 import { EMPTY_DOC, sanitize, textToHtml } from '../core/html.js';
 
-/** Creates a new document from a .txt/.md/.html file chosen through `input`. */
+/**
+ * Creates a new document from a .txt/.md/.html file chosen through `input`.
+ * @param {{ input: HTMLInputElement, store: import('../core/storage.js').DocumentStore, commands: import('../core/commands.js').Commands, navigate: (hash: string) => void }} deps
+ */
 export function initImporter({ input, store, commands, navigate }) {
   commands.register({ 'library.import': () => input.click() });
 

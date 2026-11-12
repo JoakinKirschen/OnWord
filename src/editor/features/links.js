@@ -1,4 +1,4 @@
-import { $ } from '../../core/dom.js';
+import { $, hit } from '../../core/dom.js';
 import { esc } from '../../core/html.js';
 
 /** Returns a safe absolute URL, or null when the scheme is not supported. */
@@ -11,11 +11,17 @@ function normalizeUrl(input) {
   return hasScheme ? null : 'https://' + url;
 }
 
-/** Link dialog (insert, edit, remove) and Ctrl/⌘+click to follow links. */
+/**
+ * Link dialog (insert, edit, remove) and Ctrl/⌘+click to follow links.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initLinks(ctx) {
   const { root, content, selection, commands, toast } = ctx;
-  const dialog = $('#linkDlg', root), textInput = $('#linkText', root), urlInput = $('#linkUrl', root), removeBtn = $('#linkRemove', root);
-  let range = null;  // selection when the dialog opened
+  const dialog = $('#linkDlg', root),
+    textInput = $('#linkText', root),
+    urlInput = $('#linkUrl', root),
+    removeBtn = $('#linkRemove', root);
+  let range = null; // selection when the dialog opened
   let target = null; // existing <a> being edited, if any
 
   commands.register({
@@ -59,7 +65,7 @@ export function initLinks(ctx) {
   });
 
   content.addEventListener('click', (e) => {
-    const a = e.target.closest('a[href]');
+    const a = hit(e, 'a[href]');
     if (a && (e.ctrlKey || e.metaKey)) window.open(a.href, '_blank', 'noopener');
   });
 }

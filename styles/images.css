@@ -1,0 +1,26 @@
+/* Image controls (src/editor/features/images.js). */
+.img-bar {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 3px;
+}
+.img-bar button {
+  border: 0;
+  background: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.img-bar button:hover {
+  background: var(--surface-2);
+}
+.img-bar .danger {
+  color: var(--danger);
+}

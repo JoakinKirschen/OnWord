@@ -1,0 +1,98 @@
+/* Document content. Keep in sync with EXPORT_CSS in src/editor/features/exporter.js. */
+.doc-content {
+  min-height: var(--page-h, 1056px);
+  padding: var(--page-margin, 96px);
+  outline: none;
+  font:
+    11pt/1.5 Arial,
+    Helvetica,
+    sans-serif;
+  overflow-wrap: break-word;
+  caret-color: #000;
+}
+.doc-content p {
+  margin: 0 0 8pt;
+}
+.doc-content h1 {
+  font-size: 24pt;
+  font-weight: 400;
+  margin: 18pt 0 8pt;
+  line-height: 1.2;
+}
+.doc-content h2 {
+  font-size: 18pt;
+  font-weight: 400;
+  margin: 16pt 0 6pt;
+  line-height: 1.25;
+}
+.doc-content h3 {
+  font-size: 14pt;
+  font-weight: 700;
+  margin: 14pt 0 4pt;
+  color: #333;
+}
+.doc-content h4 {
+  font-size: 12pt;
+  font-weight: 700;
+  margin: 12pt 0 4pt;
+  color: #555;
+}
+.doc-content > :first-child {
+  margin-top: 0;
+}
+.doc-content blockquote {
+  margin: 0 0 8pt;
+  padding: 2pt 0 2pt 14pt;
+  border-left: 3px solid #c5c8d4;
+  color: #444;
+}
+.doc-content pre {
+  background: #f3f4f7;
+  padding: 10pt 12pt;
+  border-radius: 4px;
+  font:
+    10pt/1.45 'Courier New',
+    monospace;
+  white-space: pre-wrap;
+  margin: 0 0 8pt;
+}
+.doc-content a {
+  color: #1a55c9;
+  cursor: text;
+}
+.doc-content img {
+  max-width: 100%;
+  height: auto;
+}
+.doc-content ul,
+.doc-content ol {
+  margin: 0 0 8pt;
+  padding-left: 28pt;
+}
+.doc-content hr {
+  border: 0;
+  border-top: 1px solid #b9bcc8;
+  margin: 14pt 0;
+}
+.doc-content hr.page-break {
+  border-top: 2px dashed #b9bcc8;
+  break-after: page;
+}
+.doc-content table {
+  border-collapse: collapse;
+  margin: 0 0 8pt;
+  table-layout: fixed;
+}
+.doc-content td,
+.doc-content th {
+  border: 1px solid #9a9eac;
+  padding: 4pt 6pt;
+  vertical-align: top;
+  min-width: 24px;
+}
+
+@media (max-width: 700px) {
+  .doc-content {
+    padding: 28px 22px;
+  }
+}

@@ -1,7 +1,8 @@
 import { $ } from '../core/dom.js';
 import { menuHtml } from '../ui/popover.js';
 
-const MORE_ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+const MORE_ICON =
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
 
 const formatDate = (ts) => {
   const d = new Date(ts);
@@ -10,9 +11,22 @@ const formatDate = (ts) => {
     : d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
-/** The document list (home screen). */
+/**
+ * The document list (home screen).
+ * @typedef {object} LibraryDeps
+ * @property {HTMLElement} root
+ * @property {import('../core/storage.js').DocumentStore} store
+ * @property {import('../core/commands.js').Commands} commands
+ * @property {import('../ui/popover.js').Popover} popover
+ * @property {import('../ui/toast.js').Toast} toast
+ * @property {(hash: string) => void} navigate
+ *
+ * @param {LibraryDeps} deps
+ */
 export function createLibrary({ root, store, commands, popover, toast, navigate }) {
-  const grid = $('#grid', root), empty = $('#empty', root), search = $('#search', root);
+  const grid = $('#grid', root),
+    empty = $('#empty', root),
+    search = $('#search', root);
 
   function card(d) {
     const a = document.createElement('a');
@@ -27,13 +41,16 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
     $('.card-more', a).addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      popover.toggle(e.currentTarget, menuHtml([
-        { label: 'Open', act: 'library.open', arg: d.id },
-        { label: 'Rename', act: 'library.rename', arg: d.id },
-        { label: 'Make a copy', act: 'library.copy', arg: d.id },
-        '-',
-        { label: 'Delete', act: 'library.delete', arg: d.id, danger: true },
-      ]));
+      popover.toggle(
+        e.currentTarget,
+        menuHtml([
+          { label: 'Open', act: 'library.open', arg: d.id },
+          { label: 'Rename', act: 'library.rename', arg: d.id },
+          { label: 'Make a copy', act: 'library.copy', arg: d.id },
+          '-',
+          { label: 'Delete', act: 'library.delete', arg: d.id, danger: true },
+        ]),
+      );
     });
     return a;
   }
@@ -52,7 +69,9 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
       const entry = store.create();
       if (entry) navigate('#/d/' + entry.id);
     },
-    'library.open'(id) { navigate('#/d/' + id); },
+    'library.open'(id) {
+      navigate('#/d/' + id);
+    },
     'library.rename'(id) {
       const entry = store.meta(id);
       const title = entry && prompt('Rename document', entry.title);
@@ -84,7 +103,11 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
       root.ownerDocument.title = 'OnWord';
       render();
     },
-    hide() { root.hidden = true; },
-    get visible() { return !root.hidden; },
+    hide() {
+      root.hidden = true;
+    },
+    get visible() {
+      return !root.hidden;
+    },
   };
 }

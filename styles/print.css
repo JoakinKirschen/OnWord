@@ -1,0 +1,43 @@
+/* Printing: only the page content. The @page size and margin are overridden by features/pageSetup.js. */
+@media print {
+  body {
+    background: #fff;
+  }
+  #home,
+  .doc-bar,
+  .toolbar,
+  .status,
+  .find-panel,
+  .img-bar,
+  .pop,
+  .toast,
+  .outline {
+    display: none !important;
+  }
+  .view,
+  .workspace,
+  .scroller {
+    display: block;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+    background: #fff !important;
+  }
+  .paper {
+    box-shadow: none;
+    width: auto;
+    min-height: 0;
+    zoom: 1 !important;
+  }
+  .doc-content {
+    padding: 0;
+    min-height: 0;
+  }
+  .doc-content hr.page-break {
+    border: 0;
+    margin: 0;
+  }
+  @page {
+    margin: 1in;
+  }
+}

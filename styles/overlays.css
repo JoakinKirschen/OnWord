@@ -1,0 +1,136 @@
+/* Shared floating UI: popover, toast, dialogs (src/ui). */
+.pop {
+  position: fixed;
+  z-index: 50;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  min-width: 190px;
+  max-height: 80vh;
+  overflow: auto;
+}
+.pop .item {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.pop .item:hover {
+  background: var(--surface-2);
+}
+.pop .item.danger {
+  color: var(--danger);
+}
+.pop .item kbd {
+  font: inherit;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pop .sep {
+  height: 1px;
+  background: var(--border);
+  margin: 5px 2px;
+}
+.pop.colors {
+  min-width: 0;
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 22px);
+  gap: 4px;
+}
+.swatches button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(128, 128, 128, 0.45);
+  cursor: pointer;
+  padding: 0;
+}
+.swatches button:hover {
+  transform: scale(1.18);
+}
+.pop.colors .item {
+  margin-top: 6px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 44px;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: 90vw;
+  background: #23252e;
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.dlg {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 20px;
+  width: min(400px, 92vw);
+  box-shadow: var(--shadow);
+}
+.dlg::backdrop {
+  background: rgba(10, 12, 24, 0.45);
+}
+.dlg h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+}
+.dlg label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.dlg input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text);
+}
+.dlg-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.dlg-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+.spacer {
+  flex: 1;
+}
+.dlg select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text);
+}

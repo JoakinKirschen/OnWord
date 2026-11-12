@@ -9,9 +9,12 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
   alignment, line spacing, lists, indentation, super/subscript
 - Links, images (paste, drop or upload, with resizing), tables (add/remove rows and columns, Tab between cells),
   horizontal lines and page breaks
-- Find and replace, word and character count, zoom, dark mode
+- Document outline, find and replace, word and character count, zoom, dark mode
+- Markdown shortcuts while typing (`# `, `## `, `- `, `1. `, `> `)
+- Page setup per document: paper size, orientation and margins
+- Version history with restore
 - Autosave to the browser (`localStorage`)
-- Import `.txt`, `.md` and `.html`; download as `.html`, `.doc` or `.txt`; print / save as PDF
+- Import `.txt`, `.md` and `.html`; download as `.html`, `.doc`, `.md` or `.txt`; print / save as PDF
 - Pasted and imported HTML is sanitised
 
 ## Run
@@ -30,9 +33,12 @@ Then visit <http://localhost:8000>. Because it is a static site, it can be hoste
 The app has no runtime dependencies. Architecture rules and the module layout are in [CLAUDE.md](CLAUDE.md).
 
 ```bash
-npm install      # development tools only (Playwright for the smoke test)
-npm run verify   # architecture check + end-to-end smoke test
+npm install                        # development tools only
+npx playwright install chromium    # browser for the end-to-end tests
+npm run verify                     # format, lint, types, architecture check, tests
 ```
+
+CI runs `npm run verify` on every pull request.
 
 ## Limitations
 

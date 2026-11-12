@@ -1,0 +1,135 @@
+/* Document list screen (src/library). */
+.home-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.search {
+  flex: 1;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  min-width: 0;
+}
+.search:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  outline: none;
+}
+.home-main {
+  flex: 1;
+  overflow: auto;
+  padding: 28px 20px 60px;
+}
+.home-head,
+.grid,
+.empty {
+  max-width: 1080px;
+  margin-inline: auto;
+}
+.home-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.home-head h1 {
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.home-actions {
+  display: flex;
+  gap: 8px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 18px;
+}
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+.thumb {
+  height: 190px;
+  background: var(--canvas);
+  padding: 14px 18px 0;
+  overflow: hidden;
+}
+.thumb-page {
+  height: 100%;
+  background: #fff;
+  color: #333;
+  border-radius: 3px 3px 0 0;
+  padding: 14px 12px;
+  font:
+    7px/1.5 Arial,
+    sans-serif;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.card-meta {
+  padding: 10px 40px 12px 14px;
+  border-top: 1px solid var(--border);
+}
+.card-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-date {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.card-more {
+  position: absolute;
+  right: 4px;
+  bottom: 9px;
+}
+.card-more svg {
+  fill: currentColor;
+  stroke: none;
+}
+.empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 60px 0;
+}
+
+@media (max-width: 700px) {
+  .home-bar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+}

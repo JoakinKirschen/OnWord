@@ -1,0 +1,188 @@
+/* Editor chrome: title bar, menu bar, toolbar, page canvas, status bar (src/editor). */
+.doc-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 4px;
+  background: var(--surface);
+}
+.doc-head {
+  min-width: 0;
+  flex: 1;
+}
+.doc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.doc-title {
+  font-size: 18px;
+  font-weight: 550;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  padding: 2px 6px;
+  width: min(100%, 420px);
+  min-width: 80px;
+}
+.doc-title:hover {
+  border-color: var(--border);
+}
+.doc-title:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.save-state {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.menubar {
+  display: flex;
+  gap: 2px;
+  margin-left: -2px;
+}
+.menubar button {
+  border: 0;
+  background: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.menubar button:hover,
+.menubar button.open {
+  background: var(--surface-2);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 12px;
+  flex: none;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+#editorView {
+  background: var(--canvas);
+}
+.tb-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 5px;
+  flex: none;
+}
+.tb {
+  border: 0;
+  background: none;
+  height: 30px;
+  min-width: 30px;
+  padding: 0 5px;
+  border-radius: 6px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 15px;
+}
+.tb:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+.tb.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tb svg {
+  width: 18px;
+  height: 18px;
+}
+.tb .glyph {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1;
+}
+.tb .swatch-bar {
+  display: block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  margin-top: 1px;
+}
+.tb.color {
+  grid-template-rows: auto auto;
+  align-content: center;
+}
+.toolbar select {
+  height: 30px;
+  border: 0;
+  background: none;
+  border-radius: 6px;
+  padding: 0 4px;
+  cursor: pointer;
+  flex: none;
+}
+.toolbar select:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+.toolbar select option {
+  background: var(--surface);
+  color: var(--text);
+}
+#selBlock {
+  width: 116px;
+}
+#selFont {
+  width: 118px;
+}
+#selSize {
+  width: 54px;
+}
+#selSpacing {
+  width: 86px;
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.scroller {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 22px 12px 60px;
+}
+/* Page geometry comes from custom properties set by features/pageSetup.js. */
+.paper {
+  width: var(--page-w, 816px);
+  max-width: 100%;
+  min-height: var(--page-h, 1056px);
+  margin: 0 auto;
+  background: #fff;
+  color: #000;
+  box-shadow: var(--shadow);
+  border-radius: 2px;
+  color-scheme: light;
+}
+.status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 700px) {
+  .scroller {
+    padding: 10px 0 40px;
+  }
+  .status-hint {
+    display: none;
+  }
+}

@@ -3,10 +3,17 @@ import { tidy } from './blocks.js';
 
 const UNTITLED = 'Untitled document';
 
-/** The open document: loading, autosave, title and word count. */
+/**
+ * The open document: loading, autosave, title and word count.
+ * @typedef {ReturnType<typeof createSession>} Session
+ * @param {{ root: HTMLElement, content: HTMLElement, store: import('../core/storage.js').DocumentStore, events: import('../core/events.js').Emitter }} deps
+ */
 export function createSession({ root, content, store, events }) {
   const doc = root.ownerDocument;
-  const titleEl = $('#title', root), saveStateEl = $('#saveState', root), countsEl = $('#counts', root);
+  const titleEl = $('#title', root),
+    saveStateEl = $('#saveState', root),
+    countsEl = $('#counts', root);
+  /** @type {string | null} */
   let id = null;
   let dirty = false;
   let timer = null;
@@ -79,5 +86,19 @@ export function createSession({ root, content, store, events }) {
     if (!titleEl.value.trim()) titleEl.value = UNTITLED;
   });
 
-  return { open, close, discard, saveNow, changed, title, get id() { return id; } };
+  /** Stored metadata of the open document. */
+  const meta = () => (id ? store.meta(id) : undefined);
+
+  return {
+    open,
+    close,
+    discard,
+    saveNow,
+    changed,
+    title,
+    meta,
+    get id() {
+      return id;
+    },
+  };
 }

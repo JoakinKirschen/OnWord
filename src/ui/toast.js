@@ -1,4 +1,9 @@
-/** Returns `toast(message, ms)` which shows a transient message in `el`. */
+/**
+ * Returns `toast(message, ms)` which shows a transient message in `el`.
+ * @typedef {(message: string, ms?: number) => void} Toast
+ * @param {HTMLElement} el
+ * @returns {Toast}
+ */
 export function createToast(el) {
   let timer;
   return (message, ms = 2600) => {

@@ -1,0 +1,152 @@
+/* Design tokens, resets and controls shared by every screen. */
+:root {
+  --bg: #f3f4f8;
+  --surface: #ffffff;
+  --surface-2: #eceef5;
+  --border: #d9dce6;
+  --text: #1c1e26;
+  --muted: #646a7c;
+  --accent: #4338ca;
+  --accent-soft: #e4e3fb;
+  --accent-text: #ffffff;
+  --danger: #c0352b;
+  --shadow: 0 1px 3px rgba(20, 22, 40, 0.12), 0 4px 14px rgba(20, 22, 40, 0.08);
+  --canvas: #e9ebf2;
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  --bg: #15161c;
+  --surface: #1f2129;
+  --surface-2: #2a2d38;
+  --border: #383c4a;
+  --text: #e8e9ef;
+  --muted: #9da3b5;
+  --accent: #8b83f5;
+  --accent-soft: #34326a;
+  --accent-text: #14131f;
+  --danger: #f0776c;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.35);
+  --canvas: #101116;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font:
+    14px/1.4 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+[hidden] {
+  display: none !important;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── shared controls ── */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 650;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+.logo {
+  width: 34px;
+  height: 34px;
+  color: var(--accent);
+  stroke: none;
+}
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.btn:hover {
+  background: var(--surface-2);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.btn.primary:hover {
+  filter: brightness(1.1);
+}
+.btn.sm {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.btn.danger-text {
+  color: var(--danger);
+  border-color: transparent;
+  background: none;
+}
+.icon-btn {
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--muted);
+}
+.icon-btn.sm {
+  width: 28px;
+  height: 28px;
+}
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 700px) {
+  .brand span {
+    display: none;
+  }
+}

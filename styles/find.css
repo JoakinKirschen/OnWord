@@ -1,0 +1,51 @@
+/* Find and replace (src/editor/features/find.js). */
+::highlight(ow-find) {
+  background: #ffe680;
+  color: #000;
+}
+::highlight(ow-find-cur) {
+  background: #ff9a3d;
+  color: #000;
+}
+
+.find-panel {
+  position: fixed;
+  top: 108px;
+  right: 24px;
+  z-index: 40;
+  width: 330px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 10px;
+}
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.find-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+}
+.find-count {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 50px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.find-opt {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

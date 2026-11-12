@@ -1,4 +1,7 @@
-/** File-menu commands that act on the open document as a whole. */
+/**
+ * File-menu commands that act on the open document as a whole.
+ * @param {import('../editor.js').EditorContext} ctx
+ */
 export function initFileCommands(ctx) {
   const { session, store, commands, navigate } = ctx;
 

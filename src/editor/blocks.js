@@ -13,13 +13,20 @@ export function tidy(content) {
     if (p?.tagName === 'P') p.replaceWith(...p.childNodes);
   }
   if (pos && content.contains(pos[0]) && content.contains(pos[2])) {
-    try { s.setBaseAndExtent(...pos); } catch { /* selection no longer valid */ }
+    try {
+      s.setBaseAndExtent(...pos);
+    } catch {
+      /* selection no longer valid */
+    }
   }
 }
 
 /**
  * Insert a block-level node at the caret. Done through the DOM because execCommand('insertHTML')
  * mangles tables that land inside a paragraph. `focus(node)` picks where the caret goes afterwards.
+ * @param {import('./editor.js').EditorContext} ctx
+ * @param {HTMLElement} node
+ * @param {(node: HTMLElement) => Element} [focus]
  */
 export function insertBlock(ctx, node, focus = (n) => n) {
   const { content, selection } = ctx;
@@ -28,7 +35,9 @@ export function insertBlock(ctx, node, focus = (n) => n) {
   if (!s) return;
   const r = s.getRangeAt(0);
   r.deleteContents();
-  let block = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+  let block = /** @type {HTMLElement} */ (
+    r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement
+  );
   if (isContainer(block, content)) r.insertNode(node);
   else {
     while (!isContainer(block.parentElement, content)) block = block.parentElement;
