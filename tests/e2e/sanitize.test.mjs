@@ -19,6 +19,16 @@ const CASES = [
     '<ul class="checklist x"><li class="checked y">a</li></ul>',
     '<ul class="checklist"><li class="checked">a</li></ul>',
   ],
+  [
+    'footnote ids survive, other ids do not',
+    '<sup class="fn-ref" id="fnref-ab1">1</sup><p id="main">a</p>',
+    '<sup class="fn-ref" id="fnref-ab1">1</sup><p>a</p>',
+  ],
+  [
+    'author and date survive, other data attributes do not',
+    '<ins data-author="A" data-date="2026-01-01" data-x="1">a</ins>',
+    '<ins data-author="A" data-date="2026-01-01">a</ins>',
+  ],
   ['style with url() is removed', '<p style="background:url(http://x/y)">a</p>', '<p>a</p>'],
   ['harmless style is kept', '<p style="color: red;">a</p>', '<p style="color: red;">a</p>'],
   ['embedded content is removed', '<iframe src="https://x"></iframe><object></object><form><input></form>b', 'b'],

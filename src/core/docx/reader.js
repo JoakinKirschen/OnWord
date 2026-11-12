@@ -3,12 +3,16 @@
 import { sanitize } from '../html.js';
 import { readZip } from '../zip.js';
 import { STYLE } from './parts.js';
+import { readComments, readFootnotes } from './notes.js';
 import { paragraphStyleAttr } from './paragraph.js';
-import { inlineHtml } from './runs.js';
+import { inlineHtml, noteId } from './runs.js';
 import { readSection } from './section.js';
+import { tableHtml } from './tables.js';
 import { all, attr, isOn, kid, kids, parseXml, val } from './xml.js';
 
 const MAX_HEADING = 5;
+const TOC = 'toc'; // a styles-map value for the entries of a table of contents
+const TOC_HTML = '<div class="toc"></div>'; // the editor fills it in from the headings
 const SUBTITLE = 'p.subtitle'; // a styles-map value: tag plus class
 const LIST_TAGS = ['ul', 'ol'];
 const CHECKBOX = /^([☐☑])\s?/;
@@ -21,6 +25,7 @@ const CHECKBOX = /^([☐☑])\s?/;
 /** The tag a paragraph style stands for, judged by its (language-independent) id and its name. */
 function tagForStyle(/** @type {string} */ id, /** @type {string} */ name) {
   const key = `${id} ${name}`.toLowerCase();
+  if (/\btoc\s*\d/.test(key)) return TOC;
   const heading = key.match(/heading\s*(\d)/);
   if (heading) return 'h' + Math.min(Number(heading[1]) + 1, MAX_HEADING); // the app's "Heading 1" is <h2>
   if (/subtitle/.test(key)) return SUBTITLE;
@@ -106,6 +111,10 @@ function createOutput() {
       }
       out.push('<li>' + html);
     },
+    /** A run of table-of-contents entries becomes one (empty) table of contents. */
+    toc() {
+      if (out[out.length - 1] !== TOC_HTML) this.block(TOC_HTML);
+    },
     html() {
       closeLists();
       closeChecklist();
@@ -114,22 +123,30 @@ function createOutput() {
   };
 }
 
+/** The list a paragraph belongs to, from its own numbering or from a list style; null for ordinary text. */
+function listPlacement(/** @type {Element | undefined} */ pPr, /** @type {string} */ tag, /** @type {Context} */ ctx) {
+  const numPr = kid(pPr, 'numPr');
+  const numId = val(numPr, 'numId');
+  if (numId && numId !== '0') {
+    const level = Number(val(numPr, 'ilvl')) || 0;
+    return { tag: ctx.ordered(numId, level) ? 'ol' : 'ul', level };
+  }
+  return LIST_TAGS.includes(tag) ? { tag, level: 0 } : null;
+}
+
 function paragraph(
   /** @type {Element} */ p,
   /** @type {Context} */ ctx,
   /** @type {ReturnType<typeof createOutput>} */ out,
 ) {
   const pPr = kid(p, 'pPr');
+  const tag = ctx.styles.get(val(pPr, 'pStyle')) || 'p';
+  if (tag === TOC) return out.toc();
   const flags = { pageBreak: isOn(pPr, 'pageBreakBefore') };
   const inner = inlineHtml(p, ctx, flags);
-  const tag = ctx.styles.get(val(pPr, 'pStyle')) || 'p';
-  const numPr = kid(pPr, 'numPr');
-  const numId = val(numPr, 'numId');
-  if (numId && numId !== '0') {
-    const level = Number(val(numPr, 'ilvl')) || 0;
-    out.listItem(ctx.ordered(numId, level) ? 'ol' : 'ul', level, inner);
-  } else if (LIST_TAGS.includes(tag)) {
-    out.listItem(tag, 0, inner);
+  const list = listPlacement(pPr, tag, ctx);
+  if (list) {
+    out.listItem(list.tag, list.level, inner);
   } else if (CHECKBOX.test(inner)) {
     out.checkItem(inner.startsWith('☑'), inner.replace(CHECKBOX, ''));
   } else if (!inner && kid(kid(pPr, 'pBdr'), 'bottom')) {
@@ -142,26 +159,12 @@ function paragraph(
   if (flags.pageBreak) out.block('<hr class="page-break">');
 }
 
-function table(/** @type {Element} */ tbl, /** @type {Context} */ ctx) {
-  const rows = kids(tbl, 'tr').map((tr) => {
-    const cells = kids(tr, 'tc').map((tc) => {
-      const span = Number(val(kid(tc, 'tcPr'), 'gridSpan'));
-      const html = blocks(tc, ctx).replace(/^<p>([^]*)<\/p>$/, (whole, inner) =>
-        inner.includes('<p') ? whole : inner,
-      );
-      return `<td${span > 1 ? ` colspan="${span}"` : ''}>${html || '<br>'}</td>`;
-    });
-    return `<tr>${cells.join('')}</tr>`;
-  });
-  return `<table style="width: 100%;"><tbody>${rows.join('')}</tbody></table>`;
-}
-
 /** HTML for the block-level children of a body, table cell or content control. */
 function blocks(/** @type {Element} */ container, /** @type {Context} */ ctx) {
   const out = createOutput();
   for (const child of container.children) {
     if (child.localName === 'p') paragraph(child, ctx, out);
-    else if (child.localName === 'tbl') out.block(table(child, ctx));
+    else if (child.localName === 'tbl') out.block(tableHtml(child, (cell) => blocks(cell, ctx)));
     else if (child.localName === 'sdt')
       out.block(
         kids(child, 'sdtContent')
@@ -181,12 +184,23 @@ export async function readDocx(source) {
   const body = kid(parseXml(files.get('word/document.xml'))?.documentElement, 'body');
   if (!body) throw new Error('Not a Word document');
   const relationships = readRelationships(parseXml(files.get('word/_rels/document.xml.rels')));
+  const part = (/** @type {string} */ name) => parseXml(files.get(`word/${name}.xml`));
   /** @type {Context} */
   const ctx = {
     files,
     ...relationships,
-    styles: readStyles(parseXml(files.get('word/styles.xml'))),
-    ordered: readNumbering(parseXml(files.get('word/numbering.xml'))),
+    comments: readComments(part('comments')),
+    usedNotes: [],
+    styles: readStyles(part('styles')),
+    ordered: readNumbering(part('numbering')),
   };
-  return { html: sanitize(blocks(body, ctx)), page: readSection(body, { files, parts: relationships.parts }) };
+  const html = blocks(body, ctx);
+  // Footnotes are converted last: only now is it known which ones the text refers to, and in what order.
+  const notes = readFootnotes(part('footnotes'));
+  const items = ctx.usedNotes.map((id) => {
+    const text = (notes.get(id) ?? []).map((p) => inlineHtml(p, ctx, {})).join('<br>');
+    return `<li id="fn-${noteId(id)}">${text.trim() || '<br>'}</li>`;
+  });
+  const footnotes = items.length ? `<ol class="footnotes">${items.join('')}</ol>` : '';
+  return { html: sanitize(html + footnotes), page: readSection(body, { files, parts: relationships.parts }) };
 }

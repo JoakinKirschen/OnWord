@@ -6,7 +6,8 @@ import { html, menu, text, useApp } from './harness.mjs';
 const { openApp, openEditor } = useApp();
 const FIXTURES = new URL('../fixtures/', import.meta.url);
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-const strip = (value) => value.replace(/base64,[^"]+/g, 'base64,…');
+/** Shortens embedded images and drops the attribute the editor puts on generated footnote numbers. */
+const strip = (value) => value.replace(/base64,[^"]+/g, 'base64,…').replaceAll(' contenteditable="false"', '');
 
 /** Imports a .docx through the file picker and waits for the editor to open. */
 async function importDocx(page, name, buffer) {
@@ -60,8 +61,12 @@ test('a document survives export to .docx and re-import', async () => {
     '<ul class="checklist"><li class="checked">done</li><li>todo</li></ul>' +
     '<blockquote>A quote</blockquote><pre>line 1<br>  line 2</pre>' +
     '<table style="width: 100%;"><tbody><tr><td>a</td><td><b>b</b></td></tr></tbody></table>' +
+    '<table style="width: 100%;"><tbody><tr><td colspan="2">wide</td><td rowspan="2">tall</td></tr><tr><td>x</td><td>y</td></tr></tbody></table>' +
+    '<p>Noted<sup class="fn-ref" id="fnref-n1">1</sup> and <span class="comment" title="Check this" data-author="Ada" data-date="2026-03-04T05:06:07Z">commented</span>, ' +
+    '<ins data-author="Bo" data-date="2026-03-04T05:06:07Z">added</ins><del data-author="Bo" data-date="2026-03-04T05:06:07Z">removed</del>.</p>' +
     '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="dot" style="width: 40px; height: auto;"></p>' +
-    '<hr><p>before</p><hr class="page-break"><p>after &amp; &lt;end&gt;</p>';
+    '<hr><p>before</p><hr class="page-break"><p>after &amp; &lt;end&gt;</p>' +
+    '<ol class="footnotes"><li id="fn-n1">The <b>note</b> text</li></ol>';
   await page.evaluate((value) => {
     const editor = document.querySelector('#editor');
     editor.innerHTML = value;

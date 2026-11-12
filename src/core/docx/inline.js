@@ -1,6 +1,7 @@
 /** Converts inline document content (text, formatting, links, images) to WordprocessingML runs. */
 
 import { esc } from '../html.js';
+import { authorship, footnoteReferenceXml } from './notes.js';
 
 const EMU_PER_PX = 9525;
 const PX_TO_PT = 0.75;
@@ -11,9 +12,11 @@ const BLOCK_TAGS = /^(UL|OL|TABLE)$/;
 
 /**
  * @typedef {{ bold?: boolean, italic?: boolean, underline?: boolean, strike?: boolean, color?: string,
- *   highlight?: string, size?: number, font?: string, vertical?: 'superscript' | 'subscript', preserve?: boolean }} Format
+ *   highlight?: string, size?: number, font?: string, vertical?: 'superscript' | 'subscript', preserve?: boolean, deleted?: boolean }} Format
  * @typedef {{ addLink: (url: string) => string, addImage: (bytes: Uint8Array, extension: string) => string,
- *   maxImageWidth: number }} Package
+ *   maxImageWidth: number, footnote: (referenceId: string) => number | undefined,
+ *   addComment: (text: string, authorship: string) => number, nextId: () => number }} Package
+ *   `footnote` gives the number of the note a reference points to; `nextId` numbers tracked changes
  */
 
 /** Any CSS colour the editor produces (rgb(), #rgb, #rrggbb) → RRGGBB, or undefined. */
@@ -47,7 +50,7 @@ const TAG_FORMAT = {
   U: { underline: true },
   S: { strike: true },
   STRIKE: { strike: true },
-  DEL: { strike: true },
+  DEL: { deleted: true },
   SUP: { vertical: 'superscript' },
   SUB: { vertical: 'subscript' },
   A: { color: LINK_COLOR, underline: true },
@@ -98,9 +101,10 @@ const run = (/** @type {string} */ content, /** @type {Format} */ format) =>
 export function textRun(/** @type {string} */ text, /** @type {Format} */ format = {}) {
   const value = format.preserve ? text : text.replace(/[ \t\r\n]+/g, ' ');
   if (!value) return '';
+  const tag = format.deleted ? 'w:delText' : 'w:t'; // text of a tracked deletion
   const content = value
     .split('\n')
-    .map((line) => (line ? `<w:t xml:space="preserve">${esc(line)}</w:t>` : ''))
+    .map((line) => (line ? `<${tag} xml:space="preserve">${esc(line)}</${tag}>` : ''))
     .join('<w:br/>');
   return run(content, format);
 }
@@ -120,6 +124,20 @@ function imageRun(/** @type {HTMLImageElement} */ img, /** @type {Package} */ pk
   return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Picture ${n}" descr="${esc(img.alt)}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${n}" name="Picture ${n}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${id}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 }
 
+/** Wraps the runs of a link, tracked change or comment in the element that marks it. */
+function wrapRuns(/** @type {HTMLElement} */ el, /** @type {string} */ runs, /** @type {Package} */ pkg) {
+  if (!runs) return '';
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'a' && el.getAttribute('href'))
+    return `<w:hyperlink r:id="${pkg.addLink(el.getAttribute('href'))}">${runs}</w:hyperlink>`;
+  if (tag === 'ins' || tag === 'del') return `<w:${tag} w:id="${pkg.nextId()}" ${authorship(el)}>${runs}</w:${tag}>`;
+  if (el.matches('span.comment')) {
+    const id = pkg.addComment(el.title, authorship(el));
+    return `<w:commentRangeStart w:id="${id}"/>${runs}<w:commentRangeEnd w:id="${id}"/><w:r><w:commentReference w:id="${id}"/></w:r>`;
+  }
+  return runs;
+}
+
 /**
  * Runs for a node and its descendants. Nested lists and tables are skipped; the block writer handles them.
  * @param {Node} node
@@ -134,8 +152,10 @@ export function inlineRuns(node, format, pkg) {
   if (el.tagName === 'BR') return el.nextSibling ? run('<w:br/>', format) : ''; // a trailing <br> is only a placeholder
   if (el.tagName === 'IMG') return imageRun(/** @type {HTMLImageElement} */ (el), pkg);
   if (BLOCK_TAGS.test(el.tagName)) return '';
+  if (el.matches('sup.fn-ref')) {
+    const number = pkg.footnote(el.id);
+    return number ? footnoteReferenceXml(number) : '';
+  }
   const own = formatOf(el, format);
-  const runs = [...el.childNodes].map((child) => inlineRuns(child, own, pkg)).join('');
-  const href = el.tagName === 'A' && el.getAttribute('href');
-  return href && runs ? `<w:hyperlink r:id="${pkg.addLink(href)}">${runs}</w:hyperlink>` : runs;
+  return wrapRuns(el, [...el.childNodes].map((child) => inlineRuns(child, own, pkg)).join(''), pkg);
 }

@@ -25,15 +25,26 @@ export function countDocument(content) {
 }
 
 /**
- * Estimated number of printed pages: the content height divided by the printable height of a page.
- * Explicit page breaks and columns are not accounted for.
+ * Geometry of the paged view, read from the custom properties that page setup and pagination publish.
  * @param {HTMLElement} content
+ * @returns {{ margin: number, body: number, pitch: number, pages: number }} `body`: text height of a page;
+ *   `pitch`: distance from the top of one page to the top of the next
  */
-export function countPages(content) {
+export function pageLayout(content) {
   const style = getComputedStyle(content);
-  const bodyHeight = parseFloat(style.getPropertyValue('--page-body-h')) || 0;
-  const used = content.scrollHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-  return bodyHeight ? Math.max(1, Math.ceil((used - 1) / bodyHeight)) : 1;
+  const number = (/** @type {string} */ name) => parseFloat(style.getPropertyValue(name)) || 0;
+  const margin = parseFloat(style.paddingTop) || 0;
+  const body = number('--page-body-h');
+  return { margin, body, pitch: body + 2 * margin + number('--page-gap'), pages: Math.max(1, number('--page-count')) };
+}
+
+/** Number of pages in the paged view. @param {HTMLElement} content */
+export const countPages = (content) => pageLayout(content).pages;
+
+/** The page a top-level block starts on (1-based). @param {HTMLElement} block @param {HTMLElement} content */
+export function pageOf(block, content) {
+  const { margin, pitch } = pageLayout(content);
+  return pitch ? Math.floor((block.offsetTop - margin + 1) / pitch) + 1 : 1;
 }
 
 /** "1 page", "2 words" */

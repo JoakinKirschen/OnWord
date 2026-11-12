@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="styles/find.css">
 <link rel="stylesheet" href="styles/images.css">
 <link rel="stylesheet" href="styles/history.css">
+<link rel="stylesheet" href="styles/review.css">
 <link rel="stylesheet" href="styles/print.css">
 </head>
 <body>
@@ -78,17 +79,22 @@
           <button class="ruler-marker right" data-marker="right" title="Right indent" tabindex="-1"></button>
         </div>
         <div id="paper" class="paper">
-          <div id="pageHeader" class="page-band page-header" title="Double-click to edit the header"></div>
           <div id="editor" class="doc-content" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Document body"></div>
-          <div id="pageFooter" class="page-band page-footer" title="Double-click to edit the footer"></div>
+          <div id="pageBands"></div>
+          <div id="pageGaps" aria-hidden="true"></div>
         </div>
       </div>
     </div>
+    <aside id="commentsPanel" class="comments" aria-label="Comments" hidden>
+      <h2>Comments</h2>
+      <div id="commentList"></div>
+    </aside>
   </div>
 
   <footer class="status">
     <button id="counts" class="status-btn" data-act="view.wordCount" title="Word count"></button>
     <span class="status-hint">Saved in this browser</span>
+    <button id="trackState" class="status-btn" data-act="review.track" title="Turn change tracking on or off"></button>
     <span class="spacer"></span>
     <label class="zoom"><input id="zoom" type="range" min="50" max="200" step="10" value="100" aria-label="Zoom"><span id="zoomLabel">100%</span></label>
   </footer>
@@ -226,6 +232,19 @@
       <div class="dlg-actions">
         <span class="spacer"></span>
         <button class="btn primary" value="close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="commentDlg" class="dlg">
+    <form method="dialog">
+      <h2>Add comment</h2>
+      <label>Your name<input id="commentAuthor" type="text" maxlength="60"></label>
+      <label>Comment<textarea id="commentText" maxlength="2000" required></textarea></label>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Add</button>
       </div>
     </form>
   </dialog>

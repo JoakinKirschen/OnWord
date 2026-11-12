@@ -16,7 +16,8 @@
   .toast,
   .outline,
   .ruler,
-  .page-band {
+  .page-band,
+  .page-gap {
     display: none !important;
   }
   .view,
@@ -39,7 +40,6 @@
   .doc-content {
     padding: 0;
     min-height: 0;
-    background-image: none;
   }
   .doc-content.show-marks ::after {
     content: none !important;

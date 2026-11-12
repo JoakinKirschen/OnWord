@@ -107,3 +107,36 @@ test('special characters picker', async () => {
   assert.equal(await page.innerText('#editor'), 'Price: 5€');
   assert.deepEqual(page.errors, []);
 });
+
+test('tables: merge cells to the right and below, then split', async () => {
+  const page = await openEditor();
+  const shape = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('#editor tr')].map((tr) =>
+        [...tr.cells].map((c) => `${c.colSpan}x${c.rowSpan}`).join(' '),
+      ),
+    );
+  await page.click('[data-act="table.dialog"]');
+  await page.click('#tableDlg .primary');
+  await page.waitForSelector('#editor td');
+  await page.keyboard.type('a');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('b');
+
+  await page.click('#editor td >> nth=0');
+  await menu(page, 'Table', 'table.merge', 'right');
+  assert.deepEqual(await shape(), ['2x1 1x1', '1x1 1x1 1x1', '1x1 1x1 1x1']);
+  assert.equal(await page.locator('#editor td >> nth=0').innerHTML(), 'a<br>b', 'both contents are kept');
+
+  await menu(page, 'Table', 'table.merge', 'down');
+  assert.match(await page.textContent('#toast'), /different widths/);
+  await page.click('#editor tr:nth-child(2) td:nth-child(3)');
+  await menu(page, 'Table', 'table.merge', 'down');
+  assert.deepEqual(await shape(), ['2x1 1x1', '1x1 1x1 1x2', '1x1 1x1']);
+
+  await menu(page, 'Table', 'table.merge', 'split');
+  await page.click('#editor td >> nth=0');
+  await menu(page, 'Table', 'table.merge', 'split');
+  assert.deepEqual(await shape(), ['1x1 1x1 1x1', '1x1 1x1 1x1', '1x1 1x1 1x1']);
+  assert.deepEqual(page.errors, []);
+});

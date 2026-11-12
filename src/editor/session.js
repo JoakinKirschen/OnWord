@@ -89,7 +89,7 @@ export function createSession({ root, content, store, events }) {
     if (!titleEl.value.trim()) titleEl.value = UNTITLED;
   });
 
-  events.on('layout', updateCounts);
+  events.on('pages', updateCounts);
 
   /** Stored metadata of the open document. */
   const meta = () => (id ? store.meta(id) : undefined);

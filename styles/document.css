@@ -1,6 +1,6 @@
 /* Document content. Keep in sync with EXPORT_CSS in src/editor/features/exporter.js. */
 .doc-content {
-  min-height: var(--page-h, 1056px);
+  min-height: var(--paged-h, var(--page-h, 1056px));
   padding: var(--page-margin, 96px);
   outline: none;
   font:
@@ -151,4 +151,66 @@
 }
 .doc-content.painting {
   cursor: copy;
+}
+
+/* Table of contents (features/toc.js): generated, so not editable. */
+.doc-content .toc {
+  margin: 0 0 12pt;
+  user-select: none;
+}
+.doc-content .toc p {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 3pt;
+  cursor: pointer;
+}
+.doc-content .toc p:hover {
+  color: #1a55c9;
+}
+.doc-content .toc .toc-page {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  min-width: 2em;
+}
+.doc-content .toc .toc-page::before {
+  content: '';
+  flex: 1;
+  margin: 0 6px 3px 0;
+  border-bottom: 1px dotted #9a9eac;
+  align-self: flex-end;
+}
+.doc-content .toc-2 {
+  padding-left: 14pt;
+}
+.doc-content .toc-3 {
+  padding-left: 28pt;
+}
+.doc-content .toc-4 {
+  padding-left: 42pt;
+}
+.doc-content .toc-5 {
+  padding-left: 56pt;
+}
+.doc-content .toc-empty {
+  color: #8a8fa0;
+  font-style: italic;
+}
+
+/* Footnotes (features/footnotes.js) */
+.doc-content sup.fn-ref {
+  color: #1a55c9;
+  padding: 0 1px;
+}
+.doc-content ol.footnotes {
+  margin-top: 18pt;
+  padding-top: 6pt;
+  border-top: 1px solid #b9bcc8;
+  font-size: 9pt;
+  color: #333;
+}
+.doc-content td[colspan],
+.doc-content td[rowspan] {
+  vertical-align: middle;
 }

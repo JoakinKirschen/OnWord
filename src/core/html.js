@@ -18,7 +18,27 @@ const URL_ATTRS = ['href', 'src', 'xlink:href', 'action', 'formaction', 'backgro
 const SAFE_URL = /^(https?:|mailto:|tel:|#|data:image\/(png|jpe?g|gif|webp);)/i;
 
 /** Classes with a meaning in documents; every other class is dropped. */
-const ALLOWED_CLASSES = ['page-break', 'checklist', 'checked', 'subtitle'];
+const ALLOWED_CLASSES = [
+  'page-break',
+  'checklist',
+  'checked',
+  'subtitle',
+  'comment',
+  'fn-ref',
+  'footnotes',
+  'toc',
+  'toc-1',
+  'toc-2',
+  'toc-3',
+  'toc-4',
+  'toc-5',
+  'toc-page',
+  'toc-empty',
+];
+/** Ids that tie a footnote reference to its note; every other id is dropped. */
+const ALLOWED_ID = /^fn(ref)?-[a-z0-9]+$/;
+/** Who made a comment or tracked change, and when. */
+const ALLOWED_DATA = ['data-author', 'data-date'];
 
 /** Reduces `class` to the allowed names. Returns false when none remain. */
 function keepAllowedClasses(/** @type {Element} */ el) {
@@ -27,7 +47,23 @@ function keepAllowedClasses(/** @type {Element} */ el) {
   return kept.length > 0;
 }
 
-/** Strip anything executable or app-specific from foreign HTML (paste, import). */
+const UNSAFE_STYLE = /url\s*\(|expression|position\s*:/i;
+const ALWAYS_REMOVED = ['srcset', 'contenteditable'];
+
+/** Whether an attribute must go. May rewrite `class` in place to its allowed names. */
+function isUnwanted(/** @type {Element} */ el, /** @type {string} */ name, /** @type {string} */ value) {
+  if (name.startsWith('on') || ALWAYS_REMOVED.includes(name)) return true;
+  if (name === 'id') return !ALLOWED_ID.test(value);
+  if (name === 'class') return !keepAllowedClasses(el);
+  if (name === 'style') return UNSAFE_STYLE.test(value);
+  if (name.startsWith('data-')) return !ALLOWED_DATA.includes(name);
+  return URL_ATTRS.includes(name) && !SAFE_URL.test(value.trim());
+}
+
+/**
+ * Strip anything executable or app-specific from foreign HTML (paste, import).
+ * @param {string} html
+ */
 export function sanitize(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   $$(REMOVED_TAGS, doc).forEach((el) => el.remove());
@@ -37,17 +73,7 @@ export function sanitize(html) {
   comments.forEach((c) => c.remove());
   for (const el of $$('*', doc.body)) {
     for (const { name, value } of [...el.attributes]) {
-      const n = name.toLowerCase();
-      const unsafe =
-        n.startsWith('on') ||
-        n === 'id' ||
-        n.startsWith('data-') ||
-        n === 'srcset' ||
-        n === 'contenteditable' ||
-        (n === 'class' && !keepAllowedClasses(el)) ||
-        (URL_ATTRS.includes(n) && !SAFE_URL.test(value.trim())) ||
-        (n === 'style' && /url\s*\(|expression|position\s*:/i.test(value));
-      if (unsafe) el.removeAttribute(name);
+      if (isUnwanted(el, name.toLowerCase(), value)) el.removeAttribute(name);
     }
   }
   return doc.body.innerHTML;

@@ -3,6 +3,7 @@
 import { PX_PER_INCH, normalizePage, pageGeometry } from '../page.js';
 import { writeZip } from '../zip.js';
 import { inlineRuns, textRun } from './inline.js';
+import { commentsXml, footnotesXml, tocXml } from './notes.js';
 import { paragraphXml } from './paragraph.js';
 import {
   BULLET_NUM_ID,
@@ -10,18 +11,18 @@ import {
   DOCUMENT_NAMESPACES,
   documentRels,
   numbering,
+  partFile,
   ROOT_RELS,
   STYLE,
   STYLES,
   XML_HEADER,
 } from './parts.js';
 import { runningXml, sectionXml } from './section.js';
+import { tableXml } from './tables.js';
 
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const TWIPS_PER_PX = 1440 / PX_PER_INCH;
 const BLOCKS = /^(P|DIV|H[1-6]|BLOCKQUOTE|PRE|UL|OL|TABLE|HR)$/;
-const BORDER =
-  '<w:top w:val="single" w:sz="4" w:color="9A9EAC"/><w:left w:val="single" w:sz="4" w:color="9A9EAC"/><w:bottom w:val="single" w:sz="4" w:color="9A9EAC"/><w:right w:val="single" w:sz="4" w:color="9A9EAC"/><w:insideH w:val="single" w:sz="4" w:color="9A9EAC"/><w:insideV w:val="single" w:sz="4" w:color="9A9EAC"/>';
 const RULE =
   '<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="B9BCC8"/></w:pBdr></w:pPr></w:p>';
 const PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
@@ -71,26 +72,16 @@ function list(
   return out.join('');
 }
 
-function table(/** @type {HTMLTableElement} */ el, /** @type {State} */ state) {
-  const columns = Math.max(1, ...[...el.rows].map((row) => row.cells.length));
-  const width = Math.floor((state.contentWidth * TWIPS_PER_PX) / columns);
-  const rows = [...el.rows].map((row) => {
-    const cells = [...row.cells].map((cell) => {
-      const body = blocks(cell, state) || '<w:p/>';
-      const end = body.endsWith('</w:tbl>') ? '<w:p/>' : ''; // a cell must end with a paragraph
-      return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/></w:tcPr>${body}${end}</w:tc>`;
-    });
-    return `<w:tr>${cells.join('')}</w:tr>`;
-  });
-  const grid = `<w:gridCol w:w="${width}"/>`.repeat(columns);
-  return `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>${BORDER}</w:tblBorders></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows.join('')}</w:tbl>`;
-}
-
 function block(/** @type {HTMLElement} */ el, /** @type {State} */ state, /** @type {ParagraphOptions} */ options) {
   const { tagName } = el;
+  if (el.matches('ol.footnotes')) return ''; // written to their own part
+  if (el.matches('div.toc')) return tocXml(el, Math.round(state.contentWidth * TWIPS_PER_PX));
   if (tagName === 'UL') return list(el, 0, BULLET_NUM_ID, state);
   if (tagName === 'OL') return list(el, 0, state.nextNumId(), state);
-  if (tagName === 'TABLE') return table(/** @type {HTMLTableElement} */ (el), state);
+  if (tagName === 'TABLE')
+    return tableXml(/** @type {HTMLTableElement} */ (el), state.contentWidth * TWIPS_PER_PX, (cell) =>
+      blocks(cell, state),
+    );
   if (tagName === 'HR') return el.classList.contains('page-break') ? PAGE_BREAK : RULE;
   if (tagName === 'BLOCKQUOTE') return blocks(el, state, { style: STYLE.quote });
   if (tagName === 'PRE')
@@ -145,6 +136,12 @@ export async function writeDocx(content, { page } = {}) {
     rels.push({ id, type, target });
     return id;
   };
+  // Footnotes live in a list at the end of the document; a reference finds its note by id.
+  const notes = [...content.querySelectorAll('ol.footnotes > li')];
+  const noteNumbers = new Map(notes.map((note, i) => [note.id.replace('fn-', 'fnref-'), i + 1]));
+  /** @type {{ text: string, authorship: string }[]} */
+  const comments = [];
+  let changes = 0;
   /** @type {State} */
   const state = {
     contentWidth,
@@ -157,21 +154,31 @@ export async function writeDocx(content, { page } = {}) {
         extraParts.push({ name: 'word/' + name, data: bytes });
         return relate('image', name);
       },
+      footnote: (referenceId) => noteNumbers.get(referenceId),
+      addComment: (text, authorship) => comments.push({ text, authorship }) - 1,
+      nextId: () => ++changes,
     },
   };
   const body = blocks(content, state) || '<w:p/>';
 
+  /** @type {import('./parts.js').OptionalPart[]} */
+  const optional = [];
+  const addPart = (/** @type {import('./parts.js').OptionalPart} */ kind, /** @type {string} */ xml) => {
+    optional.push(kind);
+    extraParts.push({ name: 'word/' + partFile(kind), data: xml });
+    return relate(kind, partFile(kind));
+  };
   /** @type {{ header?: string, footer?: string }} */
   const refs = {};
-  const running = /** @type {const} */ (['header', 'footer']).filter((kind) => setup[kind].text);
-  for (const kind of running) {
-    extraParts.push({ name: `word/${kind}1.xml`, data: runningXml(kind, setup[kind]) });
-    refs[kind] = relate(kind, `${kind}1.xml`);
+  for (const kind of /** @type {const} */ (['header', 'footer'])) {
+    if (setup[kind].text) refs[kind] = addPart(kind, runningXml(kind, setup[kind]));
   }
+  if (notes.length) addPart('footnotes', footnotesXml(notes.map((note) => inlineRuns(note, {}, state.pkg))));
+  if (comments.length) addPart('comments', commentsXml(comments));
 
   const document = `${XML_HEADER}<w:document ${DOCUMENT_NAMESPACES}><w:body>${body}${sectionXml(setup, refs)}</w:body></w:document>`;
   return writeZip([
-    { name: '[Content_Types].xml', data: contentTypes(running) },
+    { name: '[Content_Types].xml', data: contentTypes(optional) },
     { name: '_rels/.rels', data: ROOT_RELS },
     { name: 'word/document.xml', data: document },
     { name: 'word/_rels/document.xml.rels', data: documentRels(rels) },

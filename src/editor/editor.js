@@ -6,11 +6,17 @@ import { createSession } from './session.js';
 import { initAutoformat } from './features/autoformat.js';
 import { initChecklist } from './features/checklist.js';
 import { initClipboard } from './features/clipboard.js';
+import { initComments } from './features/comments.js';
+import { initFootnotes } from './features/footnotes.js';
+import { initTableMerge } from './features/tableMerge.js';
+import { initToc } from './features/toc.js';
+import { initTrackChanges } from './features/trackChanges.js';
 import { initExporter } from './features/exporter.js';
 import { initFileCommands } from './features/fileCommands.js';
 import { initFind } from './features/find.js';
 import { initFormatPainter } from './features/formatPainter.js';
 import { initHeaderFooter } from './features/headerFooter.js';
+import { initPagination } from './features/pagination.js';
 import { initParagraph } from './features/paragraph.js';
 import { initRuler } from './features/ruler.js';
 import { initSymbols } from './features/symbols.js';
@@ -34,11 +40,15 @@ const FEATURES = [
   initToolbar,
   initMenus,
   initTables,
+  initTableMerge,
   initLinks,
   initImages,
   initClipboard,
   initAutoformat,
   initChecklist,
+  initFootnotes,
+  initComments,
+  initTrackChanges,
   initTextCase,
   initSymbols,
   initFormatPainter,
@@ -51,6 +61,8 @@ const FEATURES = [
   initRuler,
   initHeaderFooter,
   initWordCount,
+  initToc,
+  initPagination,
   // Last of the layout features: it emits 'layout' on open, which the ones above listen for.
   initPageSetup,
   initShortcuts,
@@ -62,7 +74,7 @@ const FEATURES = [
  *
  * Events: 'open' (document loaded), 'input' (user typed, before save; payload: the InputEvent), 'change' (document
  * modified), 'selection' (caret moved / formatting changed), 'dismiss' (Escape pressed), 'layout' (page
- * geometry or zoom changed).
+ * geometry or zoom changed), 'pages' (the document was re-paginated; follows every 'change' and 'layout').
  *
  * @typedef {object} EditorDeps
  * @property {HTMLElement} root

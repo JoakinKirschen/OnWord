@@ -163,7 +163,7 @@
 }
 .paper {
   position: relative;
-  min-height: var(--page-h, 1056px);
+  min-height: var(--paged-h, var(--page-h, 1056px));
   background: #fff;
   color: #000;
   box-shadow: var(--shadow);

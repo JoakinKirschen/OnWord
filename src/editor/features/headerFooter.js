@@ -1,10 +1,12 @@
-import { $ } from '../../core/dom.js';
+import { $, hit } from '../../core/dom.js';
+import { esc } from '../../core/html.js';
 import { PAGES_TOKEN, PAGE_TOKEN, normalizePage } from '../../core/page.js';
-import { countPages } from '../metrics.js';
+import { pageLayout } from '../metrics.js';
 
 const PAGE_NUMBERS = `Page ${PAGE_TOKEN} of ${PAGES_TOKEN}`;
 const TOKENS = /(\{page\}|\{pages\})/;
 const COUNTERS = { [PAGE_TOKEN]: 'counter(page)', [PAGES_TOKEN]: 'counter(pages)' };
+const BAND_HEIGHT = 16; // .page-band in styles/page.css
 const PRINT_FONT = 'font: 9pt Arial, Helvetica, sans-serif; color: #555;';
 
 /** A CSS `content` value for running text: quoted strings interleaved with page counters. */
@@ -25,14 +27,14 @@ function marginBox(
 }
 
 /**
- * Header and footer: one line of text each, shown in the page margins and printed on every page.
+ * Header and footer: one line of text each, shown in the margins of every page and printed there.
  * `{page}` and `{pages}` stand for the page number and the page count.
  * @param {import('../editor.js').EditorContext} ctx
  */
 export function initHeaderFooter(ctx) {
   const { root, content, session, store, events, commands, toast } = ctx;
   const dialog = $('#headerFooterDlg', root);
-  const bands = { header: $('#pageHeader', root), footer: $('#pageFooter', root) };
+  const bands = $('#pageBands', root);
   const inputs = {
     header: { text: $('#headerText', root), align: $('#headerAlign', root) },
     footer: { text: $('#footerText', root), align: $('#footerAlign', root) },
@@ -42,13 +44,29 @@ export function initHeaderFooter(ctx) {
   printStyle.dataset.print = 'running';
   const current = () => normalizePage(session.meta()?.page);
 
+  /** A band in the margin of page `number`, `offset` pixels below the top of that page. */
+  function band(
+    /** @type {import('../../core/page.js').RunningText} */ running,
+    /** @type {Record<string, any>} */ at,
+  ) {
+    const text = running.text.replaceAll(PAGE_TOKEN, at.number).replaceAll(PAGES_TOKEN, at.pages);
+    const id = at.id ? ` id="${at.id}"` : '';
+    return `<div class="page-band"${id} title="Double-click to edit the ${at.kind}" style="top: ${at.top}px; text-align: ${running.align}">${esc(text)}</div>`;
+  }
+
   function render() {
     const page = current();
-    const pages = String(countPages(content));
-    for (const name of /** @type {const} */ (['header', 'footer'])) {
-      bands[name].textContent = page[name].text.replaceAll(PAGE_TOKEN, '1').replaceAll(PAGES_TOKEN, pages);
-      bands[name].style.textAlign = page[name].align;
+    const { margin, body, pitch, pages } = pageLayout(content);
+    const html = [];
+    for (let p = 0; p < pages; p++) {
+      const at = { number: p + 1, pages };
+      const top = p * pitch + margin / 2 - BAND_HEIGHT / 2;
+      html.push(band(page.header, { ...at, kind: 'header', top, id: p === 0 && 'pageHeader' }));
+      html.push(
+        band(page.footer, { ...at, kind: 'footer', top: top + margin + body, id: p === pages - 1 && 'pageFooter' }),
+      );
     }
+    bands.innerHTML = html.join('');
     printStyle.textContent = `@page { ${marginBox('top', page.header)} ${marginBox('bottom', page.footer)} }`;
   }
 
@@ -90,8 +108,8 @@ export function initHeaderFooter(ctx) {
     }
     content.focus();
   });
-  for (const band of Object.values(bands)) band.addEventListener('dblclick', () => commands.run('page.headerFooter'));
-  events.on('open', render);
-  events.on('layout', render);
-  events.on('change', render);
+  bands.addEventListener('dblclick', (e) => {
+    if (hit(e, '.page-band')) commands.run('page.headerFooter');
+  });
+  events.on('pages', render);
 }

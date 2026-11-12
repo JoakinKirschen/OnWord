@@ -27,6 +27,15 @@ export const STYLE = {
   h5: 'Heading4',
   quote: 'Quote',
   code: 'Code',
+  footnote: 'FootnoteText',
+};
+const TOC_LEVELS = 5;
+/** Where each optional part lives inside word/. */
+const PART_FILES = {
+  header: 'header1.xml',
+  footer: 'footer1.xml',
+  footnotes: 'footnotes.xml',
+  comments: 'comments.xml',
 };
 export const BULLET_NUM_ID = 1;
 const BULLET_ABSTRACT = 0;
@@ -36,12 +45,19 @@ const INDENT_PER_LEVEL = 720; // twips
 const BULLETS = ['•', '◦', '▪'];
 const NUMBER_FORMATS = ['decimal', 'lowerLetter', 'lowerRoman'];
 
+/** @typedef {'header' | 'footer' | 'footnotes' | 'comments'} OptionalPart */
+
+/** Archive path of an optional part, relative to word/. @param {OptionalPart} kind */
+export const partFile = (kind) => PART_FILES[kind];
+
 /**
  * [Content_Types].xml
- * @param {('header' | 'footer')[]} running which header/footer parts the package contains
+ * @param {OptionalPart[]} optional the optional parts the package contains
  */
-export function contentTypes(running) {
-  const overrides = running.map((kind) => `<Override PartName="/word/${kind}1.xml" ContentType="${CT}.${kind}+xml"/>`);
+export function contentTypes(optional) {
+  const overrides = optional.map(
+    (kind) => `<Override PartName="/word/${PART_FILES[kind]}" ContentType="${CT}.${kind}+xml"/>`,
+  );
   return `${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
@@ -59,7 +75,7 @@ export const ROOT_RELS = `${XML_HEADER}<Relationships xmlns="${PKG_REL}">
 <Relationship Id="rId1" Type="${REL}/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
-/** @typedef {{ id: string, type: 'hyperlink' | 'image' | 'header' | 'footer', target: string }} Relationship */
+/** @typedef {{ id: string, type: 'hyperlink' | 'image' | OptionalPart, target: string }} Relationship */
 
 /**
  * word/_rels/document.xml.rels
@@ -89,6 +105,18 @@ const heading = (/** @type {number} */ level, /** @type {string} */ spacing, /**
   });
 const size = (/** @type {number} */ pt) => `<w:sz w:val="${pt * 2}"/><w:szCs w:val="${pt * 2}"/>`;
 
+/** Styles for the entries of a table of contents, indented by level. */
+function tocStyles() {
+  return Array.from({ length: TOC_LEVELS }, (_, i) =>
+    paragraphStyle({
+      id: `TOC${i + 1}`,
+      name: `toc ${i + 1}`,
+      next: `TOC${i + 1}`,
+      pPr: `<w:spacing w:after="60"/><w:ind w:left="${i * 280}"/>`,
+    }),
+  ).join('\n');
+}
+
 /** word/styles.xml — mirrors styles/document.css. */
 export const STYLES = `${XML_HEADER}<w:styles xmlns:w="${WML}">
 <w:docDefaults>
@@ -104,6 +132,8 @@ ${heading(4, '<w:spacing w:before="200" w:after="80"/>', `<w:b/><w:i/><w:color w
 ${paragraphStyle({ id: 'Subtitle', name: 'Subtitle', pPr: '<w:spacing w:after="240"/>', rPr: `<w:color w:val="666666"/>${size(14)}` })}
 ${paragraphStyle({ id: 'Quote', name: 'Quote', next: 'Quote', pPr: '<w:pBdr><w:left w:val="single" w:sz="18" w:space="10" w:color="C5C8D4"/></w:pBdr><w:ind w:left="280"/>', rPr: '<w:color w:val="444444"/>' })}
 ${paragraphStyle({ id: 'Code', name: 'Code', next: 'Code', pPr: '<w:shd w:val="clear" w:color="auto" w:fill="F3F4F7"/><w:spacing w:line="276" w:lineRule="auto"/>', rPr: `<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/>${size(10)}` })}
+${paragraphStyle({ id: 'FootnoteText', name: 'footnote text', pPr: '<w:spacing w:after="0" w:line="264" w:lineRule="auto"/>', rPr: size(9) })}
+${tocStyles()}
 </w:styles>`;
 
 function abstractNum(/** @type {number} */ id, /** @type {(level: number) => string} */ format) {
