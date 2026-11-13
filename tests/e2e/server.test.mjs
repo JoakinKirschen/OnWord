@@ -273,7 +273,14 @@ test(
     await reader.click('#masterList a');
     await reader.waitForSelector('#specView:not([hidden])');
     await reader.click('[data-act="spec.view"][data-arg="prices"]');
-    assert.deepEqual(await prices(reader), ['1\tPaving\tm²\t—\t1\t30.00\t30.00\t30.00\t']);
+    assert.deepEqual(await prices(reader), ['1\tPaving\tm²\t0\t—\t1\t30.00\t30.00\t\t']);
+    await reader.click('#pricesPanel tbody tr');
+    await reader.click('#priceRecords summary');
+    assert.deepEqual(
+      await reader.locator('#priceRecords tbody tr').allInnerTexts(),
+      ['Raf project\t48 m²\t30.00'],
+      'each price comes with the quantity it was given for',
+    );
 
     // The project is not visible to the master's author, and the API refuses writes to someone else's master.
     await author.click('.spec-bar .brand');
@@ -293,7 +300,7 @@ test(
     await author.click('#masterList a');
     await author.waitForSelector('#specView:not([hidden])');
     await author.click('[data-act="spec.view"][data-arg="prices"]');
-    assert.deepEqual(await prices(author), ['1\tPaving\tm²\t—\t0\t\t\t\t'], "another account's prices stay private");
+    assert.deepEqual(await prices(author), ['1\tPaving\tm²\t0\t—\t0\t\t\t\t'], "another account's prices stay private");
     assert.deepEqual([...author.errors, ...reader.errors], []);
   },
 );

@@ -1,15 +1,45 @@
 /** The price library in the workspace: prices from other projects beside an article, and the "Prices" view. */
 
+import { $ } from '../core/dom.js';
 import { esc } from '../core/html.js';
-import { outline } from '../core/spec/model.js';
-import { deviation, libraryKey, priceStats } from '../core/spec/prices.js';
-import { money } from './templates.js';
+import { outline, quantityOf } from '../core/spec/model.js';
+import { deviation, expectedPrice, libraryKey, perDoubling, priceStats, suggestedPrice } from '../core/spec/prices.js';
+import { money, number } from './templates.js';
 
 const PERCENT = 100;
-const NOTABLE = 0.2; // a price this far from the average is marked
-const WHICH = ['average', 'latest', 'min', 'max'];
+const NOTABLE = 0.2; // a price this far from what the library suggests is marked
+const WHICH = ['expected', 'average', 'latest'];
 
 /** @typedef {import('../core/spec/model.js').Article} Article */
+/** @typedef {import('../core/spec/prices.js').PriceStats} PriceStats */
+
+const percent = (/** @type {number} */ fraction) => `${Math.round(Math.abs(fraction) * PERCENT)} %`;
+/** A deviation as "+12 %" or "−8 %". */
+function signedPercent(/** @type {number} */ fraction) {
+  const rounded = Math.round(fraction * PERCENT);
+  if (rounded > 0) return `+${rounded} %`;
+  return rounded < 0 ? `−${-rounded} %` : '0 %';
+}
+const plural = (/** @type {number} */ count, /** @type {string} */ word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** How the price moves with the quantity, in words. */
+function trendText(/** @type {import('../core/spec/prices.js').PriceCurve} */ curve) {
+  const change = perDoubling(curve);
+  return `${percent(change)} ${change < 0 ? 'lower' : 'higher'} per doubling of the quantity`;
+}
+
+/** The prices behind the statistics, each with the quantity it was given for. */
+function recordsHtml(/** @type {PriceStats} */ stats) {
+  const rows = stats.records.map(
+    (
+      r,
+    ) => `<tr><td>${esc(r.project)}</td><td class="num">${r.quantity > 0 ? number(r.quantity) : '—'} ${esc(r.unit)}</td>
+      <td class="num">${money(r.price)}</td></tr>`,
+  );
+  return `<details id="priceRecords"><summary>Show the ${plural(stats.count, 'price')}</summary>
+    <table class="lines"><thead><tr><th>Project</th><th class="num">Quantity</th><th class="num">Unit price</th></tr></thead>
+    <tbody>${rows.join('')}</tbody></table></details>`;
+}
 
 /**
  * @typedef {object} PriceTarget the open specification, as the workspace holds it
@@ -33,35 +63,72 @@ export function createPriceLibrary({ specStore, commands, toast, target }) {
 
   const statsOf = (/** @type {Article} */ article) =>
     priceStats(records, libraryKey(target.spec(), article), article.unit);
-  /** The measured articles that have no price yet but do have prices in the library. */
+  const suggestionFor = (/** @type {Article} */ article) => suggestedPrice(statsOf(article), quantityOf(article));
+  /** The measured articles that have no price yet but for which the library suggests one. */
   const fillable = () =>
-    target.editable() ? target.articles().filter((a) => a.unit && !(a.price > 0) && statsOf(a)) : [];
+    target.editable() ? target.articles().filter((a) => a.unit && !(a.price > 0) && suggestionFor(a) !== null) : [];
+  const use = (/** @type {string} */ which, /** @type {string} */ label) =>
+    target.editable() ? ` <button class="link-btn" data-act="spec.usePrice" data-arg="${which}">${label}</button>` : '';
+
+  /** What the library expects for this article's quantity, and how prices move with the quantity. */
+  function expectedHtml(/** @type {Article} */ article, /** @type {PriceStats} */ stats) {
+    if (!stats.curve) return 'Too few measured prices yet to relate the price to the quantity.';
+    const quantity = quantityOf(article);
+    const expected = expectedPrice(stats, quantity);
+    if (!expected)
+      return `Prices are ${trendText(stats.curve)}. Measure this article to see the price for its quantity.`;
+    const outside = expected.outside ? ' (beyond the quantities priced so far)' : '';
+    return `Expected for ${number(quantity)} ${esc(article.unit)}: <b>${money(expected.price)}</b>${outside}
+      · ${trendText(stats.curve)}${use('expected', 'Use expected price')}`;
+  }
+
+  /** The note under an article's unit price: what the same article cost in other projects, and for how much. */
+  function noteHtml(/** @type {Article} */ article) {
+    if (!article.unit) return '';
+    if (!libraryKey(target.spec(), article))
+      return 'Not taken from a master article, so there are no prices from other projects.';
+    const stats = statsOf(article);
+    const project = target.spec()?.kind === 'project';
+    if (!stats) return project ? 'No prices from your other projects yet.' : 'No project has priced this yet.';
+    const range = stats.min === stats.max ? money(stats.min) : `${money(stats.min)} – ${money(stats.max)}`;
+    return `<p><b>Price library</b> (${plural(stats.projects, 'project')}): ${range} · average ${money(stats.average)}
+        · latest ${money(stats.latest)}${use('average', 'Use average')}${use('latest', 'Use latest')}</p>
+      <p>${expectedHtml(article, stats)}</p>${recordsHtml(stats)}`;
+  }
 
   function row(/** @type {Article} */ article) {
     const stats = statsOf(article);
-    const off = deviation(article.price, stats);
+    const quantity = quantityOf(article);
+    const expected = expectedPrice(stats, quantity);
+    const off = deviation(article.price, suggestedPrice(stats, quantity));
     const mark = off !== null && Math.abs(off) >= NOTABLE ? (off > 0 ? ' price-high' : ' price-low') : '';
-    const cell = (/** @type {'min' | 'average' | 'max'} */ key) =>
-      `<td class="num">${stats ? money(stats[key]) : ''}</td>`;
+    const range = !stats
+      ? ''
+      : stats.min === stats.max
+        ? money(stats.min)
+        : `${money(stats.min)} – ${money(stats.max)}`;
     return `<tr data-act="spec.select" data-arg="${article.id}" tabindex="0">
       <td>${esc(article.number)}</td><td>${esc(article.title)}</td><td>${esc(article.unit)}</td>
-      <td class="num">${article.price > 0 ? money(article.price) : '—'}</td><td class="num">${stats?.projects ?? 0}</td>
-      ${cell('min')}${cell('average')}${cell('max')}
-      <td class="num${mark}">${off === null ? '' : `${off > 0 ? '+' : ''}${Math.round(off * PERCENT)} %`}</td></tr>`;
+      <td class="num">${number(quantity)}</td><td class="num">${article.price > 0 ? money(article.price) : '—'}</td>
+      <td class="num">${stats?.projects ?? 0}</td><td class="num">${range}</td>
+      <td class="num">${stats ? money(stats.average) : ''}</td><td class="num">${expected ? money(expected.price) : ''}</td>
+      <td class="num${mark}">${off === null ? '' : signedPercent(off)}</td></tr>`;
   }
 
   commands.register({
-    /** Gives the selected article the average, latest, lowest or highest price from the library. */
+    /** Gives the selected article the expected, average or latest price from the library. */
     'spec.usePrice'(which) {
       const article = target.selected();
       const stats = article && statsOf(article);
-      if (stats && target.editable() && WHICH.includes(which)) target.setPrices([[article, stats[which]]]);
+      if (!stats || !target.editable() || !WHICH.includes(which)) return;
+      const price = which === 'expected' ? expectedPrice(stats, quantityOf(article))?.price : stats[which];
+      if (price) target.setPrices([[article, price]]);
     },
-    /** Gives every measured article without a price the library's average. */
+    /** Gives every measured article without a price what the library suggests for its quantity. */
     'spec.fillPrices'() {
-      const filled = fillable().map((a) => /** @type {[Article, number]} */ ([a, statsOf(a).average]));
+      const filled = fillable().map((a) => /** @type {[Article, number]} */ ([a, suggestionFor(a)]));
       target.setPrices(filled);
-      toast(`${filled.length} ${filled.length === 1 ? 'price' : 'prices'} filled in from the price library.`);
+      toast(`${plural(filled.length, 'price')} filled in from the price library.`);
     },
   });
 
@@ -77,21 +144,13 @@ export function createPriceLibrary({ specStore, commands, toast, target }) {
       }
     },
 
-    /** The note under an article's unit price: what the same article costs in other projects. */
-    noteHtml(/** @type {Article} */ article) {
-      if (!article.unit) return '';
-      const project = target.spec()?.kind === 'project';
-      if (!libraryKey(target.spec(), article))
-        return 'Not taken from a master article, so there are no prices from other projects.';
-      const stats = statsOf(article);
-      if (!stats) return project ? 'No prices from your other projects yet.' : 'No project has priced this yet.';
-      const range = stats.min === stats.max ? money(stats.min) : `${money(stats.min)} – ${money(stats.max)}`;
-      const from = `${stats.projects} ${stats.projects === 1 ? 'project' : 'projects'}`;
-      const use = target.editable()
-        ? ` <button class="link-btn" data-act="spec.usePrice" data-arg="average">Use average</button>
-          <button class="link-btn" data-act="spec.usePrice" data-arg="latest">Use latest</button>`
-        : '';
-      return `<b>Price library</b> (${from}): ${range} · average ${money(stats.average)} · latest ${money(stats.latest)}${use}`;
+    noteHtml,
+
+    /** Redraws the note after the article changed (its quantity, its unit), keeping the price list open. */
+    drawNote(/** @type {HTMLElement} */ container, /** @type {Article} */ article) {
+      const open = $('#priceRecords', container)?.open;
+      container.innerHTML = noteHtml(article);
+      if (open) $('#priceRecords', container).open = true;
     },
 
     /** The "Prices" view: every measured article's price beside the library's. */
@@ -102,14 +161,16 @@ export function createPriceLibrary({ specStore, commands, toast, target }) {
       if (!rows.length) return '<p class="spec-empty">Give an article a unit to give it a price.</p>';
       const missing = fillable().length;
       const fill = missing
-        ? `<button class="btn" data-act="spec.fillPrices">Fill in ${missing} missing ${missing === 1 ? 'price' : 'prices'}</button>`
+        ? `<button class="btn" data-act="spec.fillPrices">Fill in ${plural(missing, 'missing price')}</button>`
         : '';
       const others = target.spec()?.kind === 'project' ? 'your other projects' : 'your projects';
       return `<div class="quantities-head"><h2>Price library</h2>${fill}</div>
-        <p class="spec-hint">Unit prices given to the same master article in ${others}, for the same unit.</p>
-        <table class="quantities"><thead><tr><th>Number</th><th>Article</th><th>Unit</th><th class="num">Unit price</th>
-          <th class="num">Projects</th><th class="num">Lowest</th><th class="num">Average</th><th class="num">Highest</th>
-          <th class="num">vs average</th></tr></thead>
+        <p class="spec-hint">Unit prices given to the same master article in ${others}, for the same unit.
+          Larger quantities usually get lower prices, so “Expected” is what those prices suggest for this
+          quantity; the comparison uses it where there is one, and the average otherwise.</p>
+        <table class="quantities"><thead><tr><th>Number</th><th>Article</th><th>Unit</th><th class="num">Quantity</th>
+          <th class="num">Unit price</th><th class="num">Projects</th><th class="num">Range</th><th class="num">Average</th>
+          <th class="num">Expected</th><th class="num">vs library</th></tr></thead>
         <tbody>${rows.map(row).join('')}</tbody></table>`;
     },
   };

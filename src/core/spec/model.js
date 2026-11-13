@@ -126,7 +126,7 @@ export function copyArticles(articles, chosenIds, makeId) {
 }
 
 /** The measured quantity of an article: the sum of its lines. NaN when a line is not valid arithmetic. */
-export const quantityOf = (/** @type {Article} */ article) =>
+export const quantityOf = (/** @type {Pick<Article, 'lines'>} */ article) =>
   article.lines.reduce((sum, line) => sum + evaluate(line.formula), 0);
 
 /** Quantity × unit price; 0 while the quantity cannot be computed. */

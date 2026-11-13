@@ -353,6 +353,19 @@
 #articleLibrary .link-btn {
   margin-left: 8px;
 }
+#articleLibrary p {
+  margin: 0 0 4px;
+}
+#priceRecords summary {
+  cursor: pointer;
+}
+#priceRecords table {
+  max-width: 480px;
+  margin-top: 6px;
+}
+#priceRecords td {
+  padding: 5px 9px;
+}
 /* A unit price far from what the same article costs in other projects. */
 .price-high {
   color: var(--danger);

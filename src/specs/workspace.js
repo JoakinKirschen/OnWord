@@ -72,6 +72,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     $('#articleAmount', panel).textContent = totals.amount;
     $('#articleSource', panel).innerHTML = sourceHtml(article, sources.get(article.sourceId), editable());
     article.lines.forEach((line, i) => ($(`[data-result="${i}"]`, panel).textContent = number(evaluate(line.formula))));
+    library.drawNote($('#articleLibrary', panel), article);
   }
   function show(/** @type {keyof typeof views} */ view) {
     for (const [name, element] of Object.entries(views)) element.hidden = name !== view;
