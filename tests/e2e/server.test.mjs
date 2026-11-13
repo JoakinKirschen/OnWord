@@ -264,6 +264,16 @@ test(
     await reader.reload();
     await reader.click('#articleTree .tree-item >> nth=0');
     assert.equal(await reader.textContent('#articleQuantity'), '48 m²', 'measurements are stored on the server');
+    await reader.fill('#articlePanel [data-field="price"]', '30');
+    await specSaved(reader);
+
+    // The price library: the reader's own project prices show in the master they came from.
+    const prices = (page) => page.locator('#pricesPanel tbody tr').allInnerTexts();
+    await reader.click('.spec-bar .brand');
+    await reader.click('#masterList a');
+    await reader.waitForSelector('#specView:not([hidden])');
+    await reader.click('[data-act="spec.view"][data-arg="prices"]');
+    assert.deepEqual(await prices(reader), ['1\tPaving\tm²\t—\t1\t30.00\t30.00\t30.00\t']);
 
     // The project is not visible to the master's author, and the API refuses writes to someone else's master.
     await author.click('.spec-bar .brand');
@@ -280,6 +290,10 @@ test(
       return [response.status, (await response.json()).error];
     }, masterId);
     assert.deepEqual(refused, [403, 'read_only']);
+    await author.click('#masterList a');
+    await author.waitForSelector('#specView:not([hidden])');
+    await author.click('[data-act="spec.view"][data-arg="prices"]');
+    assert.deepEqual(await prices(author), ['1\tPaving\tm²\t—\t0\t\t\t\t'], "another account's prices stay private");
     assert.deepEqual([...author.errors, ...reader.errors], []);
   },
 );
@@ -288,6 +302,7 @@ test('the API refuses requests without a session or security token', { skip: !ha
   const api = (route, init) =>
     fetch(`${base}api/index.php?r=${route}`, init).then(async (r) => [r.status, (await r.json()).error]);
   assert.deepEqual(await api('docs/list'), [401, 'signed_out']);
+  assert.deepEqual(await api('prices/list'), [401, 'signed_out']);
   assert.deepEqual(await api('auth/login', { method: 'POST', body: '{}' }), [403, 'csrf']);
   assert.deepEqual(await api('nothing/here'), [404, 'not_found']);
 });

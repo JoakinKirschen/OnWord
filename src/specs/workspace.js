@@ -5,13 +5,14 @@ import { newId } from '../core/ids.js';
 import { evaluate } from '../core/spec/formula.js';
 import { blankArticle, subtree, suggestNumber } from '../core/spec/model.js';
 import { quantitiesCsv, specToHtml } from '../core/spec/output.js';
+import { createPriceLibrary } from './prices.js';
+import { createSaver } from './saver.js';
 import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText, treeHtml } from './templates.js';
 
-const SAVE_DELAY_MS = 500;
 const NOTHING = '<p class="spec-empty">Choose an article in the list, or add one.</p>';
 
 /**
- * The workspace for one specification: article tree, article form and bill of quantities.
+ * The workspace for one specification: article tree, article form, bill of quantities and prices.
  * @typedef {object} WorkspaceDeps
  * @property {HTMLElement} root
  * @property {import('../core/spec/model.js').SpecStore} specStore
@@ -27,6 +28,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   const tree = $('#articleTree', root),
     panel = $('#articlePanel', root),
     quantities = $('#quantitiesPanel', root),
+    pricesPanel = $('#pricesPanel', root),
     search = $('#articleSearch', root),
     state = $('#specState', root);
   const inputs = { title: $('#specTitle', root), phase: $('#specPhase', root), lot: $('#specLot', root) };
@@ -37,12 +39,18 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   /** Master articles by id, to tell whether a project article still matches. @type {Map<string, import('../core/spec/model.js').Article>} */
   let sources = new Map();
   let selectedId = null;
-  /** What still has to reach the store: article ids, and whether the specification's own fields changed. */
-  const unsaved = { articles: new Set(), spec: false };
-  let timer = null;
+  const views = { articles: panel, quantities, prices: pricesPanel };
 
   const selected = () => articles.find((a) => a.id === selectedId);
   const editable = () => !!spec?.mine;
+  const saver = createSaver({ specStore, state, toast, current: () => ({ spec, articles }) });
+  const changed = saver.changed;
+  const library = createPriceLibrary({
+    specStore,
+    commands,
+    toast,
+    target: { spec: () => spec, articles: () => articles, selected, editable, setPrices },
+  });
 
   function drawTree() {
     tree.innerHTML = treeHtml(articles, { selectedId, filter: search.value, sources });
@@ -50,7 +58,11 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   function drawArticle() {
     const article = selected();
     panel.innerHTML = article
-      ? articleHtml(article, { editable: editable(), source: sources.get(article.sourceId) })
+      ? articleHtml(article, {
+          editable: editable(),
+          source: sources.get(article.sourceId),
+          library: library.noteHtml(article),
+        })
       : NOTHING;
   }
   /** Refreshes what is computed from the article without touching the fields being typed in. */
@@ -61,46 +73,20 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     $('#articleSource', panel).innerHTML = sourceHtml(article, sources.get(article.sourceId), editable());
     article.lines.forEach((line, i) => ($(`[data-result="${i}"]`, panel).textContent = number(evaluate(line.formula))));
   }
-  function show(/** @type {'articles' | 'quantities'} */ view) {
-    quantities.hidden = view !== 'quantities';
-    panel.hidden = !quantities.hidden;
-    if (!quantities.hidden) quantities.innerHTML = quantitiesHtml(articles);
+  function show(/** @type {keyof typeof views} */ view) {
+    for (const [name, element] of Object.entries(views)) element.hidden = name !== view;
+    if (view === 'quantities') quantities.innerHTML = quantitiesHtml(articles);
+    if (view === 'prices') pricesPanel.innerHTML = library.viewHtml();
     for (const tab of $$('[data-act="spec.view"]', root)) tab.classList.toggle('on', tab.dataset.arg === view);
   }
-
-  /** Writes everything unsaved to the store, one request at a time. */
-  async function save() {
-    clearTimeout(timer);
-    if (!spec) return;
-    if (!unsaved.articles.size && !unsaved.spec) {
-      // What was waiting may have been deleted meanwhile; an indicator that said "Saving…" must not stay so.
-      if (state.textContent) state.textContent = 'Saved';
-      return;
+  /** Gives articles a new unit price and redraws what shows it. */
+  function setPrices(/** @type {[import('../core/spec/model.js').Article, number][]} */ prices) {
+    for (const [article, price] of prices) {
+      article.price = price;
+      changed(article.id);
     }
-    const ids = [...unsaved.articles];
-    const fields = unsaved.spec && { title: spec.title, phase: spec.phase, lot: spec.lot };
-    unsaved.articles.clear();
-    unsaved.spec = false;
-    try {
-      if (fields) await specStore.update(spec.id, fields);
-      for (const id of ids) {
-        const article = articles.find((a) => a.id === id);
-        if (article) await specStore.saveArticle(spec.id, article);
-      }
-      if (!unsaved.articles.size && !unsaved.spec) state.textContent = 'Saved';
-    } catch (err) {
-      ids.forEach((id) => unsaved.articles.add(id));
-      unsaved.spec ||= !!fields;
-      state.textContent = 'Not saved';
-      toast(/** @type {Error} */ (err).message || 'The changes could not be saved.');
-    }
-  }
-  function changed(/** @type {string} */ articleId = '') {
-    if (articleId) unsaved.articles.add(articleId);
-    else unsaved.spec = true;
-    state.textContent = 'Saving…';
-    clearTimeout(timer);
-    timer = setTimeout(save, SAVE_DELAY_MS);
+    if (pricesPanel.hidden) drawArticle();
+    else show('prices');
   }
 
   function select(/** @type {string | null} */ id) {
@@ -112,7 +98,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
 
   commands.register({
     'spec.select': select,
-    'spec.view': (view) => show(view === 'quantities' ? 'quantities' : 'articles'),
+    'spec.view': (view) => show(Object.hasOwn(views, view) ? view : 'articles'),
     /** Adds an article at the top level, or with `where` "child" under the selected one. */
     'spec.addArticle'(where) {
       if (!editable()) return toast('Only the owner can change this specification.');
@@ -130,16 +116,8 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       if (!article || !confirm(`Delete ${what}?`)) return;
       const gone = subtree(articles, article.id);
       articles = articles.filter((a) => !gone.has(a.id));
-      gone.forEach((id) => unsaved.articles.delete(id));
       select(null);
-      state.textContent = 'Saving…';
-      try {
-        await specStore.removeArticle(spec.id, article.id);
-        await save();
-      } catch {
-        state.textContent = 'Not saved';
-        toast('The article could not be deleted.');
-      }
+      await saver.remove(article.id, gone);
     },
     'spec.addLine'() {
       const article = selected();
@@ -216,7 +194,10 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       const loaded = await specStore.get(id);
       if (!loaded) return false;
       ({ spec, articles } = loaded);
-      const master = spec.masterId ? await specStore.get(spec.masterId).catch(() => null) : null;
+      const [master] = await Promise.all([
+        spec.masterId ? specStore.get(spec.masterId).catch(() => null) : null,
+        library.load(),
+      ]);
       sources = new Map((master?.articles ?? []).map((a) => [a.id, a]));
       for (const [name, input] of Object.entries(inputs)) {
         input.value = spec[name];
@@ -235,10 +216,10 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     /** Hides the workspace, saving first. */
     async hide() {
       root.hidden = true;
-      await save();
+      await saver.save();
       spec = null;
     },
     /** Whether changes are still waiting to be saved. */
-    pending: () => unsaved.articles.size > 0 || unsaved.spec,
+    pending: saver.pending,
   };
 }

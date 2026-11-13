@@ -35,6 +35,8 @@ import { evaluate } from './formula.js';
  * @property {(id: string) => Promise<void>} remove
  * @property {(specId: string, article: Article) => Promise<void>} saveArticle creates or replaces
  * @property {(specId: string, articleId: string) => Promise<void>} removeArticle with everything under it
+ * @property {() => Promise<import('./prices.js').PriceRecord[]>} prices the price library: the priced articles
+ *   of the user's own projects
  *
  * @typedef {{ kind: 'master' | 'project', title: string, masterId?: string | null, phase?: string, lot?: string,
  *   articleIds?: string[] }} NewSpec `articleIds`: the master articles a new project starts with
