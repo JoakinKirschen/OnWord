@@ -151,6 +151,7 @@ function specs_delete(PDO $db, array $user, array $in): array
     $id = doc_id($in);
     spec_access($db, $user, $id, true);
     run($db, 'DELETE FROM articles WHERE spec_id = ?', [$id]);
+    run($db, 'DELETE FROM offers WHERE spec_id = ?', [$id]);
     run($db, 'DELETE FROM specs WHERE id = ?', [$id]);
     return ['ok' => true];
 }

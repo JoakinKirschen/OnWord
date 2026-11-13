@@ -18,4 +18,13 @@ return [
     // Largest document the server stores, in bytes. Keep it below PHP's post_max_size and
     // MySQL's max_allowed_packet.
     'max_document_bytes' => 5 * 1024 * 1024,
+
+    // The AI reader for contractors' offers (PDFs and unusual spreadsheets). Leave the key empty to turn
+    // it off. With a key from console.anthropic.com, the offers people import are sent to Anthropic's
+    // Claude API to be read. Needs PHP's curl extension; reading a long offer can take a few minutes, so
+    // the host must allow requests that long.
+    'anthropic_api_key' => '',
+    // 'ai_model' => 'claude-opus-5-5',
+    // 'ai_effort' => 'low', // low, medium, high: more is slower and costs more, but reads messier files
+    // 'ai_max_file_bytes' => 10 * 1024 * 1024, // keep below PHP's post_max_size
 ];

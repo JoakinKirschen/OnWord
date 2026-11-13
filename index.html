@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="styles/library.css">
 <link rel="stylesheet" href="styles/account.css">
 <link rel="stylesheet" href="styles/specs.css">
+<link rel="stylesheet" href="styles/offers.css">
 <link rel="stylesheet" href="styles/editor.css">
 <link rel="stylesheet" href="styles/document.css">
 <link rel="stylesheet" href="styles/overlays.css">
@@ -122,6 +123,7 @@
       <button class="btn sm" data-act="spec.view" data-arg="articles">Articles</button>
       <button class="btn sm" data-act="spec.view" data-arg="quantities">Bill of quantities</button>
       <button class="btn sm" data-act="spec.view" data-arg="prices">Prices</button>
+      <button class="btn sm" data-act="spec.view" data-arg="offers">Offers</button>
       <button class="btn sm" data-act="spec.compose" title="Make a document of this specification, to print or export">Create document</button>
     </div>
   </header>
@@ -136,7 +138,30 @@
     <section id="articlePanel" class="spec-panel"></section>
     <section id="quantitiesPanel" class="spec-panel" hidden></section>
     <section id="pricesPanel" class="spec-panel" hidden></section>
+    <section id="offersPanel" class="spec-panel" hidden></section>
   </div>
+  <input id="offerInput" type="file" accept=".xlsx,.csv,.pdf" hidden>
+  <dialog id="offerDlg" class="dlg wide">
+    <form method="dialog">
+      <h2>Import offer</h2>
+      <p id="offerFile" class="dlg-note"></p>
+      <label>Contractor<input name="contractor" type="text" maxlength="200" required></label>
+      <div id="offerLayout">
+        <div class="dlg-cols three">
+          <label id="offerSheetField">Sheet<select id="offerSheet"></select></label>
+          <label>Headings in row<input id="offerHeader" type="number" min="1" step="1"></label>
+        </div>
+        <div id="offerColumns" class="dlg-cols three"></div>
+      </div>
+      <div id="offerSummary" class="offer-summary" aria-live="polite"></div>
+      <div class="dlg-actions">
+        <button id="offerAi" class="btn" type="button" data-act="spec.readOfferWithAi" title="The file is sent to Anthropic’s Claude to be read" hidden>Read with AI</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Import</button>
+      </div>
+    </form>
+  </dialog>
   <datalist id="units"><option value="m"><option value="m²"><option value="m³"><option value="st"><option value="kg"><option value="h"><option value="TP"></datalist>
 </div>
 

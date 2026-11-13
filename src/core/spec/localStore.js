@@ -10,12 +10,15 @@ const KEY = 'onword:specs';
  * @returns {import('./model.js').SpecStore}
  */
 export function createLocalSpecStore({ storage }) {
-  /** @returns {{ specs: import('./model.js').Spec[], articles: Record<string, import('./model.js').Article[]> }} */
+  /**
+   * @returns {{ specs: import('./model.js').Spec[], articles: Record<string, import('./model.js').Article[]>,
+   *   offers: Record<string, import('./offers.js').Offer[]> }}
+   */
   function read() {
     try {
-      return { specs: [], articles: {}, ...JSON.parse(storage.getItem(KEY)) };
+      return { specs: [], articles: {}, offers: {}, ...JSON.parse(storage.getItem(KEY)) };
     } catch {
-      return { specs: [], articles: {} };
+      return { specs: [], articles: {}, offers: {} };
     }
   }
   /** Applies `change` to the stored data. @template T @param {(data: ReturnType<typeof read>) => T} change */
@@ -54,6 +57,7 @@ export function createLocalSpecStore({ storage }) {
       update((data) => {
         data.specs = data.specs.filter((s) => s.id !== id);
         delete data.articles[id];
+        delete data.offers[id];
       }),
     saveArticle: async (specId, article) =>
       update((data) => {
@@ -74,5 +78,17 @@ export function createLocalSpecStore({ storage }) {
       const { specs, articles } = read();
       return collectPrices(specs, articles);
     },
+    offers: async (specId) => read().offers[specId] ?? [],
+    saveOffer: async (specId, offer) =>
+      update((data) => {
+        const list = (data.offers[specId] ??= []);
+        const index = list.findIndex((o) => o.id === offer.id);
+        if (index < 0) list.push(offer);
+        else list[index] = offer;
+      }),
+    removeOffer: async (specId, offerId) =>
+      update((data) => {
+        data.offers[specId] = (data.offers[specId] ?? []).filter((o) => o.id !== offerId);
+      }),
   };
 }

@@ -9,8 +9,10 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
   numbered articles with rich text, measurement lines with formulas, unit prices and a bill of quantities
   (meetstaat) that downloads for Excel. A price library shows what each article cost in your other
   projects and for what quantity, suggests the price to expect for this project's quantity (larger
-  quantities usually cost less per unit) and fills in missing prices. A specification can be turned into a
-  document for Word or PDF.
+  quantities usually cost less per unit) and fills in missing prices. Offers that contractors return (the
+  filled-in bill of quantities, as Excel or CSV) are imported and compared side by side per article and in
+  total; with the server part an AI reader (Claude) also reads PDFs and unusual layouts. A specification
+  can be turned into a document for Word or PDF.
 - Document library with search, rename, duplicate and delete, plus templates (letter, meeting notes,
   résumé, project brief)
 - Word documents: open `.docx` files and download as `.docx`
@@ -72,6 +74,10 @@ Settings in `api/config.php`:
 - `allow_registration` — set to `false` once everyone has an account, so strangers cannot sign up.
 - `registration_code` — a code people must enter to create an account.
 - `max_document_bytes` — largest document accepted (5 MB by default).
+- `anthropic_api_key` — turns on the AI reader for contractors' offers (PDFs and unusual spreadsheets).
+  Create a key at console.anthropic.com. The offers people import with it are sent to Anthropic's Claude
+  API to be read, and each reading is billed to that key. Needs PHP's curl extension; a long offer can take
+  a few minutes, so the host must allow requests that long. Leave it empty to keep the feature off.
 
 To update, upload and extract a new zip over the old files; `config.php` is not in the zip, so your
 settings stay. Without `config.php` the site shows a setup notice instead of the sign-in screen.

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 2; // 2: specifications and their articles
+const SCHEMA_VERSION = 3; // 2: specifications and their articles; 3: contractors' offers
 
 function load_config(): array
 {
@@ -19,6 +19,11 @@ function load_config(): array
         'allow_registration' => true,
         'registration_code' => '',
         'max_document_bytes' => 5 * 1024 * 1024,
+        'anthropic_api_key' => '',
+        'anthropic_base_url' => 'https://api.anthropic.com',
+        'ai_model' => 'claude-opus-5-5',
+        'ai_effort' => 'low',
+        'ai_max_file_bytes' => 10 * 1024 * 1024,
     ];
 }
 
@@ -103,6 +108,13 @@ function ensure_schema(PDO $db): void
             source_id VARCHAR(32) NULL,
             line_data TEXT NOT NULL,
             price DOUBLE NOT NULL DEFAULT 0
+        )",
+        "CREATE TABLE IF NOT EXISTS offers (
+            id VARCHAR(32) NOT NULL PRIMARY KEY,
+            spec_id VARCHAR(32) NOT NULL,
+            contractor VARCHAR(200) NOT NULL,
+            created_at BIGINT NOT NULL,
+            data $long NOT NULL
         )",
         "CREATE TABLE IF NOT EXISTS login_attempts (
             id $serial,

@@ -2,6 +2,16 @@ import { sanitize } from '../html.js';
 import { newId } from '../ids.js';
 import { quantityOf } from './model.js';
 
+/** JSON has no NaN: the server sends a quantity a contractor did not give as null. */
+const quantity = (/** @type {number | null} */ value) => (value === null ? NaN : value);
+
+/** An offer as the server sends it. @returns {import('./offers.js').Offer} */
+function offerIn(/** @type {any} */ offer) {
+  const prices = Object.entries(offer.prices).map(([key, p]) => [key, { ...p, quantity: quantity(p.quantity) }]);
+  const unmatched = offer.unmatched.map((line) => ({ ...line, quantity: quantity(line.quantity) }));
+  return { ...offer, prices: Object.fromEntries(prices), unmatched };
+}
+
 /**
  * Specifications kept on the server. Masters are readable by every account; only their owner changes them.
  * @param {{ api: import('../api.js').Api }} deps
@@ -31,5 +41,8 @@ export function createRemoteSpecStore({ api }) {
       api
         .get('prices/list')
         .then((data) => data.prices.map(({ lines, ...record }) => ({ ...record, quantity: quantityOf({ lines }) }))),
+    offers: (specId) => api.get(`offers/list&specId=${id(specId)}`).then((data) => data.offers.map(offerIn)),
+    saveOffer: (specId, offer) => api.post('offers/save', { specId, offer }),
+    removeOffer: (specId, offerId) => api.post('offers/delete', { specId, id: offerId }),
   };
 }
