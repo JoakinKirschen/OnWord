@@ -39,7 +39,12 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
       <button class="icon-btn sm card-more" aria-label="Document options" title="Options">${MORE_ICON}</button>`;
     $('.thumb-page', a).textContent = d.snippet || '';
     $('.card-title', a).textContent = d.title;
-    $('.card-date', a).textContent = 'Edited ' + formatDate(d.updated);
+    const shared = d.role && d.role !== 'owner';
+    const dateEl = $('.card-date', a);
+    dateEl.textContent = shared
+      ? `Shared by ${d.owner}${d.role === 'view' ? ' · view only' : ''}`
+      : 'Edited ' + formatDate(d.updated);
+    dateEl.classList.toggle('card-shared', !!shared);
     $('.card-more', a).addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -49,8 +54,9 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
           { label: 'Open', act: 'library.open', arg: d.id },
           { label: 'Rename', act: 'library.rename', arg: d.id },
           { label: 'Make a copy', act: 'library.copy', arg: d.id },
+          ...(store.remote && !shared ? [{ label: 'Share…', act: 'library.share', arg: d.id }] : []),
           '-',
-          { label: 'Delete', act: 'library.delete', arg: d.id, danger: true },
+          { label: shared ? 'Remove from my list' : 'Delete', act: 'library.delete', arg: d.id, danger: true },
         ]),
       );
     });
@@ -79,10 +85,9 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
     'library.rename'(id) {
       const entry = store.meta(id);
       const title = entry && prompt('Rename document', entry.title);
-      if (title?.trim()) {
-        store.write(id, null, { title: title.trim().slice(0, 120) });
-        render();
-      }
+      if (!title?.trim()) return;
+      if (!store.write(id, null, { title: title.trim().slice(0, 120) })) toast('You cannot rename this document.');
+      render();
     },
     'library.copy'(id) {
       if (store.duplicate(id)) {
@@ -92,7 +97,11 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
     },
     'library.delete'(id) {
       const entry = store.meta(id);
-      if (!entry || !confirm(`Delete “${entry.title}”? This can’t be undone.`)) return;
+      const own = !entry?.role || entry.role === 'owner';
+      const question = own
+        ? `Delete “${entry?.title}”? This can’t be undone.`
+        : `Remove “${entry?.title}” from your list?`;
+      if (!entry || !confirm(question)) return;
       store.remove(id);
       render();
     },
@@ -110,6 +119,8 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
       root.hidden = false;
       root.ownerDocument.title = 'OnWord';
       render();
+      // A server store may have changed since it was last read: other devices, documents shared with you.
+      store.refresh().then(render, () => toast('The list of documents could not be updated.'));
     },
     hide() {
       root.hidden = true;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Collects the files a web host needs into dist/onword-site.zip, ready to upload and extract in the
- * site's public folder. Nothing is transformed: the app has no build step.
+ * site's public folder: the app itself and its server part (api/). Nothing is transformed.
  * Run: npm run package
  */
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -12,7 +12,9 @@ import { writeZip } from '../src/core/zip.js';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUTPUT = join(ROOT, 'dist', 'onword-site.zip');
 /** Everything the browser loads, plus the server configuration. */
-const SHIPPED = ['index.html', '.htaccess', 'styles', 'src'];
+const SHIPPED = ['index.html', '.htaccess', 'styles', 'src', 'api'];
+/** The host's own database settings must never be overwritten by an upload, nor leave this machine. */
+const EXCLUDED = ['api/config.php'];
 
 const walk = (path) =>
   statSync(path).isDirectory()
@@ -21,10 +23,10 @@ const walk = (path) =>
         .flatMap((name) => walk(join(path, name)))
     : [path];
 
-const files = SHIPPED.flatMap((entry) => walk(join(ROOT, entry))).map((path) => ({
-  name: relative(ROOT, path).split(sep).join('/'),
-  data: new Uint8Array(readFileSync(path)),
-}));
+const files = SHIPPED.flatMap((entry) => walk(join(ROOT, entry)))
+  .map((path) => ({ name: relative(ROOT, path).split(sep).join('/'), path }))
+  .filter(({ name }) => !EXCLUDED.includes(name))
+  .map(({ name, path }) => ({ name, data: new Uint8Array(readFileSync(path)) }));
 
 mkdirSync(dirname(OUTPUT), { recursive: true });
 writeFileSync(OUTPUT, await writeZip(files));

@@ -28,6 +28,7 @@ test('normalizePage fills defaults and drops unknown values', () => {
     header: { text: 'Hi', align: 'center' },
     footer: BLANK,
   });
+  assert.equal(normalizePage(null).size, 'letter', 'a document stored without page setup');
   assert.equal(normalizePage({ footer: { text: 'x'.repeat(500), align: 'right' } }).footer.text.length, 200);
 });
 

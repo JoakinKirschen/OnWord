@@ -3,6 +3,13 @@ import { tidy } from './blocks.js';
 import { countPages, countText, plural } from './metrics.js';
 
 const UNTITLED = 'Untitled document';
+/** What the save indicator shows for each state of a document in the store. */
+const STATE_LABELS = {
+  saved: 'Saved',
+  saving: 'Saving…',
+  retrying: 'Not saved — retrying',
+  conflict: 'Not saved — changed elsewhere',
+};
 
 /**
  * The open document: loading, autosave, title and word count.
@@ -35,7 +42,15 @@ export function createSession({ root, content, store, events }) {
     if (!id || !(dirty || force)) return;
     const ok = store.write(id, content.innerHTML, { title: title(), snippet: content.innerText.trim().slice(0, 500) });
     dirty = !ok;
-    saveStateEl.textContent = ok ? 'Saved' : 'Not saved';
+    showState(ok);
+  }
+
+  /** Says whether the document is stored. A server store may still be sending it. */
+  function showState(/** @type {boolean} */ accepted = true) {
+    if (!id) return;
+    if (store.meta(id)?.role === 'view') saveStateEl.textContent = 'View only';
+    else if (dirty && accepted) saveStateEl.textContent = 'Saving…';
+    else saveStateEl.textContent = accepted ? STATE_LABELS[store.syncState(id)] : 'Not saved';
   }
 
   /** Call after any change to the document or its title. */
@@ -58,6 +73,10 @@ export function createSession({ root, content, store, events }) {
     titleEl.value = entry.title;
     doc.title = entry.title + ' – OnWord';
     saveStateEl.textContent = '';
+    const readOnly = entry.role === 'view';
+    content.contentEditable = String(!readOnly);
+    titleEl.readOnly = readOnly;
+    if (readOnly) showState();
     updateCounts();
     events.emit('open');
     return true;
@@ -90,6 +109,7 @@ export function createSession({ root, content, store, events }) {
   });
 
   events.on('pages', updateCounts);
+  store.onStatus(() => showState());
 
   /** Stored metadata of the open document. */
   const meta = () => (id ? store.meta(id) : undefined);

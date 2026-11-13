@@ -1,7 +1,7 @@
 # OnWord — working agreement
 
 OnWord is a browser-based word processor: plain HTML, CSS and ES modules, **no runtime dependencies and
-no build step**. It will grow a lot. These rules exist so it stays easy to navigate; follow them even when
+no build step**, with an optional server part in plain PHP (`api/`) for accounts and shared storage. It will grow a lot. These rules exist so it stays easy to navigate; follow them even when
 a shortcut looks harmless, and update this file in the same change whenever the structure changes.
 
 ## Before you finish any change
@@ -25,18 +25,26 @@ The app must be served over HTTP (`npm start`); ES modules do not load from `fil
 ```
 index.html              static markup for both screens; no inline scripts or handlers
 .htaccess               Apache settings for the web host: MIME type, security policy, caching
+api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
+  index.php             the only entry point: route table, session, CSRF check, error handling
+  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents
+  config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        overlays, outline, ruler, page, find, images, history, review, print)
+                        account, overlays, outline, ruler, page, find, images, history, review,
+                        print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
-                        storage (documents + versions), preferences, page (page setup model and
+                        storage (documents in the browser), remoteStore (documents on the server,
+                        same interface), api (server client), preferences, page (page setup model and
                         geometry), units, tableGrid (merged cells), zip, download, platform
     docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
                         paragraph, section, tables and notes (footnotes, comments, table of
                         contents) convert in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
-  library/              the document list screen: library, templates, importer (files), backup
+  library/              the document list screen: library, templates, importer (files), backup,
+                        sharing
+  account/              the sign-in / create-account screen
   editor/
     editor.js           composition root of the editor: builds `ctx`, initialises every feature
     session.js          the open document: load, autosave, title, counts
@@ -65,11 +73,12 @@ tools/                  development scripts (not shipped): architecture check, s
 | `core/` | `core/` only |
 | `ui/` | `core/`, `ui/` |
 | `library/` | `core/`, `ui/`, `library/` |
+| `account/` | `core/`, `ui/`, `account/` |
 | `editor/*.js` | `core/`, `ui/`, `editor/` |
 | `editor/features/*` | `core/`, `ui/`, `editor/*.js` — **never another feature** |
 | `main.js` | anything; nothing imports `main.js` |
 
-- `library/` and `editor/` never import each other. Only `editor/editor.js` imports features.
+- `library/`, `account/` and `editor/` never import each other. Only `editor/editor.js` imports features.
 - Dependencies point downwards only. If two features need the same code, move it down a layer
   (`editor/` helper, `ui/`, or `core/`); do not import sideways.
 
@@ -82,7 +91,7 @@ Features are decoupled. They share exactly three channels:
    `data-act="name"` (optional `data-arg`) runs that command on click — that is how buttons and menu items
    are wired, so never add per-button click handlers for actions.
    Names are `area.verb`: `app.*`, `library.*`, `file.*`, `edit.*`, `format.*`, `insert.*`, `table.*`,
-   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*`. Registering a duplicate name throws.
+   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*`, `account.*`. Registering a duplicate name throws.
 2. **Events** (`ctx.events`) — notifications a feature may react to: `open`, `input`, `change`,
    `selection`, `dismiss`, `layout`, `pages`. They are documented at the top of `editor/editor.js`; add new ones there.
 3. **`ctx`** — the context object every feature receives: `root`, `content`, `scroller`, `selection`,
@@ -122,6 +131,27 @@ emits `change`). Use `ctx.exec(command, value)` for browser editing commands.
 
 A new screen follows the `library/` pattern: its own folder, a `createX({ root, ...services })` factory,
 wired in `main.js`.
+
+## Server part (`api/`)
+
+Plain PHP with no framework or Composer packages, so it runs on shared hosting as uploaded.
+
+- `index.php` is the only file meant to be requested. A route is `"METHOD name" => [handler, signed in?]`
+  in its `ROUTES` table, addressed as `api/index.php?r=name`. Reads are GET; everything that changes data
+  is POST with a JSON body. No PUT/DELETE and no URL rewriting, which some hosts block.
+- A handler is a function `(PDO $db, ?array $user, array $in, array $config): array` in `lib/`; it returns
+  the response data or calls `fail(status, code, message)`. `code` is a stable identifier the client may
+  branch on; `message` is shown to the user. Never echo, never expose exception details.
+- Every POST must pass `require_csrf()` (done centrally in `index.php`). Every document handler starts
+  with `doc_access()` or `require_owner()`; a document the user may not see answers exactly like a
+  missing one (404).
+- SQL goes through `run()` with placeholders only — no values, and no request data of any kind, in the
+  SQL text. Keep statements portable between MySQL and SQLite; driver differences live in
+  `ensure_schema()`. A schema change bumps `SCHEMA_VERSION` and must upgrade an existing database.
+- Validate every input field (`text_field()`, `doc_id()`, `doc_fields()`), including lengths.
+- Tests: `tests/e2e/server.test.mjs` starts PHP's built-in server with a temporary SQLite database and
+  drives the real UI. Set `ONWORD_TEST_CONFIG` to a config file to run them against MySQL/MariaDB. Any new
+  route gets a test there, including what a user without access gets.
 
 ## Types
 
@@ -165,9 +195,20 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - Editing is built on `contenteditable` and `document.execCommand`. Chrome produces invalid nesting
   (blocks inside `<p>`); `tidy()` in `editor/blocks.js` repairs it, and block-level inserts go through
   `insertBlock()` instead of `insertHTML`.
-- Documents live in `localStorage` (a few MB). There is no server, sync or collaboration yet. Version
-  snapshots share that quota, so the store keeps at most 10 per document and drops old ones silently when
-  space runs out.
+- The site runs in one of two modes, decided at start-up in `main.js` by asking `api/index.php` who is
+  signed in. If that answers, documents live on the server and a sign-in screen comes first. If it does
+  not (the files are served without PHP, as in `npm start` and most tests), documents live in
+  `localStorage`, a few MB per browser. Features never know which: both stores implement the interface
+  defined in `core/storage.js`, and anything added to one must be added to the other.
+- The store interface is synchronous. `core/remoteStore.js` achieves that with an in-memory copy: reads
+  come from it, writes update it at once and are sent in the background, one request per document at a
+  time with later changes merged. Consequences: a document's content must be `load()`ed before it is
+  opened (the router does this), `write()` returning true means accepted, not stored (`syncState()` and
+  `onStatus()` tell the rest), and ids are generated in the browser. Every update carries the revision
+  it is based on; the server refuses a stale one (`conflict`) rather than overwrite newer work.
+- HTML that arrives from the server is foreign, because another account may have written it: it goes
+  through `sanitize()` in `remoteStore.load()`. The server stores it as it is given.
+- Version snapshots are capped at 10 per document in both stores.
 - The look of a document is defined in three places that must change together: `styles/document.css`
   (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download) and `STYLES` in `core/docx/parts.js`
   (Word download).
@@ -209,7 +250,7 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   (`<ins>` / `<del>`), the last two carrying `data-author` and `data-date`.
 - Track changes intercepts `beforeinput` and edits the DOM itself for typing and deleting only; pasting,
   formatting and paragraph breaks are not tracked.
-- The site is deployed as static files to an Apache host. `npm run package` zips exactly what is served
-  (`index.html`, `.htaccess`, `styles/`, `src/`). The end-to-end tests send the Content-Security-Policy
+- The site is deployed to an Apache host with PHP and MySQL. `npm run package` zips exactly what is
+  served (`index.html`, `.htaccess`, `styles/`, `src/`, `api/` without `config.php`). The end-to-end tests send the Content-Security-Policy
   from `.htaccess`, so anything it would block (inline scripts, third-party scripts) fails in tests.
   Adding a new kind of resource means updating that policy.

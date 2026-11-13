@@ -9,6 +9,7 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const SCREENS = '#home:not([hidden]), #editorView:not([hidden]), #account:not([hidden])';
 // Tests run under the Content-Security-Policy the web host will send, so a violation fails here first.
 const CSP = readFileSync(join(ROOT, '.htaccess'), 'utf8').match(/Content-Security-Policy "([^"]+)"/)[1];
 
@@ -51,8 +52,19 @@ export function useApp() {
     const page = await context.newPage();
     page.errors = [];
     page.on('pageerror', (e) => page.errors.push(e.message));
-    page.on('console', (m) => m.type() === 'error' && page.errors.push(m.text()));
+    // Without the server part the app looks for api/index.php once, finds nothing and stores in the browser.
+    const expected = (m) => m.location().url.includes('/api/index.php');
+    page.on('console', (m) => m.type() === 'error' && !expected(m) && page.errors.push(m.text()));
+    // The app decides how to store documents before it shows a screen, so "loaded" means a screen is up.
+    const ready = () => page.waitForSelector(SCREENS);
+    const reload = page.reload.bind(page);
+    page.reload = async (...args) => {
+      const response = await reload(...args);
+      await ready();
+      return response;
+    };
     await page.goto(base);
+    await ready();
     return page;
   }
 

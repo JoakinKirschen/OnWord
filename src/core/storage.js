@@ -7,7 +7,18 @@ const versionsKey = (/** @type {string} */ id) => 'onword:versions:' + id;
 
 /**
  * @typedef {import('./page.js').PageSetup} PageSetup
- * @typedef {{ id: string, title: string, created: number, updated: number, snippet: string, page?: PageSetup }} DocMeta
+ * @typedef {object} DocMeta
+ * @property {string} id
+ * @property {string} title
+ * @property {number} created
+ * @property {number} updated
+ * @property {string} snippet
+ * @property {PageSetup} [page]
+ * @property {number} [rev] server stores only: the revision the local copy is based on
+ * @property {'owner' | 'edit' | 'view'} [role] server stores only: what the signed-in user may do
+ * @property {string} [owner] server stores only: name of the owner
+ * @typedef {{ userId: number, name: string, email: string, role: string }} Share
+ * @typedef {'saved' | 'saving' | 'retrying' | 'conflict'} SyncState
  * @typedef {{ at: number, html: string, snippet: string }} DocVersion
  * @typedef {ReturnType<typeof createDocumentStore>} DocumentStore
  */
@@ -109,5 +120,37 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
     return false;
   }
 
-  return { indexKey: INDEX_KEY, index, meta, read, create, write, duplicate, remove, versions, addVersion };
+  return {
+    /** Whether documents live on a server (and can therefore be shared). */
+    remote: false,
+    indexKey: INDEX_KEY,
+    index,
+    meta,
+    read,
+    create,
+    write,
+    duplicate,
+    remove,
+    versions,
+    addVersion,
+    // The rest of the interface matters for a server store; here everything is already at hand.
+    /** Updates the list of documents from where they are kept. */
+    refresh: async () => {},
+    /** Makes a document's content available to `read`. Resolves to false if it does not exist. */
+    load: async (/** @type {string} */ id) => !!meta(id),
+    /** Makes every document's content available to `read`. */
+    loadAll: async () => {},
+    /** Number of documents with changes that are not stored yet. */
+    pending: () => 0,
+    /** @returns {SyncState} */
+    syncState: (/** @type {string} */ _id) => 'saved',
+    /** Calls `listener` whenever a sync state may have changed. */
+    onStatus: (/** @type {() => void} */ _listener) => {},
+    /** @returns {Promise<Share[]>} */
+    shares: async (/** @type {string} */ _id) => [],
+    /** @returns {Promise<void>} */
+    share: async (/** @type {string} */ _id, /** @type {string} */ _email, /** @type {string} */ _role) => {},
+    /** @returns {Promise<void>} */
+    unshare: async (/** @type {string} */ _id, /** @type {number} */ _userId) => {},
+  };
 }

@@ -4,6 +4,7 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
 
 ## Features
 
+- Optional accounts with server storage, and sharing a document with other accounts (view or edit)
 - Document library with search, rename, duplicate and delete, plus templates (letter, meeting notes,
   résumé, project brief)
 - Word documents: open `.docx` files and download as `.docx`
@@ -39,22 +40,35 @@ Then visit <http://localhost:8000>. Because it is a static site, it can be hoste
 
 ## Deploy to a web host
 
-OnWord is static files, so any web host works, including shared hosting managed with DirectAdmin. There
-is nothing to install on the server: no database, PHP or Node.
+OnWord runs in two ways, and decides by itself which applies:
+
+- **With accounts and server storage** (shared hosting with PHP 8.1+ and MySQL/MariaDB, such as
+  DirectAdmin): people sign in, their documents are stored in the database, and a document can be shared
+  with other accounts for viewing or editing.
+- **As plain files** (any static host, or `npm start`): no sign-in; documents stay in each visitor's browser.
 
 ```bash
 npm run package
 ```
 
-This writes `dist/onword-site.zip`. In DirectAdmin open **File Manager**, go to
-`domains/<your-domain>/public_html` (or a subfolder of it), upload the zip and choose **Extract**. The
-site is then live at your domain. Uploading the contents over FTP works just as well.
+This writes `dist/onword-site.zip`. On DirectAdmin:
 
-- The included `.htaccess` sets the JavaScript MIME type, a Content-Security-Policy and cache headers.
-  File managers often hide files that start with a dot; make sure it was extracted.
-- Use HTTPS (DirectAdmin: **SSL Certificates → Let's Encrypt**).
-- To update, upload and extract a new zip over the old files.
-- Documents are stored in each visitor's own browser, not on the server (see Limitations).
+1. **Account Manager → MySQL Management → Create new database.** Note the database name, user and password.
+2. **File Manager:** go to `domains/<your-domain>/public_html` (or a subfolder), upload the zip and choose
+   **Extract**. File managers often hide files that start with a dot; make sure `.htaccess` was extracted.
+3. In the extracted `api` folder, copy `config.sample.php` to `config.php` and fill in the three database
+   values. The tables are created automatically the first time the site is opened.
+4. Open the site and choose **Create an account**.
+5. Use HTTPS (**SSL Certificates → Let's Encrypt**): passwords are sent to the server.
+
+Settings in `api/config.php`:
+
+- `allow_registration` — set to `false` once everyone has an account, so strangers cannot sign up.
+- `registration_code` — a code people must enter to create an account.
+- `max_document_bytes` — largest document accepted (5 MB by default).
+
+To update, upload and extract a new zip over the old files; `config.php` is not in the zip, so your
+settings stay. Without `config.php` the site shows a setup notice instead of the sign-in screen.
 
 ## Develop
 
@@ -70,8 +84,11 @@ CI runs `npm run verify` on every pull request.
 
 ## Limitations
 
-Documents are stored in the browser they were written in: there are no accounts, cloud sync or real-time
-collaboration, and browser storage is limited to a few megabytes (large images are scaled down to help).
+Served as plain files, documents are stored in the browser they were written in, and browser storage is
+limited to a few megabytes (large images are scaled down to help). With the server part, documents are
+stored per account and can be shared, but two people editing the same document at the same time do not
+see each other's changes live: whoever saves second is told the document changed elsewhere and has to
+reload. There is no password reset by email yet.
 Use **File → Download** to move a document, or **Back up** on the home screen to save all of them.
 
 Word import keeps text, headings, character formatting, lists, tables, links, images and page setup.

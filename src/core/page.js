@@ -36,10 +36,11 @@ const normalizeRunning = (value) => ({
 
 /**
  * Fills in defaults and drops unknown values (metadata may come from an older version or a file).
- * @param {Partial<PageSetup>} [page]
+ * @param {Partial<PageSetup> | null} [given]
  * @returns {PageSetup}
  */
-export function normalizePage(page = {}) {
+export function normalizePage(given) {
+  const page = given ?? {}; // a document stored without page setup has null here
   return {
     size: page.size in PAGE_SIZES ? page.size : DEFAULTS.size,
     orientation: page.orientation === 'landscape' ? 'landscape' : DEFAULTS.orientation,

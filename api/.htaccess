@@ -1,0 +1,4 @@
+# Only index.php is meant to be requested. The configuration and the library files are not.
+<FilesMatch "^config(\.sample)?\.php$">
+  Require all denied
+</FilesMatch>

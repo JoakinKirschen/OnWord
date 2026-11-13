@@ -56,7 +56,8 @@ export function initImporter({ input, store, commands, toast, navigate, refresh 
 
   commands.register({
     'library.import': () => input.click(),
-    'library.backup'() {
+    async 'library.backup'() {
+      await store.loadAll(); // a server store only holds the documents opened so far
       const backup = createBackup(store);
       if (!backup.documents.length) return toast('There are no documents to back up.');
       const date = backup.exportedAt.slice(0, 10);

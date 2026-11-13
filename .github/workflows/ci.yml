@@ -20,4 +20,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # The runner image ships PHP with SQLite, which the server tests need; fail loudly if that changes.
+      - run: php -m | grep -i pdo_sqlite
+      - run: for f in api/index.php api/lib/*.php; do php -l "$f"; done
       - run: npm run verify
