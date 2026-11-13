@@ -8,7 +8,9 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
 - Specifications (lastenboeken): master specifications and projects built from them, as a tree of
   numbered articles with rich text, measurement lines with formulas, unit prices and a bill of quantities
   (meetstaat) that downloads for Excel. A price library shows what each article cost in your other
-  projects and fills in missing prices. A specification can be turned into a document for Word or PDF.
+  projects and for what quantity, suggests the price to expect for this project's quantity (larger
+  quantities usually cost less per unit) and fills in missing prices. A specification can be turned into a
+  document for Word or PDF.
 - Document library with search, rename, duplicate and delete, plus templates (letter, meeting notes,
   résumé, project brief)
 - Word documents: open `.docx` files and download as `.docx`

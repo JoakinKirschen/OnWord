@@ -102,7 +102,7 @@ export function articleHtml(article, { editable, source, library }) {
       <label>Unit price<input data-field="price" type="number" min="0" step="0.01" value="${article.price || ''}"${off}></label>
       <span>Amount <b id="articleAmount">${totals.amount}</b></span>
     </div>
-    <p id="articleLibrary" class="article-source">${library}</p>
+    <div id="articleLibrary" class="article-source">${library}</div>
     <div class="article-actions" ${editable ? '' : 'hidden'}>
       <button class="btn sm" data-act="spec.addArticle" data-arg="child">+ Sub-article</button><span class="spacer"></span>
       <button class="btn sm danger-text" data-act="spec.deleteArticle">Delete article</button>

@@ -1,5 +1,6 @@
 import { sanitize } from '../html.js';
 import { newId } from '../ids.js';
+import { quantityOf } from './model.js';
 
 /**
  * Specifications kept on the server. Masters are readable by every account; only their owner changes them.
@@ -26,6 +27,9 @@ export function createRemoteSpecStore({ api }) {
     remove: (specId) => api.post('specs/delete', { id: specId }),
     saveArticle: (specId, article) => api.post('articles/save', { specId, article }),
     removeArticle: (specId, articleId) => api.post('articles/delete', { specId, id: articleId }),
-    prices: () => api.get('prices/list').then((data) => data.prices),
+    prices: () =>
+      api
+        .get('prices/list')
+        .then((data) => data.prices.map(({ lines, ...record }) => ({ ...record, quantity: quantityOf({ lines }) }))),
   };
 }

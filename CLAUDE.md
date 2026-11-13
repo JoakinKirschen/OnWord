@@ -236,6 +236,12 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   from a master, in their own projects (`prices()` on the spec store; `collectPrices()` in the browser,
   `prices_list()` on the server — keep them alike). Prices are filed under the master article and only
   compared for the same unit. A master shows the prices of all projects; a project those of the others.
+- A price is only meaningful with its quantity: larger quantities get lower unit prices. Each price record
+  carries the measured quantity of its article (the server sends the measurement lines; the browser
+  evaluates them, so formulas are evaluated in one place). `fitCurve()` fits price = a × quantityᵇ by least
+  squares on logarithms once two different quantities are known; `expectedPrice()` reads it off for an
+  article's quantity, held at the ends of the quantities seen rather than extrapolated. Suggestions use the
+  expected price where there is one and the average otherwise.
 - "Create document" turns a specification into an ordinary document (`specToHtml()`), which then has
   the editor's Word, PDF (print) and HTML export. The document is a snapshot: later changes to the
   specification do not flow into it.

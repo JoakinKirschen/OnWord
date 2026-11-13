@@ -168,13 +168,17 @@ async function newProject(page, title) {
   await page.waitForSelector('#specView:not([hidden])');
 }
 
-/** Opens an article by its position in the tree and gives it a unit price. */
-async function price(page, nth, value) {
+/** Opens an article by its position in the tree, measures it (when `quantity` is given) and prices it. */
+async function price(page, nth, value, quantity = '') {
   await page.click(`#articleTree .tree-item >> nth=${nth}`);
+  if (quantity) {
+    await page.click('[data-act="spec.addLine"]');
+    await page.fill('[data-line="0"][data-part="formula"]', quantity);
+  }
   await page.fill(field('price'), value);
 }
 
-test('the price library shows what an article cost in other projects and fills in missing prices', async () => {
+test('the price library relates prices to quantities and fills in missing prices', async () => {
   const page = await openApp();
   await newMaster(page, 'Standard');
   await addArticle(page, { title: 'Trench', unit: 'm' });
@@ -182,32 +186,50 @@ test('the price library shows what an article cost in other projects and fills i
   await saved(page);
 
   await newProject(page, 'School');
-  await price(page, 0, '10');
+  await price(page, 0, '10', '100');
   assert.equal(await page.textContent('#articleLibrary'), 'No prices from your other projects yet.');
   await saved(page);
   await newProject(page, 'Library');
-  await price(page, 0, '20');
+  await price(page, 0, '20', '25');
+  assert.match(await page.innerText('#articleLibrary'), /Too few measured prices yet/);
   await price(page, 1, '7');
   await saved(page);
 
+  // 20 for 25 m and 10 for 100 m: the price falls by 29 % each time the quantity doubles.
   await newProject(page, 'Town hall');
   await page.click('#articleTree .tree-item >> nth=0');
-  assert.match(
-    await page.innerText('#articleLibrary'),
-    /^Price library \(2 projects\): 10\.00 – 20\.00 · average 15\.00 · latest 20\.00/,
-  );
-  await page.click('[data-act="spec.usePrice"][data-arg="average"]');
-  assert.equal(await page.inputValue(field('price')), '15');
+  const note = () => page.innerText('#articleLibrary');
+  assert.match(await note(), /^Price library \(2 projects\): 10\.00 – 20\.00 · average 15\.00 · latest 20\.00/);
+  assert.match(await note(), /Prices are 29 % lower per doubling of the quantity\. Measure this article/);
+  await page.click('#priceRecords summary');
+  assert.deepEqual(await page.locator('#priceRecords tbody tr').allInnerTexts(), [
+    'School\t100 m\t10.00',
+    'Library\t25 m\t20.00',
+  ]);
+  await page.click('[data-act="spec.addLine"]');
+  await page.fill('[data-line="0"][data-part="formula"]', '50');
+  await page.fill(field('price'), '20');
+  assert.match(await note(), /Expected for 50 m: 14\.14 · 29 % lower per doubling/, 'follows the measurement');
+  assert.equal(await page.isVisible('#priceRecords tbody'), true, 'the price list stays open while measuring');
 
   await page.click('[data-act="spec.view"][data-arg="prices"]');
   const rows = () => page.locator('#pricesPanel tbody tr').allInnerTexts();
   assert.deepEqual(await rows(), [
-    '1\tTrench\tm\t15.00\t2\t10.00\t15.00\t20.00\t0 %',
-    '2\tPaving\tm²\t—\t1\t7.00\t7.00\t7.00\t',
+    '1\tTrench\tm\t50\t20.00\t2\t10.00 – 20.00\t15.00\t14.14\t+41 %',
+    '2\tPaving\tm²\t0\t—\t1\t7.00\t7.00\t\t',
   ]);
+  assert.equal(await page.locator('#pricesPanel .price-high').count(), 1, 'a price far above the library is marked');
+  await page.click('#pricesPanel tbody tr >> nth=0');
+  await page.click('[data-act="spec.usePrice"][data-arg="expected"]');
+  assert.equal(await page.inputValue(field('price')), '14.14');
+
+  await page.click('[data-act="spec.view"][data-arg="prices"]');
   await page.click('[data-act="spec.fillPrices"]');
   assert.equal(await page.textContent('#toast'), '1 price filled in from the price library.');
-  assert.equal((await rows())[1], '2\tPaving\tm²\t7.00\t1\t7.00\t7.00\t7.00\t0 %');
+  assert.deepEqual(await rows(), [
+    '1\tTrench\tm\t50\t14.14\t2\t10.00 – 20.00\t15.00\t14.14\t0 %',
+    '2\tPaving\tm²\t0\t7.00\t1\t7.00\t7.00\t\t0 %',
+  ]);
   assert.equal(await page.locator('[data-act="spec.fillPrices"]').count(), 0, 'nothing is left to fill in');
   await saved(page);
 
@@ -217,8 +239,8 @@ test('the price library shows what an article cost in other projects and fills i
   await page.waitForSelector('#specView:not([hidden])');
   await page.click('[data-act="spec.view"][data-arg="prices"]');
   assert.deepEqual(await rows(), [
-    '1\tTrench\tm\t—\t3\t10.00\t15.00\t20.00\t',
-    '2\tPaving\tm²\t—\t2\t7.00\t7.00\t7.00\t',
+    '1\tTrench\tm\t0\t—\t3\t10.00 – 20.00\t14.71\t\t',
+    '2\tPaving\tm²\t0\t—\t2\t7.00\t7.00\t\t',
   ]);
   await page.click('#pricesPanel tbody tr >> nth=0');
   assert.equal(await page.inputValue(field('title')), 'Trench', 'a row opens its article');
