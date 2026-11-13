@@ -38,6 +38,8 @@ function auth_me(PDO $db, ?array $user, array $in, array $config): array
             'open' => (bool) $config['allow_registration'],
             'code' => $config['registration_code'] !== '',
         ],
+        // Whether the AI reader for contractors' offers is set up (an API key is configured).
+        'ai' => $config['anthropic_api_key'] !== '',
     ];
 }
 

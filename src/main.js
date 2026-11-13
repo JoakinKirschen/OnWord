@@ -8,6 +8,7 @@ import { createCommands } from './core/commands.js';
 import { $, hit } from './core/dom.js';
 import { createPreferences } from './core/preferences.js';
 import { createRemoteStore } from './core/remoteStore.js';
+import { createAiReader } from './core/spec/aiReader.js';
 import { createLocalSpecStore } from './core/spec/localStore.js';
 import { createRemoteSpecStore } from './core/spec/remoteStore.js';
 import { createDocumentStore } from './core/storage.js';
@@ -53,8 +54,9 @@ addEventListener('resize', popover.close);
  * @param {import('./core/storage.js').DocumentStore} store
  * @param {import('./core/spec/model.js').SpecStore} specStore
  * @param {import('./core/api.js').User | null} user the signed-in user when everything lives on the server
+ * @param {import('./core/spec/aiReader.js').AiReader | null} [aiReader] when the server has one set up
  */
-function startApp(store, specStore, user) {
+function startApp(store, specStore, user, aiReader = null) {
   const shared = { store, commands, popover, toast, navigate };
   const library = createLibrary({ root: $('#home', document), ...shared });
   const editor = createEditor({ root: $('#editorView', document), prefs, ...shared });
@@ -62,7 +64,7 @@ function startApp(store, specStore, user) {
   initSharing({ dialog: $('#shareDlg', document), store, commands, toast });
   const specDeps = { specStore, commands, toast, navigate };
   const specList = createSpecList({ root: $('#specsHome', document), dialog: $('#projectDlg', document), ...specDeps });
-  const workspace = createWorkspace({ root: $('#specView', document), documents: store, ...specDeps });
+  const workspace = createWorkspace({ root: $('#specView', document), documents: store, aiReader, ...specDeps });
   let navigation = 0;
 
   /**
@@ -115,14 +117,18 @@ function startApp(store, specStore, user) {
   route();
 }
 
-/** Documents live on the server: the store is filled from it before anything is shown. */
-async function startOnServer(/** @type {import('./core/api.js').User} */ user) {
+/**
+ * Documents live on the server: the store is filled from it before anything is shown.
+ * @param {import('./core/api.js').User} user
+ * @param {boolean} ai whether the server's AI reader is set up
+ */
+async function startOnServer(user, ai) {
   const store = createRemoteStore({
     api,
     onConflict: (title) => toast(`“${title}” was changed somewhere else. Reload the page to see that version.`, 9000),
   });
   await store.refresh();
-  startApp(store, createRemoteSpecStore({ api }), user);
+  startApp(store, createRemoteSpecStore({ api }), user, ai ? createAiReader({ api }) : null);
 }
 
 /**
@@ -144,12 +150,13 @@ async function start() {
     });
     return startApp(store, createLocalSpecStore({ storage: localStorage }), null);
   }
-  if (session.user) return startOnServer(session.user);
+  const ai = !!session.ai;
+  if (session.user) return startOnServer(session.user, ai);
   createAccount({
     root: $('#account', document),
     api,
     registration: session.registration,
-    onSignedIn: startOnServer,
+    onSignedIn: (/** @type {import('./core/api.js').User} */ user) => startOnServer(user, ai),
   }).show();
 }
 

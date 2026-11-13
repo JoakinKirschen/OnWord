@@ -1,5 +1,6 @@
 /** Converts WordprocessingML runs (text, formatting, links, images) to HTML. */
 
+import { toBase64 } from '../base64.js';
 import { esc } from '../html.js';
 import { all, attr, isOn, kid, kids, val } from './xml.js';
 
@@ -25,7 +26,6 @@ const HIGHLIGHTS = {
 const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif' };
 const HEX = /^[0-9a-f]{6}$/i;
 const VERTICAL_TAGS = { superscript: 'sup', subscript: 'sub' };
-const BASE64_CHUNK = 0x8000;
 const PASS_THROUGH = ['smartTag', 'fldSimple', 'sdtContent'];
 
 /**
@@ -36,13 +36,6 @@ const PASS_THROUGH = ['smartTag', 'fldSimple', 'sdtContent'];
  * @typedef {{ pageBreak?: boolean, inLink?: boolean }} Flags
  * `pageBreak` is set by a run that contains a page break.
  */
-
-function base64(/** @type {Uint8Array} */ bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += BASE64_CHUNK)
-    binary += String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK));
-  return btoa(binary);
-}
 
 /** Inline CSS declarations for a run's colour, highlight, size and font. */
 function runCss(/** @type {Element} */ rPr) {
@@ -93,7 +86,7 @@ function image(/** @type {Element} */ drawing, /** @type {Package} */ pkg) {
   const width = Math.round(Number(all(drawing, 'extent')[0]?.getAttribute('cx')) / EMU_PER_PX);
   const alt = all(drawing, 'docPr')[0]?.getAttribute('descr') || '';
   const style = width ? ` style="width: ${width}px; height: auto;"` : '';
-  return `<img src="data:${mime};base64,${base64(bytes)}" alt="${esc(alt)}"${style}>`;
+  return `<img src="data:${mime};base64,${toBase64(bytes)}" alt="${esc(alt)}"${style}>`;
 }
 
 /** The superscript number standing for a footnote; its id ties it to the note (see `noteId`). */

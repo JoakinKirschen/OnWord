@@ -5,6 +5,7 @@ import { newId } from '../core/ids.js';
 import { evaluate } from '../core/spec/formula.js';
 import { blankArticle, subtree, suggestNumber } from '../core/spec/model.js';
 import { quantitiesCsv, specToHtml } from '../core/spec/output.js';
+import { createOffers } from './offers.js';
 import { createPriceLibrary } from './prices.js';
 import { createSaver } from './saver.js';
 import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText, treeHtml } from './templates.js';
@@ -12,7 +13,7 @@ import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText,
 const NOTHING = '<p class="spec-empty">Choose an article in the list, or add one.</p>';
 
 /**
- * The workspace for one specification: article tree, article form, bill of quantities and prices.
+ * The workspace for one specification: article tree, article form, bill of quantities, prices and offers.
  * @typedef {object} WorkspaceDeps
  * @property {HTMLElement} root
  * @property {import('../core/spec/model.js').SpecStore} specStore
@@ -20,15 +21,17 @@ const NOTHING = '<p class="spec-empty">Choose an article in the list, or add one
  * @property {import('../core/commands.js').Commands} commands
  * @property {import('../ui/toast.js').Toast} toast
  * @property {(hash: string) => void} navigate
+ * @property {import('../core/spec/aiReader.js').AiReader | null} aiReader reads offers the spreadsheet reader cannot
  *
  * @param {WorkspaceDeps} deps
  */
-export function createWorkspace({ root, specStore, documents, commands, toast, navigate }) {
+export function createWorkspace({ root, specStore, documents, commands, toast, navigate, aiReader }) {
   const doc = root.ownerDocument;
   const tree = $('#articleTree', root),
     panel = $('#articlePanel', root),
     quantities = $('#quantitiesPanel', root),
     pricesPanel = $('#pricesPanel', root),
+    offersPanel = $('#offersPanel', root),
     search = $('#articleSearch', root),
     state = $('#specState', root);
   const inputs = { title: $('#specTitle', root), phase: $('#specPhase', root), lot: $('#specLot', root) };
@@ -39,17 +42,23 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   /** Master articles by id, to tell whether a project article still matches. @type {Map<string, import('../core/spec/model.js').Article>} */
   let sources = new Map();
   let selectedId = null;
-  const views = { articles: panel, quantities, prices: pricesPanel };
+  const views = { articles: panel, quantities, prices: pricesPanel, offers: offersPanel };
 
   const selected = () => articles.find((a) => a.id === selectedId);
   const editable = () => !!spec?.mine;
   const saver = createSaver({ specStore, state, toast, current: () => ({ spec, articles }) });
   const changed = saver.changed;
-  const library = createPriceLibrary({
+  const target = { spec: () => spec, articles: () => articles, selected, editable, setPrices };
+  const library = createPriceLibrary({ specStore, commands, toast, target });
+  const offers = createOffers({
     specStore,
     commands,
     toast,
-    target: { spec: () => spec, articles: () => articles, selected, editable, setPrices },
+    target,
+    aiReader,
+    dialog: $('#offerDlg', root),
+    input: $('#offerInput', root),
+    save: saver.save,
   });
 
   function drawTree() {
@@ -78,6 +87,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     for (const [name, element] of Object.entries(views)) element.hidden = name !== view;
     if (view === 'quantities') quantities.innerHTML = quantitiesHtml(articles);
     if (view === 'prices') pricesPanel.innerHTML = library.viewHtml();
+    if (view === 'offers') offersPanel.innerHTML = offers.viewHtml();
     for (const tab of $$('[data-act="spec.view"]', root)) tab.classList.toggle('on', tab.dataset.arg === view);
   }
   /** Gives articles a new unit price and redraws what shows it. */
@@ -86,8 +96,9 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       article.price = price;
       changed(article.id);
     }
-    if (pricesPanel.hidden) drawArticle();
-    else show('prices');
+    const current = /** @type {keyof typeof views} */ (Object.keys(views).find((name) => !views[name].hidden));
+    if (current === 'articles') drawArticle();
+    else show(current);
   }
 
   function select(/** @type {string | null} */ id) {
@@ -198,6 +209,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       const [master] = await Promise.all([
         spec.masterId ? specStore.get(spec.masterId).catch(() => null) : null,
         library.load(),
+        offers.load(),
       ]);
       sources = new Map((master?.articles ?? []).map((a) => [a.id, a]));
       for (const [name, input] of Object.entries(inputs)) {
@@ -205,7 +217,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
         input.disabled = !spec.mine;
       }
       $('#specKind', root).textContent = spec.kind === 'master' ? 'Master specification' : 'Project';
-      $('#specProject', root).hidden = spec.kind !== 'project';
+      $('#specProject', root).hidden = $('[data-arg="offers"]', root).hidden = spec.kind !== 'project';
       $('#specReadOnly', root).hidden = spec.mine;
       state.textContent = '';
       search.value = '';

@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
+import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -22,7 +23,41 @@ const hasPhp = (() => {
   }
 })();
 
-let php, browser, base;
+let php, browser, base, claude;
+
+/**
+ * A stand-in for the Claude API, so the AI reader is tested without a key or network. It keeps the last
+ * request it received and answers with `claude.answer(request)`.
+ */
+function fakeClaude() {
+  const fake = { last: null, answer: () => ({}), server: null, url: '' };
+  fake.server = createHttpServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      fake.last = { path: req.url, headers: req.headers, body: JSON.parse(body) };
+      const output = fake.answer(fake.last.body);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: 'msg_test',
+          type: 'message',
+          role: 'assistant',
+          model: fake.last.body.model,
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: JSON.stringify(output) }],
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+      );
+    });
+  });
+  return new Promise((done) =>
+    fake.server.listen(0, '127.0.0.1', () => {
+      fake.url = `http://127.0.0.1:${fake.server.address().port}`;
+      done(fake);
+    }),
+  );
+}
 
 const freePort = () =>
   new Promise((done) => {
@@ -37,8 +72,11 @@ before(async () => {
   const dir = mkdtempSync(join(tmpdir(), 'onword-server-'));
   // ONWORD_TEST_CONFIG points at a config file for another database, e.g. a local MariaDB.
   const config = process.env.ONWORD_TEST_CONFIG || join(dir, 'config.php');
-  if (!process.env.ONWORD_TEST_CONFIG)
-    writeFileSync(config, `<?php return ['dsn' => 'sqlite:${join(dir, 'test.sqlite')}'];`);
+  if (!process.env.ONWORD_TEST_CONFIG) {
+    claude = await fakeClaude();
+    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}'`;
+    writeFileSync(config, `<?php return [${settings}];`);
+  }
   const port = await freePort();
   base = `http://127.0.0.1:${port}/`;
   php = spawn('php', ['-S', `127.0.0.1:${port}`, '-t', ROOT], {
@@ -61,6 +99,7 @@ before(async () => {
 after(async () => {
   await browser?.close();
   php?.kill();
+  claude?.server.close();
 });
 
 /** A separate browser (own cookies), like another person or another computer. */
@@ -305,11 +344,107 @@ test(
   },
 );
 
+test(
+  'offers on the server, read by the AI reader, and kept from other accounts',
+  { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG },
+  async () => {
+    const specSaved = (page) =>
+      page.waitForFunction(() => document.querySelector('#specState').textContent === 'Saved');
+    const owner = await visitor();
+    await register(owner, 'Ines', email('ines'));
+    await owner.waitForSelector('#home:not([hidden])');
+    await owner.click('#home .main-nav a[href="#/specs"]');
+    await owner.click('[data-act="spec.newProject"]');
+    await owner.fill('#projectDlg [name=title]', 'Ines project');
+    await owner.selectOption('#projectMaster', '');
+    await owner.click('#projectDlg .primary');
+    await owner.waitForSelector('#specView:not([hidden])');
+    await owner.click('.spec-tree-tools [data-act="spec.addArticle"]');
+    await owner.fill('#articlePanel [data-field="title"]', 'Paving');
+    await owner.fill('#articlePanel [data-field="unit"]', 'm²');
+    await owner.click('[data-act="spec.addLine"]');
+    await owner.fill('[data-line="0"][data-part="formula"]', '48');
+
+    // The fake model matches the first line to the article it finds in the instructions, and makes up an id.
+    claude.answer = (request) => {
+      const id = request.system.match(/^(\w+)\t1\tPaving/m)?.[1] ?? '';
+      return {
+        contractor: 'Bouw Peeters',
+        lines: [
+          { articleId: id, number: 'A-7', title: 'Pavers', unit: 'm²', quantity: 50, price: 31.5 },
+          { articleId: '', number: '99', title: 'Extra work', unit: 'st', quantity: 0, price: 12 },
+          { articleId: 'madeupid99', number: '98', title: 'Other', unit: 'st', quantity: 1, price: 3 },
+        ],
+      };
+    };
+    await owner.click('[data-act="spec.view"][data-arg="offers"]');
+    const pdf = Buffer.from('%PDF-1.4 offer');
+    await owner.setInputFiles('#offerInput', { name: 'offer.pdf', mimeType: 'application/pdf', buffer: pdf });
+    await owner.waitForSelector('#offerDlg[open]');
+    assert.match(await owner.innerText('#offerSummary'), /A PDF is read by the AI reader/);
+    await owner.click('#offerAi');
+    await owner.waitForFunction(() =>
+      /read by the AI reader/.test(document.querySelector('#offerSummary').textContent),
+    );
+    assert.match(await owner.innerText('#offerSummary'), /^3 priced lines read by the AI reader, 1 matched/);
+    assert.equal(await owner.inputValue('#offerDlg [name=contractor]'), 'Bouw Peeters');
+
+    const { headers, body, path } = claude.last;
+    assert.equal(path, '/v1/messages');
+    assert.equal(headers['x-api-key'], 'test-key', 'the key stays on the server');
+    assert.equal(headers['anthropic-version'], '2026-10-21');
+    assert.equal(body.model, 'claude-opus-5-5');
+    assert.equal(body.output_config.format.type, 'json_schema');
+    assert.deepEqual(body.messages[0].content[0].source, {
+      type: 'base64',
+      media_type: 'application/pdf',
+      data: pdf.toString('base64'),
+    });
+
+    await owner.click('#offerDlg .primary');
+    await specSaved(owner);
+    await owner.reload();
+    await owner.click('[data-act="spec.view"][data-arg="offers"]');
+    assert.deepEqual(await owner.locator('#offersPanel .offers tbody tr').allInnerTexts(), [
+      '1\tPaving\tm²\t48\t—\t31.50 ≠',
+    ]);
+    assert.match(await owner.innerText('#offersPanel .offer-unmatched summary'), /Bouw Peeters: 2 lines not matched/);
+
+    // Another account cannot see, change or have read the offers of this project.
+    const projectId = await owner.evaluate(() => location.hash.split('/').pop());
+    const other = await visitor();
+    await register(other, 'Bo', email('bo'));
+    await other.waitForSelector('#home:not([hidden])');
+    const answers = await other.evaluate(async (specId) => {
+      const me = await (await fetch('api/index.php?r=auth/me')).json();
+      const call = async (route, payload) => {
+        const init = payload
+          ? { method: 'POST', headers: { 'X-CSRF-Token': me.csrf }, body: JSON.stringify(payload) }
+          : undefined;
+        const response = await fetch(`api/index.php?r=${route}`, init);
+        return [response.status, (await response.json()).error];
+      };
+      return [
+        await call(`offers/list&specId=${specId}`),
+        await call('offers/save', { specId, offer: { id: 'abcdefgh1', contractor: 'X', prices: {} } }),
+        await call('ai/read', { specId, name: 'x.csv', text: 'a' }),
+      ];
+    }, projectId);
+    assert.deepEqual(answers, [
+      [404, 'not_found'],
+      [404, 'not_found'],
+      [404, 'not_found'],
+    ]);
+    assert.deepEqual([...owner.errors, ...other.errors], []);
+  },
+);
+
 test('the API refuses requests without a session or security token', { skip: !hasPhp }, async () => {
   const api = (route, init) =>
     fetch(`${base}api/index.php?r=${route}`, init).then(async (r) => [r.status, (await r.json()).error]);
   assert.deepEqual(await api('docs/list'), [401, 'signed_out']);
   assert.deepEqual(await api('prices/list'), [401, 'signed_out']);
+  assert.deepEqual(await api('offers/list&specId=abcdefgh'), [401, 'signed_out']);
   assert.deepEqual(await api('auth/login', { method: 'POST', body: '{}' }), [403, 'csrf']);
   assert.deepEqual(await api('nothing/here'), [404, 'not_found']);
 });

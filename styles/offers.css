@@ -1,0 +1,73 @@
+/* Contractors' offers: the import dialog and the comparison of offers in a project. */
+
+.dlg-note {
+  margin: -6px 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.offer-summary {
+  min-height: 48px;
+  max-height: 30vh;
+  overflow: auto;
+  font-size: 13px;
+}
+.offer-summary ul {
+  margin: 4px 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+.offer-error {
+  color: var(--danger);
+}
+
+.offers .offer-head {
+  min-width: 120px;
+  vertical-align: bottom;
+}
+.offer-head b,
+.offer-head small,
+.offer-head span {
+  display: block;
+}
+.offer-head small {
+  font-weight: 400;
+}
+.offer-head span {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.offers tfoot small {
+  display: block;
+  font-weight: 400;
+  color: var(--danger);
+}
+/* The lowest price of a line, and the lowest complete total. */
+.offers .offer-low {
+  font-weight: 700;
+  color: var(--accent);
+}
+.offer-missing {
+  color: var(--muted);
+}
+.offer-qty {
+  color: var(--danger);
+  cursor: help;
+}
+.offer-unmatched {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.offer-unmatched summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.offer-unmatched table {
+  margin-top: 6px;
+}
+.offer-unmatched td {
+  padding: 5px 9px;
+}

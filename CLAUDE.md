@@ -28,20 +28,22 @@ index.html              static markup for both screens; no inline scripts or han
 api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
   index.php             the only entry point: route table, session, CSRF check, error handling
   lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents, specs,
-                        prices
+                        prices, offers, ai (the AI reader: calls the Claude API)
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        account, specs, overlays, outline, ruler, page, find, images, history,
-                        review, print)
+                        account, specs, offers, overlays, outline, ruler, page, find, images,
+                        history, review, print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
                         storage (documents in the browser), remoteStore (documents on the server,
                         same interface), api (server client), preferences, page (page setup model and
-                        geometry), units, tableGrid (merged cells), zip, download, platform, ids
+                        geometry), units, tableGrid (merged cells), zip, xlsx (reading Excel
+                        workbooks), csv, base64, download, platform, ids
     spec/               specifications: model (articles, tree, numbering, quantities), formula
                         (measurement arithmetic), output (document and CSV), prices (price library),
-                        localStore, remoteStore
+                        offers (reading, matching and comparing contractors' offers), aiReader
+                        (client of the server's AI reader), localStore, remoteStore
     docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
                         paragraph, section, tables and notes (footnotes, comments, table of
                         contents) convert in both directions
@@ -51,7 +53,8 @@ src/
   account/              the sign-in / create-account screen
   specs/                the specification screens: list (+ new-project dialog), workspace (article
                         tree, article form, bill of quantities), templates (their markup), prices
-                        (price library note and view), saver (saving the open specification)
+                        (price library note and view), offers (comparison of offers) and
+                        offerImport (the import dialog), saver (saving the open specification)
   editor/
     editor.js           composition root of the editor: builds `ctx`, initialises every feature
     session.js          the open document: load, autosave, title, counts
@@ -70,7 +73,8 @@ tests/
   unit/                 node:test, no browser — pure logic in core/ (including core/spec/) and
                         editor/pagination.js
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
-  fixtures/             .docx files written by other programs (python-docx, pandoc) for import tests
+  fixtures/             files written by other programs for import tests: .docx (python-docx, pandoc),
+                        .xlsx (openpyxl)
 tools/                  development scripts (not shipped): architecture check, site packaging
 ```
 
@@ -161,6 +165,10 @@ Plain PHP with no framework or Composer packages, so it runs on shared hosting a
 - Tests: `tests/e2e/server.test.mjs` starts PHP's built-in server with a temporary SQLite database and
   drives the real UI. Set `ONWORD_TEST_CONFIG` to a config file to run them against MySQL/MariaDB. Any new
   route gets a test there, including what a user without access gets.
+- The only outside service is the Claude API, used by the AI reader (`lib/ai.php`) through PHP's curl
+  extension. Its key lives in `config.php` and never reaches the browser; without a key the feature is off
+  and `auth/me` says so (`ai: false`). Tests point `anthropic_base_url` at a fake API in the test process,
+  so they need no key and no network.
 
 ## Types
 
@@ -175,8 +183,9 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 
 ## Testing
 
-- **Unit** (`tests/unit/`): logic that needs no browser — everything in `core/` except `sanitize()`. Use a
-  fake `Storage`, never the real one.
+- **Unit** (`tests/unit/`): logic that needs no browser — everything in `core/` except `sanitize()` and the
+  readers that parse XML with the browser's `DOMParser` (Word, Excel). Use a fake `Storage`, never the real
+  one.
 - **End-to-end** (`tests/e2e/`): behaviour as a user sees it, driven through the real UI. Each test opens a
   fresh browser context (empty storage) via `useApp()` from `harness.mjs`, so tests never depend on each
   other. Add to the file for the area you touched, or create `<area>.test.mjs`. Anything relying on the
@@ -232,6 +241,19 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   articles appear in the bill of quantities.
 - On the server every account can read every master; only the owner changes a specification, and
   projects are visible to their owner only. Sharing projects with other accounts is not built yet.
+- Offers are the bills of quantities contractors fill in and send back, stored per project (`offers()` on
+  the spec store; table `offers` on the server, owner only). The browser reads the file (`.xlsx` via
+  `core/xlsx.js`, CSV via `core/csv.js`), finds the heading row and columns by their names in Dutch,
+  French or English (`detectColumns()`; the user can correct them), and matches lines to articles by
+  number, then by a title only one article has. Lines that match nothing are kept with the offer and
+  shown, never dropped silently. Amounts are compared for the project's own quantities; a contractor's
+  different quantity is marked. "Use prices" copies an offer's unit prices into the project.
+- The AI reader is for what the spreadsheet reader cannot do: PDFs and unusual layouts. The browser sends
+  the file (a PDF as base64, a sheet as tab-separated text) to `ai/read`; the server adds the project's
+  articles from the database and asks Claude for the priced lines as JSON (structured outputs), each with
+  the id of the matching article. Ids the project does not have are discarded on the server. The result
+  goes through the same `matchLines()` and import dialog as a spreadsheet, so the user checks it before
+  it is stored. It is only offered when the site runs with its server part and a key is configured.
 - The price library is not stored separately: it is every unit price the user gave an article taken
   from a master, in their own projects (`prices()` on the spec store; `collectPrices()` in the browser,
   `prices_list()` on the server — keep them alike). Prices are filed under the master article and only

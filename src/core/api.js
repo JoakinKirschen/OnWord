@@ -2,7 +2,8 @@
 
 /**
  * @typedef {{ id: number, email: string, name: string }} User
- * @typedef {{ user: User | null, csrf: string, registration?: { open: boolean, code: boolean } }} Session
+ * @typedef {{ user: User | null, csrf: string, registration?: { open: boolean, code: boolean }, ai?: boolean }} Session
+ *   `ai`: whether the server's AI reader is set up
  * @typedef {Error & { status: number, code: string }} ApiError `status` 0 means the server was not reached
  * @typedef {ReturnType<typeof createApi>} Api
  */
