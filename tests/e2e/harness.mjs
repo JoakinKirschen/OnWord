@@ -9,7 +9,9 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
-const SCREENS = '#home:not([hidden]), #editorView:not([hidden]), #account:not([hidden])';
+const SCREENS = ['#home', '#editorView', '#account', '#specsHome', '#specView']
+  .map((id) => `${id}:not([hidden])`)
+  .join(', ');
 // Tests run under the Content-Security-Policy the web host will send, so a violation fails here first.
 const CSP = readFileSync(join(ROOT, '.htaccess'), 'utf8').match(/Content-Security-Policy "([^"]+)"/)[1];
 

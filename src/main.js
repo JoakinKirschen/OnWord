@@ -8,11 +8,15 @@ import { createCommands } from './core/commands.js';
 import { $, hit } from './core/dom.js';
 import { createPreferences } from './core/preferences.js';
 import { createRemoteStore } from './core/remoteStore.js';
+import { createLocalSpecStore } from './core/spec/localStore.js';
+import { createRemoteSpecStore } from './core/spec/remoteStore.js';
 import { createDocumentStore } from './core/storage.js';
 import { createEditor } from './editor/editor.js';
 import { initImporter } from './library/importer.js';
 import { createLibrary } from './library/library.js';
 import { initSharing } from './library/sharing.js';
+import { createSpecList } from './specs/list.js';
+import { createWorkspace } from './specs/workspace.js';
 import { createPopover } from './ui/popover.js';
 import { createTheme } from './ui/theme.js';
 import { createToast } from './ui/toast.js';
@@ -45,36 +49,47 @@ document.addEventListener('click', (e) => {
 addEventListener('resize', popover.close);
 
 /**
- * Starts the document screens on a store.
+ * Starts the screens on a pair of stores.
  * @param {import('./core/storage.js').DocumentStore} store
- * @param {import('./core/api.js').User | null} user the signed-in user when documents live on the server
+ * @param {import('./core/spec/model.js').SpecStore} specStore
+ * @param {import('./core/api.js').User | null} user the signed-in user when everything lives on the server
  */
-function startApp(store, user) {
+function startApp(store, specStore, user) {
   const shared = { store, commands, popover, toast, navigate };
   const library = createLibrary({ root: $('#home', document), ...shared });
   const editor = createEditor({ root: $('#editorView', document), prefs, ...shared });
   initImporter({ input: $('#importInput', document), ...shared, refresh: library.render });
   initSharing({ dialog: $('#shareDlg', document), store, commands, toast });
+  const specDeps = { specStore, commands, toast, navigate };
+  const specList = createSpecList({ root: $('#specsHome', document), dialog: $('#projectDlg', document), ...specDeps });
+  const workspace = createWorkspace({ root: $('#specView', document), documents: store, ...specDeps });
   let navigation = 0;
 
-  /** Shows the screen named by the URL hash: `#/d/<id>` opens a document, anything else the library. */
+  /**
+   * Shows the screen named by the URL hash: `#/d/<id>` a document, `#/s/<id>` a specification,
+   * `#/specs` the list of specifications, anything else the library.
+   */
   async function route() {
     const turn = ++navigation;
     popover.close();
     editor.close();
-    const match = location.hash.match(/^#\/d\/([\w-]+)$/);
-    if (match) {
-      const available = await store.load(match[1]); // a server store has to fetch the content first
-      if (turn !== navigation) return; // the user has moved on meanwhile
-      if (available && editor.open(match[1])) return library.hide();
-      history.replaceState(null, '', '#/');
-    }
-    library.show();
+    await workspace.hide();
+    const [, kind, id] = location.hash.match(/^#\/([ds])\/([\w-]+)$/) ?? [];
+    // A server store has to fetch the content before it can be shown.
+    const found = kind === 'd' ? (await store.load(id)) && editor.open(id) : kind === 's' && (await workspace.open(id));
+    if (turn !== navigation) return; // the user has moved on meanwhile
+    const specs = kind === 's' || location.hash.startsWith('#/specs');
+    if (kind && !found) history.replaceState(null, '', specs ? '#/specs' : '#/');
+    if (found || specs) library.hide();
+    else library.show();
+    if (specs && !found) specList.show();
+    else specList.hide();
   }
 
   commands.register({
     async 'account.signOut'() {
-      if (store.pending() && !confirm('Some changes are not saved yet. Sign out anyway?')) return;
+      if ((store.pending() || workspace.pending()) && !confirm('Some changes are not saved yet. Sign out anyway?'))
+        return;
       await api.post('auth/logout');
       location.replace(location.pathname);
     },
@@ -87,7 +102,8 @@ function startApp(store, user) {
   addEventListener('hashchange', route);
   addEventListener('beforeunload', (e) => {
     editor.saveNow();
-    if (store.pending()) e.preventDefault(); // asks before leaving while the server has not confirmed
+    workspace.hide();
+    if (store.pending() || workspace.pending()) e.preventDefault(); // asks before leaving with unsaved work
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) editor.saveNow();
@@ -106,7 +122,7 @@ async function startOnServer(/** @type {import('./core/api.js').User} */ user) {
     onConflict: (title) => toast(`“${title}” was changed somewhere else. Reload the page to see that version.`, 9000),
   });
   await store.refresh();
-  startApp(store, user);
+  startApp(store, createRemoteSpecStore({ api }), user);
 }
 
 /**
@@ -126,7 +142,7 @@ async function start() {
       storage: localStorage,
       onQuotaExceeded: (op) => toast(QUOTA_MESSAGES[op], 6000),
     });
-    return startApp(store, null);
+    return startApp(store, createLocalSpecStore({ storage: localStorage }), null);
   }
   if (session.user) return startOnServer(session.user);
   createAccount({

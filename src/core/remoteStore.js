@@ -1,18 +1,10 @@
 import { EMPTY_DOC, sanitize } from './html.js';
+import { newId } from './ids.js';
 
 const MAX_VERSIONS = 10;
 const RETRY_MS = 5000;
-const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const ID_LENGTH = 16;
 
-/**
- * @typedef {import('./storage.js').DocMeta} DocMeta
- */
-
-function newId() {
-  const bytes = crypto.getRandomValues(new Uint8Array(ID_LENGTH));
-  return [...bytes].map((b) => ID_ALPHABET[b % ID_ALPHABET.length]).join('');
-}
+/** @typedef {import('./storage.js').DocMeta} DocMeta */
 
 /**
  * Document repository backed by the server. It offers the same synchronous interface as the browser

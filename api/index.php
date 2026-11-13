@@ -11,6 +11,7 @@ require __DIR__ . '/lib/http.php';
 require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/documents.php';
+require __DIR__ . '/lib/specs.php';
 
 /** "METHOD route" => [handler, must be signed in]. */
 const ROUTES = [
@@ -28,6 +29,13 @@ const ROUTES = [
     'GET shares/list' => ['shares_list', true],
     'POST shares/add' => ['shares_add', true],
     'POST shares/remove' => ['shares_remove', true],
+    'GET specs/list' => ['specs_list', true],
+    'GET specs/get' => ['specs_get', true],
+    'POST specs/create' => ['specs_create', true],
+    'POST specs/update' => ['specs_update', true],
+    'POST specs/delete' => ['specs_delete', true],
+    'POST articles/save' => ['articles_save', true],
+    'POST articles/delete' => ['articles_delete', true],
 ];
 
 try {

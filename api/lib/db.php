@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2; // 2: specifications and their articles
 
 function load_config(): array
 {
@@ -80,6 +80,29 @@ function ensure_schema(PDO $db): void
             at BIGINT NOT NULL,
             snippet TEXT NOT NULL,
             html $long NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS specs (
+            id VARCHAR(32) NOT NULL PRIMARY KEY,
+            owner_id INT NOT NULL,
+            kind VARCHAR(8) NOT NULL,
+            title VARCHAR(200) NOT NULL,
+            master_id VARCHAR(32) NULL,
+            phase VARCHAR(100) NOT NULL,
+            lot VARCHAR(100) NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS articles (
+            id VARCHAR(32) NOT NULL PRIMARY KEY,
+            spec_id VARCHAR(32) NOT NULL,
+            parent_id VARCHAR(32) NULL,
+            number VARCHAR(60) NOT NULL,
+            title VARCHAR(300) NOT NULL,
+            unit VARCHAR(30) NOT NULL,
+            html $long NOT NULL,
+            source_id VARCHAR(32) NULL,
+            line_data TEXT NOT NULL,
+            price DOUBLE NOT NULL DEFAULT 0
         )",
         "CREATE TABLE IF NOT EXISTS login_attempts (
             id $serial,

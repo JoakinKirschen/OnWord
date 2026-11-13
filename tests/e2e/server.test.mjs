@@ -89,6 +89,9 @@ async function signIn(page, email, password = 'correct horse') {
 }
 
 const saved = (page) => page.waitForFunction(() => document.querySelector('#saveState').textContent === 'Saved');
+// Unique per run, so the tests also pass against a database that keeps accounts from earlier runs.
+const RUN = Date.now().toString(36);
+const email = (/** @type {string} */ name) => `${name}.${RUN}@example.com`;
 const editorText = (page) => page.innerText('#editor');
 
 test('an account keeps its documents on the server, across browsers', { skip: !hasPhp }, async () => {
@@ -96,7 +99,7 @@ test('an account keeps its documents on the server, across browsers', { skip: !h
   assert.ok(await laptop.isVisible('#account'), 'nothing is shown before signing in');
   assert.ok(await laptop.isHidden('#home'));
 
-  await register(laptop, 'Ann', 'ann@example.com');
+  await register(laptop, 'Ann', email('ann'));
   await laptop.waitForSelector('#home:not([hidden])');
   assert.equal(await laptop.textContent('#userName'), 'Ann');
   await laptop.click('[data-act="library.new"]');
@@ -107,10 +110,10 @@ test('an account keeps its documents on the server, across browsers', { skip: !h
   await saved(laptop);
 
   const phone = await visitor();
-  await signIn(phone, 'ann@example.com', 'wrong password');
+  await signIn(phone, email('ann'), 'wrong password');
   await phone.waitForFunction(() => document.querySelector('#accountError').textContent !== '');
   assert.match(await phone.textContent('#accountError'), /not correct/);
-  await signIn(phone, 'ann@example.com');
+  await signIn(phone, email('ann'));
   await phone.waitForSelector('.card');
   assert.equal(await phone.textContent('.card-title'), 'Server notes');
   await phone.click('.card');
@@ -128,10 +131,10 @@ test('an account keeps its documents on the server, across browsers', { skip: !h
 
 test('sharing: view-only and edit access for another account', { skip: !hasPhp }, async () => {
   const owner = await visitor();
-  await register(owner, 'Olga', 'olga@example.com');
+  await register(owner, 'Olga', email('olga'));
   await owner.waitForSelector('#home:not([hidden])');
   const guest = await visitor();
-  await register(guest, 'Gus', 'gus@example.com');
+  await register(guest, 'Gus', email('gus'));
   await guest.waitForSelector('#home:not([hidden])');
 
   await owner.click('[data-act="library.new"]');
@@ -145,11 +148,11 @@ test('sharing: view-only and edit access for another account', { skip: !hasPhp }
 
   await owner.click('.card-more');
   await owner.click('.pop [data-act="library.share"]');
-  await owner.fill('#shareEmail', 'nobody@example.com');
+  await owner.fill('#shareEmail', email('nobody'));
   await owner.click('#shareDlg [value=add]');
   await owner.waitForFunction(() => document.querySelector('#shareError').textContent !== '');
   assert.match(await owner.textContent('#shareError'), /Nobody has an account/);
-  await owner.fill('#shareEmail', 'gus@example.com');
+  await owner.fill('#shareEmail', email('gus'));
   await owner.click('#shareDlg [value=add]');
   await owner.waitForSelector('#shareList .share-role');
   assert.match(await owner.innerText('#shareList'), /Gus[\s\S]*Can view/);
@@ -164,7 +167,7 @@ test('sharing: view-only and edit access for another account', { skip: !hasPhp }
   assert.equal(await guest.getAttribute('#editor', 'contenteditable'), 'false');
 
   await owner.selectOption('#shareRole', 'edit');
-  await owner.fill('#shareEmail', 'gus@example.com');
+  await owner.fill('#shareEmail', email('gus'));
   await owner.click('#shareDlg [value=add]');
   await owner.waitForFunction(() => /Can edit/.test(document.querySelector('#shareList').textContent));
   await guest.reload();
@@ -183,7 +186,7 @@ test('sharing: view-only and edit access for another account', { skip: !hasPhp }
 
 test('saving over a newer version is refused and reported', { skip: !hasPhp }, async () => {
   const first = await visitor();
-  await register(first, 'Cy', 'cy@example.com');
+  await register(first, 'Cy', email('cy'));
   await first.waitForSelector('#home:not([hidden])');
   await first.click('[data-act="library.new"]');
   await first.waitForSelector('#editorView:not([hidden])');
@@ -192,7 +195,7 @@ test('saving over a newer version is refused and reported', { skip: !hasPhp }, a
   await saved(first);
 
   const second = await visitor();
-  await signIn(second, 'cy@example.com');
+  await signIn(second, email('cy'));
   await second.waitForSelector('.card');
   await second.click('.card');
   await second.waitForSelector('#editorView:not([hidden])');
@@ -210,6 +213,76 @@ test('saving over a newer version is refused and reported', { skip: !hasPhp }, a
   await second.waitForSelector('#editorView:not([hidden])');
   assert.equal(await editorText(second), 'base second', 'the newer version was not overwritten');
 });
+
+test(
+  'specifications on the server: masters are shared for reading, projects stay private',
+  { skip: !hasPhp },
+  async () => {
+    const specSaved = (page) =>
+      page.waitForFunction(() => document.querySelector('#specState').textContent === 'Saved');
+    const author = await visitor();
+    await register(author, 'Mia', email('mia'));
+    await author.waitForSelector('#home:not([hidden])');
+    author.on('dialog', (dialog) => dialog.accept('Shared master'));
+    await author.click('#home .main-nav a[href="#/specs"]');
+    await author.click('[data-act="spec.newMaster"]');
+    await author.waitForSelector('#specView:not([hidden])');
+    await author.click('.spec-tree-tools [data-act="spec.addArticle"]');
+    await author.fill('#articlePanel [data-field="title"]', 'Paving');
+    await author.fill('#articlePanel [data-field="unit"]', 'm²');
+    await author.click('#articleText');
+    await author.keyboard.type('Concrete pavers.');
+    await author.click('#articlePanel [data-act="spec.addArticle"]');
+    await author.fill('#articlePanel [data-field="title"]', 'Edging');
+    await specSaved(author);
+
+    // Another account sees the master read-only and can build its own project from it.
+    const reader = await visitor();
+    await register(reader, 'Raf', email('raf'));
+    await reader.waitForSelector('#home:not([hidden])');
+    await reader.click('#home .main-nav a[href="#/specs"]');
+    await reader.waitForSelector('#masterList .spec-row');
+    assert.match(await reader.innerText('#masterList'), /Shared master[\s\S]*by Mia[\s\S]*read only/);
+    await reader.click('#masterList a');
+    await reader.waitForSelector('#specView:not([hidden])');
+    await reader.click('#articleTree .tree-item');
+    assert.equal(await reader.isDisabled('#articlePanel [data-field="title"]'), true);
+    assert.equal(await reader.getAttribute('#articleText', 'contenteditable'), 'false');
+
+    await reader.click('.spec-bar .brand');
+    await reader.click('[data-act="spec.newProject"]');
+    await reader.fill('#projectDlg [name=title]', 'Raf project');
+    await reader.waitForSelector('#projectArticles input');
+    await reader.click('#projectDlg .primary');
+    await reader.waitForSelector('#specView:not([hidden])');
+    assert.deepEqual(await reader.locator('#articleTree .tree-item').allInnerTexts(), ['1\nPaving', '1.1\nEdging']);
+    await reader.click('#articleTree .tree-item >> nth=0');
+    assert.equal(await reader.innerText('#articleText'), 'Concrete pavers.');
+    await reader.click('[data-act="spec.addLine"]');
+    await reader.fill('[data-line="0"][data-part="formula"]', '12 * 4');
+    await specSaved(reader);
+    await reader.reload();
+    await reader.click('#articleTree .tree-item >> nth=0');
+    assert.equal(await reader.textContent('#articleQuantity'), '48 m²', 'measurements are stored on the server');
+
+    // The project is not visible to the master's author, and the API refuses writes to someone else's master.
+    await author.click('.spec-bar .brand');
+    await author.waitForSelector('#projectList');
+    assert.doesNotMatch(await author.innerText('#projectList'), /Raf project/);
+    const masterId = await author.evaluate(() => document.querySelector('#masterList a').hash.split('/').pop());
+    const refused = await reader.evaluate(async (id) => {
+      const me = await (await fetch('api/index.php?r=auth/me')).json();
+      const response = await fetch('api/index.php?r=specs/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': me.csrf },
+        body: JSON.stringify({ id, title: 'Taken over' }),
+      });
+      return [response.status, (await response.json()).error];
+    }, masterId);
+    assert.deepEqual(refused, [403, 'read_only']);
+    assert.deepEqual([...author.errors, ...reader.errors], []);
+  },
+);
 
 test('the API refuses requests without a session or security token', { skip: !hasPhp }, async () => {
   const api = (route, init) =>

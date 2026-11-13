@@ -27,17 +27,19 @@ index.html              static markup for both screens; no inline scripts or han
 .htaccess               Apache settings for the web host: MIME type, security policy, caching
 api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
   index.php             the only entry point: route table, session, CSRF check, error handling
-  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents
+  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents, specs
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        account, overlays, outline, ruler, page, find, images, history, review,
-                        print)
+                        account, specs, overlays, outline, ruler, page, find, images, history,
+                        review, print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
                         storage (documents in the browser), remoteStore (documents on the server,
                         same interface), api (server client), preferences, page (page setup model and
-                        geometry), units, tableGrid (merged cells), zip, download, platform
+                        geometry), units, tableGrid (merged cells), zip, download, platform, ids
+    spec/               specifications: model (articles, tree, numbering, quantities), formula
+                        (measurement arithmetic), output (document and CSV), localStore, remoteStore
     docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
                         paragraph, section, tables and notes (footnotes, comments, table of
                         contents) convert in both directions
@@ -45,6 +47,8 @@ src/
   library/              the document list screen: library, templates, importer (files), backup,
                         sharing
   account/              the sign-in / create-account screen
+  specs/                the specification screens: list (+ new-project dialog), workspace (article
+                        tree, article form, bill of quantities), templates (their markup)
   editor/
     editor.js           composition root of the editor: builds `ctx`, initialises every feature
     session.js          the open document: load, autosave, title, counts
@@ -60,7 +64,8 @@ src/
                         pagination, headerFooter, view, outline; find, wordCount, history, exporter,
                         fileCommands
 tests/
-  unit/                 node:test, no browser — pure logic in core/ and editor/pagination.js
+  unit/                 node:test, no browser — pure logic in core/ (including core/spec/) and
+                        editor/pagination.js
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
   fixtures/             .docx files written by other programs (python-docx, pandoc) for import tests
 tools/                  development scripts (not shipped): architecture check, site packaging
@@ -74,11 +79,12 @@ tools/                  development scripts (not shipped): architecture check, s
 | `ui/` | `core/`, `ui/` |
 | `library/` | `core/`, `ui/`, `library/` |
 | `account/` | `core/`, `ui/`, `account/` |
+| `specs/` | `core/`, `ui/`, `specs/` |
 | `editor/*.js` | `core/`, `ui/`, `editor/` |
 | `editor/features/*` | `core/`, `ui/`, `editor/*.js` — **never another feature** |
 | `main.js` | anything; nothing imports `main.js` |
 
-- `library/`, `account/` and `editor/` never import each other. Only `editor/editor.js` imports features.
+- `library/`, `account/`, `specs/` and `editor/` never import each other. Only `editor/editor.js` imports features.
 - Dependencies point downwards only. If two features need the same code, move it down a layer
   (`editor/` helper, `ui/`, or `core/`); do not import sideways.
 
@@ -91,7 +97,7 @@ Features are decoupled. They share exactly three channels:
    `data-act="name"` (optional `data-arg`) runs that command on click — that is how buttons and menu items
    are wired, so never add per-button click handlers for actions.
    Names are `area.verb`: `app.*`, `library.*`, `file.*`, `edit.*`, `format.*`, `insert.*`, `table.*`,
-   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*`, `account.*`. Registering a duplicate name throws.
+   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*`, `account.*`, `spec.*`. Registering a duplicate name throws.
 2. **Events** (`ctx.events`) — notifications a feature may react to: `open`, `input`, `change`,
    `selection`, `dismiss`, `layout`, `pages`. They are documented at the top of `editor/editor.js`; add new ones there.
 3. **`ctx`** — the context object every feature receives: `root`, `content`, `scroller`, `selection`,
@@ -209,6 +215,23 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - HTML that arrives from the server is foreign, because another account may have written it: it goes
   through `sanitize()` in `remoteStore.load()`. The server stores it as it is given.
 - Version snapshots are capped at 10 per document in both stores.
+- Specifications (`core/spec/`) are a separate kind of data from documents, with their own store
+  interface (`SpecStore` in `core/spec/model.js`), which is asynchronous: every call goes to the store,
+  and the workspace keeps the open specification in memory and saves changed articles after a short
+  pause. Same two implementations as documents: browser (`localStore.js`) and server (`remoteStore.js`).
+- A specification is a `master` (reference text) or a `project`. A project's articles are copies of the
+  chosen master articles; `sourceId` remembers the original so the workspace can show where a project
+  differs and reset an article to the master text. Copies keep the tree even when a level in between was
+  not chosen (`copyArticles()` in the browser, `copy_master_articles()` on the server — keep them alike).
+- Articles form a tree through `parentId`. Numbers are free text set by the user; siblings are shown in
+  natural number order ("2" before "10"). An article with a unit is measured: its quantity is the sum of
+  its measurement lines, each an arithmetic formula (`core/spec/formula.js`, no `eval`). Only measured
+  articles appear in the bill of quantities.
+- On the server every account can read every master; only the owner changes a specification, and
+  projects are visible to their owner only. Sharing projects with other accounts is not built yet.
+- "Create document" turns a specification into an ordinary document (`specToHtml()`), which then has
+  the editor's Word, PDF (print) and HTML export. The document is a snapshot: later changes to the
+  specification do not flow into it.
 - The look of a document is defined in three places that must change together: `styles/document.css`
   (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download) and `STYLES` in `core/docx/parts.js`
   (Word download).
