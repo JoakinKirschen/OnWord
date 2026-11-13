@@ -1,5 +1,6 @@
 import { newId } from '../ids.js';
 import { copyArticles, subtree } from './model.js';
+import { collectPrices } from './prices.js';
 
 const KEY = 'onword:specs';
 
@@ -69,5 +70,9 @@ export function createLocalSpecStore({ storage }) {
         data.articles[specId] = list.filter((a) => !gone.has(a.id));
         touch(data, specId);
       }),
+    async prices() {
+      const { specs, articles } = read();
+      return collectPrices(specs, articles);
+    },
   };
 }

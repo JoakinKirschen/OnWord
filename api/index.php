@@ -12,6 +12,7 @@ require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/documents.php';
 require __DIR__ . '/lib/specs.php';
+require __DIR__ . '/lib/prices.php';
 
 /** "METHOD route" => [handler, must be signed in]. */
 const ROUTES = [
@@ -36,6 +37,7 @@ const ROUTES = [
     'POST specs/delete' => ['specs_delete', true],
     'POST articles/save' => ['articles_save', true],
     'POST articles/delete' => ['articles_delete', true],
+    'GET prices/list' => ['prices_list', true],
 ];
 
 try {

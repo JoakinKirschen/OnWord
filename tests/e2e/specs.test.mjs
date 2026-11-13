@@ -156,3 +156,71 @@ test('a project takes articles from a master and shows where it differs', async 
   assert.equal(await page.locator('#masterList .spec-row').count(), 1);
   assert.deepEqual(page.errors, []);
 });
+
+/** Goes back to the list and starts a project from the only master, with all of its articles. */
+async function newProject(page, title) {
+  await page.click('.spec-bar .brand');
+  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.click('[data-act="spec.newProject"]');
+  await page.fill('#projectDlg [name=title]', title);
+  await page.waitForSelector('#projectArticles input');
+  await page.click('#projectDlg .primary');
+  await page.waitForSelector('#specView:not([hidden])');
+}
+
+/** Opens an article by its position in the tree and gives it a unit price. */
+async function price(page, nth, value) {
+  await page.click(`#articleTree .tree-item >> nth=${nth}`);
+  await page.fill(field('price'), value);
+}
+
+test('the price library shows what an article cost in other projects and fills in missing prices', async () => {
+  const page = await openApp();
+  await newMaster(page, 'Standard');
+  await addArticle(page, { title: 'Trench', unit: 'm' });
+  await addArticle(page, { title: 'Paving', unit: 'm²' });
+  await saved(page);
+
+  await newProject(page, 'School');
+  await price(page, 0, '10');
+  assert.equal(await page.textContent('#articleLibrary'), 'No prices from your other projects yet.');
+  await saved(page);
+  await newProject(page, 'Library');
+  await price(page, 0, '20');
+  await price(page, 1, '7');
+  await saved(page);
+
+  await newProject(page, 'Town hall');
+  await page.click('#articleTree .tree-item >> nth=0');
+  assert.match(
+    await page.innerText('#articleLibrary'),
+    /^Price library \(2 projects\): 10\.00 – 20\.00 · average 15\.00 · latest 20\.00/,
+  );
+  await page.click('[data-act="spec.usePrice"][data-arg="average"]');
+  assert.equal(await page.inputValue(field('price')), '15');
+
+  await page.click('[data-act="spec.view"][data-arg="prices"]');
+  const rows = () => page.locator('#pricesPanel tbody tr').allInnerTexts();
+  assert.deepEqual(await rows(), [
+    '1\tTrench\tm\t15.00\t2\t10.00\t15.00\t20.00\t0 %',
+    '2\tPaving\tm²\t—\t1\t7.00\t7.00\t7.00\t',
+  ]);
+  await page.click('[data-act="spec.fillPrices"]');
+  assert.equal(await page.textContent('#toast'), '1 price filled in from the price library.');
+  assert.equal((await rows())[1], '2\tPaving\tm²\t7.00\t1\t7.00\t7.00\t7.00\t0 %');
+  assert.equal(await page.locator('[data-act="spec.fillPrices"]').count(), 0, 'nothing is left to fill in');
+  await saved(page);
+
+  // The master sees the prices of every project built from it.
+  await page.click('.spec-bar .brand');
+  await page.click('#masterList a');
+  await page.waitForSelector('#specView:not([hidden])');
+  await page.click('[data-act="spec.view"][data-arg="prices"]');
+  assert.deepEqual(await rows(), [
+    '1\tTrench\tm\t—\t3\t10.00\t15.00\t20.00\t',
+    '2\tPaving\tm²\t—\t2\t7.00\t7.00\t7.00\t',
+  ]);
+  await page.click('#pricesPanel tbody tr >> nth=0');
+  assert.equal(await page.inputValue(field('title')), 'Trench', 'a row opens its article');
+  assert.deepEqual(page.errors, []);
+});

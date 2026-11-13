@@ -27,7 +27,8 @@ index.html              static markup for both screens; no inline scripts or han
 .htaccess               Apache settings for the web host: MIME type, security policy, caching
 api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
   index.php             the only entry point: route table, session, CSRF check, error handling
-  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents, specs
+  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents, specs,
+                        prices
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
                         account, specs, overlays, outline, ruler, page, find, images, history,
@@ -39,7 +40,8 @@ src/
                         same interface), api (server client), preferences, page (page setup model and
                         geometry), units, tableGrid (merged cells), zip, download, platform, ids
     spec/               specifications: model (articles, tree, numbering, quantities), formula
-                        (measurement arithmetic), output (document and CSV), localStore, remoteStore
+                        (measurement arithmetic), output (document and CSV), prices (price library),
+                        localStore, remoteStore
     docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
                         paragraph, section, tables and notes (footnotes, comments, table of
                         contents) convert in both directions
@@ -48,7 +50,8 @@ src/
                         sharing
   account/              the sign-in / create-account screen
   specs/                the specification screens: list (+ new-project dialog), workspace (article
-                        tree, article form, bill of quantities), templates (their markup)
+                        tree, article form, bill of quantities), templates (their markup), prices
+                        (price library note and view), saver (saving the open specification)
   editor/
     editor.js           composition root of the editor: builds `ctx`, initialises every feature
     session.js          the open document: load, autosave, title, counts
@@ -229,6 +232,10 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   articles appear in the bill of quantities.
 - On the server every account can read every master; only the owner changes a specification, and
   projects are visible to their owner only. Sharing projects with other accounts is not built yet.
+- The price library is not stored separately: it is every unit price the user gave an article taken
+  from a master, in their own projects (`prices()` on the spec store; `collectPrices()` in the browser,
+  `prices_list()` on the server — keep them alike). Prices are filed under the master article and only
+  compared for the same unit. A master shows the prices of all projects; a project those of the others.
 - "Create document" turns a specification into an ordinary document (`specToHtml()`), which then has
   the editor's Word, PDF (print) and HTML export. The document is a snapshot: later changes to the
   specification do not flow into it.

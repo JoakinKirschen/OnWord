@@ -26,5 +26,6 @@ export function createRemoteSpecStore({ api }) {
     remove: (specId) => api.post('specs/delete', { id: specId }),
     saveArticle: (specId, article) => api.post('articles/save', { specId, article }),
     removeArticle: (specId, articleId) => api.post('articles/delete', { specId, id: articleId }),
+    prices: () => api.get('prices/list').then((data) => data.prices),
   };
 }

@@ -7,7 +7,8 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
 - Optional accounts with server storage, and sharing a document with other accounts (view or edit)
 - Specifications (lastenboeken): master specifications and projects built from them, as a tree of
   numbered articles with rich text, measurement lines with formulas, unit prices and a bill of quantities
-  (meetstaat) that downloads for Excel. A specification can be turned into a document for Word or PDF.
+  (meetstaat) that downloads for Excel. A price library shows what each article cost in your other
+  projects and fills in missing prices. A specification can be turned into a document for Word or PDF.
 - Document library with search, rename, duplicate and delete, plus templates (letter, meeting notes,
   résumé, project brief)
 - Word documents: open `.docx` files and download as `.docx`

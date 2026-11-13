@@ -81,9 +81,10 @@ export function sourceHtml(
 /**
  * The form for one article.
  * @param {Article} article
- * @param {{ editable: boolean, source: Article | undefined }} options
+ * @param {{ editable: boolean, source: Article | undefined, library: string }} options `library`: the price
+ *   library's note on this article
  */
-export function articleHtml(article, { editable, source }) {
+export function articleHtml(article, { editable, source, library }) {
   const off = editable ? '' : ' disabled';
   const field = (/** @type {string} */ name, /** @type {string} */ label, /** @type {string} */ extra = '') =>
     `<label class="field-${name}">${label}<input data-field="${name}" value="${esc(String(article[name]))}"${extra}${off}></label>`;
@@ -101,6 +102,7 @@ export function articleHtml(article, { editable, source }) {
       <label>Unit price<input data-field="price" type="number" min="0" step="0.01" value="${article.price || ''}"${off}></label>
       <span>Amount <b id="articleAmount">${totals.amount}</b></span>
     </div>
+    <p id="articleLibrary" class="article-source">${library}</p>
     <div class="article-actions" ${editable ? '' : 'hidden'}>
       <button class="btn sm" data-act="spec.addArticle" data-arg="child">+ Sub-article</button><span class="spacer"></span>
       <button class="btn sm danger-text" data-act="spec.deleteArticle">Delete article</button>

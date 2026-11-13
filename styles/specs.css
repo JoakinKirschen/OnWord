@@ -342,6 +342,24 @@
   font-weight: 700;
   border-bottom: 0;
 }
+.spec-hint {
+  margin: -4px 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+#articleLibrary b {
+  color: var(--text);
+}
+#articleLibrary .link-btn {
+  margin-left: 8px;
+}
+/* A unit price far from what the same article costs in other projects. */
+.price-high {
+  color: var(--danger);
+}
+.price-low {
+  color: var(--accent);
+}
 
 .picker {
   max-height: 38vh;
