@@ -680,6 +680,8 @@ test(
       'Sign in with Google',
     ]);
     assert.ok(await page.isVisible('#accountForm'), 'passwords are still allowed here');
+    const gap = await page.evaluate(() => document.querySelector('#accountError').getBoundingClientRect().height);
+    assert.equal(gap, 0, 'no empty space where an error would go');
 
     // A first sign-in with a work account creates the account, named after the provider's profile.
     oidc.user = { sub: 'work-1', email: `ann.${RUN}@work.test`, name: 'Ann Work' };
