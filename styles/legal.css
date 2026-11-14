@@ -1,0 +1,35 @@
+/* The privacy policy and terms of use (src/legal): a page of text over whatever screen is showing. */
+.legal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow: auto;
+  background: var(--canvas);
+}
+.legal-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  line-height: 1.6;
+}
+.legal-page h1 {
+  margin: 16px 0 4px;
+  font-size: 26px;
+}
+.legal-page h2 {
+  margin: 24px 0 6px;
+  font-size: 17px;
+}
+.legal-page p {
+  margin: 0 0 10px;
+}
+.legal-updated,
+.legal-foot {
+  color: var(--muted);
+  font-size: 13px;
+}
+.legal-foot {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}

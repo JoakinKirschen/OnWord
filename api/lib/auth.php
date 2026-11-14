@@ -61,6 +61,8 @@ function auth_me(PDO $db, ?array $user, array $in, array $config): array
         'passwords' => (bool) $config['allow_passwords'],
         'sso' => sso_public($config),
         'ssoError' => sso_error(),
+        // Who runs the site, named in the privacy policy and terms of use.
+        'site' => ['owner' => (string) $config['site_owner'], 'contact' => (string) $config['site_contact']],
     ];
 }
 

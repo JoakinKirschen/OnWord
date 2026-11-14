@@ -4,6 +4,12 @@ OnWord is a browser-based word processor: plain HTML, CSS and ES modules, **no r
 no build step**, with an optional server part in plain PHP (`api/`) for accounts and shared storage. It will grow a lot. These rules exist so it stays easy to navigate; follow them even when
 a shortcut looks harmless, and update this file in the same change whenever the structure changes.
 
+## Version
+
+`version` in `package.json` and `VERSION` in `src/core/version.js` are the same (a unit test checks) and are
+shown on the sign-in screen and the legal pages, so the owner can tell which upload a site runs. Raise the
+minor number in every pull request that changes what people see, the patch number for a fix only.
+
 ## Before you finish any change
 
 ```bash
@@ -64,14 +70,14 @@ api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production,
                         calls the Claude API)
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        account, specs, offers, reviews (site reviews), overlays, outline, ruler,
+                        account, legal, specs, offers, reviews (site reviews), overlays, outline, ruler,
                         page, find, images, history, review (comments, changes), print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
                         storage (documents in the browser), remoteStore (documents on the server,
                         same interface), api (server client), preferences, page (page setup model and
-                        geometry), docStyles (paragraph style definitions), units, tableGrid (merged cells), zip, xlsx (reading Excel
+                        geometry), docStyles (paragraph style definitions), version, units, tableGrid (merged cells), zip, xlsx (reading Excel
                         workbooks), csv, base64, download, platform, ids
     spec/               specifications: model (articles, tree, numbering, quantities), formula
                         (measurement arithmetic), output (document and CSV), prices (price library),
@@ -88,6 +94,7 @@ src/
                         (the templates band: using, creating and managing templates), importer (files),
                         backup, sharing
   account/              the sign-in / create-account screen
+  legal/                the privacy policy and terms of use (#/privacy, #/terms): legal (the pages), texts
   reviews/              the site review screen, for phones and tablets: review (the screen), templates
                         (its markup), photos (shrinking photos before they are stored)
   specs/                the specification screens: list (+ new-project dialog), workspace (article
@@ -131,11 +138,12 @@ tools/                  development scripts (not shipped): architecture check, s
 | `account/` | `core/`, `ui/`, `account/` |
 | `specs/` | `core/`, `ui/`, `specs/` |
 | `reviews/` | `core/`, `ui/`, `reviews/` |
+| `legal/` | `core/`, `ui/`, `legal/` |
 | `editor/*.js` | `core/`, `ui/`, `editor/` |
 | `editor/features/*` | `core/`, `ui/`, `editor/*.js` — **never another feature** |
 | `main.js` | anything; nothing imports `main.js` |
 
-- `library/`, `account/`, `specs/`, `reviews/` and `editor/` never import each other. Only `editor/editor.js` imports features.
+- `library/`, `account/`, `specs/`, `reviews/`, `legal/` and `editor/` never import each other. Only `editor/editor.js` imports features.
 - Dependencies point downwards only. If two features need the same code, move it down a layer
   (`editor/` helper, `ui/`, or `core/`); do not import sideways.
 
@@ -287,6 +295,12 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   included. The connection is `client_ip()`: REMOTE_ADDR, or the header `client_ip_header` names behind a
   proxy; the server tests set it to `HTTP_X_TEST_IP` and give every browser its own address
   (`ONWORD_TEST_CONFIG` files need the same setting). `.htaccess` sends plain http to https and sets HSTS.
+- The privacy policy and terms of use (`src/legal/texts.js`) are pages of the app at `#/privacy` and
+  `#/terms`, which sign-on providers ask for. They open over whatever screen is showing, signed in or not:
+  `main.js` follows the hash for them on its own, and the router leaves the screen underneath alone. They
+  name who runs the site from `site_owner` / `site_contact` in config.php (`auth/me` → `site`). When the
+  app starts storing something new about people, or sends anything to a new service, update the privacy
+  policy and its date in the same change.
 - HTML that arrives from the server is foreign, because another account may have written it: it goes
   through `sanitize()` in `remoteStore.load()`. The server stores it as it is given.
 - Version snapshots are capped at 10 per document in both stores.

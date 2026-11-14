@@ -10,6 +10,11 @@ return [
     'db_user' => 'ACCOUNT_onword',
     'db_password' => 'CHANGE-ME',
 
+    // Who runs this site: named, with the contact address, in the privacy policy and terms of use
+    // (https://YOUR-SITE/#/privacy and #/terms), which sign-on providers such as Google ask for.
+    'site_owner' => '',
+    'site_contact' => '',
+
     // Whether visitors may create their own account (with a password, or with single sign-on below when the
     // provider lists no domains).
     'allow_registration' => true,

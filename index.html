@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/library.css">
 <link rel="stylesheet" href="styles/account.css">
+<link rel="stylesheet" href="styles/legal.css">
 <link rel="stylesheet" href="styles/specs.css">
 <link rel="stylesheet" href="styles/offers.css">
 <link rel="stylesheet" href="styles/editor.css">
@@ -41,6 +42,15 @@
       <button id="accountSubmit" class="btn primary">Sign in</button>
     </form>
     <p id="accountAlt" class="account-alt"><span id="accountPrompt"></span> <button id="accountSwitch" class="link-btn" type="button"></button></p>
+  </div>
+  <p class="account-foot"><a href="#/privacy">Privacy</a> · <a href="#/terms">Terms</a> · <span id="appVersion"></span></p>
+</div>
+
+<div id="legal" class="legal" hidden>
+  <div class="legal-page">
+    <button class="link-btn legal-back" data-act="app.back">← Back</button>
+    <article id="legalText"></article>
+    <p class="legal-foot"><a href="#/privacy">Privacy policy</a> · <a href="#/terms">Terms of use</a> · <span id="legalVersion"></span></p>
   </div>
 </div>
 

@@ -25,6 +25,8 @@ function load_config(): array
         'allow_passwords' => true,
         'sso' => [],
         'site_url' => '',
+        'site_owner' => '',
+        'site_contact' => '',
         'max_document_bytes' => 5 * 1024 * 1024,
         'max_photo_bytes' => 4 * 1024 * 1024,
         'anthropic_api_key' => '',
