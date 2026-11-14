@@ -317,6 +317,7 @@ test(
     await reader.click('#articleTree .tree-item');
     assert.equal(await reader.isDisabled('#articlePanel [data-field="title"]'), true);
     assert.equal(await reader.getAttribute('#articleText', 'contenteditable'), 'false');
+    assert.ok(await reader.isHidden('#specImport'), "someone else's master takes no articles from Word");
 
     await reader.click('.spec-bar .brand');
     await reader.click('#home .main-nav a[href="#/"]');

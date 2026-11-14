@@ -89,11 +89,15 @@ src/
                         (client of the server's AI reader), reviews (site reviews: visits with
                         observations and photos), reviewOutput (a review as a report document),
                         directory (the specifications last listed, to name a document's project),
-                        localStore, remoteStore
+                        articleImport (a Word document's headings and text as articles), localStore,
+                        remoteStore
     docx/               Word import/export: reader (+ runs, styles, xml) and writer (+ inline,
                         parts); paragraph, section, docStyles (styles.xml), numbering (lists), tables (+ cells: widths,
                         borders, padding) and notes (footnotes, comments, table of contents) convert
-                        in both directions
+                        in both directions; headingNumbers (Word's automatic heading numbers, read
+                        into the headings' text for an outline)
+    doc/                Word 97–2003 (.doc), read only: compound (the container's streams), reader
+                        (the text as paragraphs), styles (which paragraphs are headings)
   ui/                   reusable widgets shared by screens: popover, toast, theme, templateTiles (tiles
                         that start a document from a template), documentCard (a document as a card)
   library/              the Documents page: library, templateBand (the templates band: using, creating
@@ -105,7 +109,8 @@ src/
                         (its markup), photos (shrinking photos before they are stored)
   specs/                the specification screens: list (the Projects page, which is the home screen,
                         and the Masters page), newProject (its dialog), workspace (article tree,
-                        article form, bill of quantities), header (the workspace's top bar),
+                        bill of quantities), articleForm (the selected article's form),
+                        articleImport (a master's articles from Word), header (the workspace's top bar),
                         projectDocuments (a project's Documents tab), articleText (editing an article's
                         text), masterPicker (a project's Master / Project sidebar tabs), articleChanges
                         (+ removal: taking articles out, with its warning, and bringing them in),
@@ -132,7 +137,8 @@ tests/
                         editor/pagination.js
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
   fixtures/             files written by other programs for import tests: .docx (python-docx, pandoc;
-                        styled-letter.docx is hand-written after a Google Docs export), .xlsx (openpyxl)
+                        styled-letter.docx is hand-written after a Google Docs export), .doc (LibreOffice,
+                        from the spec-*.docx made with python-docx), .xlsx (openpyxl)
 tools/                  development scripts (not shipped): architecture check, site packaging
 ```
 
@@ -356,7 +362,18 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - Articles form a tree through `parentId`. Numbers are free text set by the user; siblings are shown in
   natural number order ("2" before "10"). An article with a unit is measured: its quantity is the sum of
   its measurement lines, each an arithmetic formula (`core/spec/formula.js`, no `eval`). Only measured
-  articles appear in the bill of quantities.
+  articles appear in the bill of quantities, which only a project has.
+- A master's articles can be imported from Word, many at once (`specs/articleImport.js`): every heading
+  becomes an article holding the text up to the next heading; a document without headings is read by its
+  short numbered paragraphs ("20.31 Betonklinkers") instead. Numbers in front of a title become the
+  article's number, and decide the nesting where they can ("20.31" under "20"); otherwise the heading levels
+  do, and missing numbers are given in order. A line such as "Meeteenheid: m2" (or unité de mesure, unit)
+  gives the unit. `.docx` goes through `readDocx(…, { headingNumbers: true })`, which writes Word's automatic
+  heading numbers into the headings (otherwise a numbered heading reads as a list item); paragraph spacing
+  and fonts are dropped from the text. `.doc` is read by `core/doc/`: plain text, headings by their style
+  (built-in Heading 1–9, or any style with an outline level); its automatic numbers are not in the text,
+  so those articles are numbered in order. A preview lets the user untick articles; those whose number the
+  master already has start unticked, and new ones hang under the article of their parent's number.
 - On the server every account can read every master; only the owner changes a specification, and
   projects are visible to their owner only. Sharing projects with other accounts is not built yet.
 - Offers are the bills of quantities contractors fill in and send back, stored per project (`offers()` on

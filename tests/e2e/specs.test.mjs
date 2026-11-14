@@ -22,6 +22,16 @@ async function newMaster(page, name) {
   await page.waitForSelector('#specView:not([hidden])');
 }
 
+/** Starts a project without a master from the Projects page, and opens it. */
+async function newEmptyProject(page, name) {
+  await page.click('#home .main-nav a[href="#/"]');
+  await page.click('[data-act="spec.newProject"]');
+  await page.fill('#projectDlg [name=title]', name);
+  await page.selectOption('#projectMaster', '');
+  await page.click('#projectDlg .primary');
+  await page.waitForSelector('#specView:not([hidden])');
+}
+
 /** Adds an article (under the selected one when `child`) and fills in its title and optional fields. */
 async function addArticle(page, { child = false, title, unit, text }) {
   await page.click(
@@ -40,6 +50,7 @@ test('a master specification: numbered articles, text, measurement and prices', 
   await newMaster(page, 'Standard specification');
   assert.equal(await page.inputValue('#specTitle'), 'Standard specification');
   assert.equal(await page.textContent('#specKind'), 'Master specification');
+  assert.ok(await page.isHidden('[data-act="spec.view"][data-arg="quantities"]'), 'quantities are for projects');
 
   await addArticle(page, { title: 'Earthworks' });
   assert.equal(await page.inputValue(field('number')), '1');
@@ -78,7 +89,7 @@ test('a master specification: numbered articles, text, measurement and prices', 
 
 test('bill of quantities, export for Excel, and turning a specification into a document', async () => {
   const page = await openApp();
-  await newMaster(page, 'Works');
+  await newEmptyProject(page, 'Works');
   await addArticle(page, { title: 'Earthworks', text: 'General.' });
   await addArticle(page, { child: true, title: 'Trench', unit: 'm', text: 'Dig a trench.' });
   await page.click('[data-act="spec.addLine"]');

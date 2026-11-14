@@ -1,9 +1,9 @@
-import { $, hit } from '../core/dom.js';
+import { $ } from '../core/dom.js';
 import { newId } from '../core/ids.js';
-import { evaluate } from '../core/spec/formula.js';
 import { blankArticle, suggestNumber } from '../core/spec/model.js';
-import { initArticleText } from './articleText.js';
 import { createArticleChanges } from './articleChanges.js';
+import { createArticleForm } from './articleForm.js';
+import { initArticleImport } from './articleImport.js';
 import { createHeader } from './header.js';
 import { createMasterPicker } from './masterPicker.js';
 import { createOffers } from './offers.js';
@@ -13,9 +13,7 @@ import { createProjectDocuments } from './projectDocuments.js';
 import { createSaver } from './saver.js';
 import { createSiteReviews } from './siteReviews.js';
 import { createViews } from './views.js';
-import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText, treeHtml } from './templates.js';
-
-const NOTHING = '<p class="spec-empty">Choose an article in the list, or add one.</p>';
+import { quantitiesHtml, treeHtml } from './templates.js';
 
 /**
  * The workspace for one specification: article tree, article form, bill of quantities, prices, offers, site
@@ -117,25 +115,31 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   function drawTree() {
     tree.innerHTML = treeHtml(articles, { selectedId, filter: search.value, sources });
   }
-  function drawArticle() {
-    const article = selected();
-    panel.innerHTML = article
-      ? articleHtml(article, {
-          editable: editable(),
-          source: sources.get(article.sourceId),
-          library: library.noteHtml(article),
-        })
-      : NOTHING;
-  }
-  /** Refreshes what is computed from the article without touching the fields being typed in. */
-  function drawDerived(/** @type {import('../core/spec/model.js').Article} */ article) {
-    const totals = totalsText(article);
-    $('#articleQuantity', panel).textContent = totals.quantity;
-    $('#articleAmount', panel).textContent = totals.amount;
-    $('#articleSource', panel).innerHTML = sourceHtml(article, sources.get(article.sourceId), editable());
-    article.lines.forEach((line, i) => ($(`[data-result="${i}"]`, panel).textContent = number(evaluate(line.formula))));
-    library.drawNote($('#articleLibrary', panel), article);
-  }
+  const form = createArticleForm({
+    panel,
+    commands,
+    selected,
+    editable,
+    sourceOf: (article) => sources.get(article.sourceId),
+    library,
+    changed,
+    drawTree,
+  });
+  const drawArticle = form.draw;
+  initArticleImport({
+    dialog: $('#importDlg', root),
+    input: $('#articleInput', root),
+    commands,
+    toast,
+    articles: () => articles,
+    editable,
+    add(imported) {
+      articles.push(...imported);
+      imported.forEach((article) => changed(article.id));
+      select(imported[0].id);
+      toast(`${imported.length} article${imported.length === 1 ? '' : 's'} imported.`);
+    },
+  });
   /** Gives articles a new unit price and redraws what shows it. */
   function setPrices(/** @type {[import('../core/spec/model.js').Article, number][]} */ prices) {
     for (const [article, price] of prices) {
@@ -168,20 +172,6 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     async 'spec.deleteArticle'() {
       if (selected() && (await articleChanges.remove([selectedId]))) select(null);
     },
-    'spec.addLine'() {
-      const article = selected();
-      article.lines.push({ text: '', formula: '' });
-      $('#articleLines', panel).innerHTML = linesHtml(article, editable());
-      changed(article.id);
-      $(`[data-line="${article.lines.length - 1}"]`, panel).focus();
-    },
-    'spec.removeLine'(index) {
-      const article = selected();
-      article.lines.splice(Number(index), 1);
-      $('#articleLines', panel).innerHTML = linesHtml(article, editable());
-      drawDerived(article);
-      changed(article.id);
-    },
     'spec.resetArticle'() {
       const article = selected();
       const source = sources.get(article?.sourceId);
@@ -192,23 +182,6 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     },
   });
 
-  panel.addEventListener('input', (e) => {
-    const article = selected();
-    const input = hit(e, 'input');
-    if (!article) return;
-    if (input?.dataset.field) {
-      const { field } = input.dataset;
-      article[field] = field === 'price' ? Number(input.value) || 0 : input.value;
-      if (field !== 'price') drawTree();
-    } else if (input?.dataset.line) article.lines[Number(input.dataset.line)][input.dataset.part] = input.value;
-    else if (hit(e, '#articleText')) {
-      article.html = $('#articleText', panel).innerHTML;
-      drawTree(); // the tree marks articles whose text differs from the master
-    }
-    drawDerived(article);
-    changed(article.id);
-  });
-  initArticleText(panel);
   search.addEventListener('input', drawTree);
 
   return {

@@ -12,7 +12,9 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
   quantities usually cost less per unit) and fills in missing prices. Offers that contractors return (the
   filled-in bill of quantities, as Excel or CSV) are imported and compared side by side per article and in
   total; with the server part an AI reader (Claude) also reads PDFs and unusual layouts. A specification
-  can be turned into a document for Word or PDF.
+  can be turned into a document for Word or PDF. A master specification's articles can be imported from a
+  Word document (.docx or .doc), many at once: its headings become the articles, nested as in the document,
+  with their numbers, text and unit.
 - Projects first: the home screen lists the projects and the latest documents. A project keeps its
   specification, bill of quantities, offers, site reviews and documents together; documents are started in
   it from the templates, and generated ones (the specification, site review reports) are filed there
