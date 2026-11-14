@@ -173,6 +173,7 @@
       <button class="btn sm" data-act="spec.view" data-arg="reviews">Site reviews</button>
       <button class="btn sm" data-act="spec.view" data-arg="documents">Documents</button>
       <button class="btn sm" data-act="spec.compose" title="Make a document of this specification, to print or export">Create document</button>
+      <button id="specImport" class="btn sm" data-act="spec.importArticles" title="Read articles from a Word document (.docx or .doc)" hidden>Import from Word…</button>
     </div>
   </header>
   <div class="spec-body">
@@ -212,6 +213,19 @@
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate>Cancel</button>
         <button class="btn danger" value="remove">Remove</button>
+      </div>
+    </form>
+  </dialog>
+  <input id="articleInput" type="file" accept=".docx,.doc" hidden>
+  <dialog id="importDlg" class="dlg wide" aria-labelledby="importTitle">
+    <form method="dialog">
+      <h2 id="importTitle">Import articles</h2>
+      <p id="importNote" class="dlg-note"></p>
+      <div id="importList" class="picker import-list"></div>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Import</button>
       </div>
     </form>
   </dialog>

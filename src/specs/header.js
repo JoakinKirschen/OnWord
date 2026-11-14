@@ -2,8 +2,12 @@
 
 import { $, $$ } from '../core/dom.js';
 
-/** What only a project has: phase and lot, and the tabs of offers, site reviews and documents. */
-const PROJECT_ONLY = '#specProject, [data-arg="offers"], [data-arg="reviews"], [data-arg="documents"]';
+/**
+ * What only a project has: phase and lot, and the tabs of quantities, offers, site reviews and documents. A
+ * master has no quantities: they belong to the project the work is for.
+ */
+const PROJECT_ONLY =
+  '#specProject, [data-arg="quantities"], [data-arg="offers"], [data-arg="reviews"], [data-arg="documents"]';
 
 /**
  * @typedef {import('../core/spec/model.js').Spec} Spec
@@ -32,6 +36,7 @@ export function createHeader({ root, current, changed }) {
       $('#specKind', root).textContent = project ? 'Project' : 'Master specification';
       for (const element of $$(PROJECT_ONLY, root)) element.hidden = !project;
       $('#specReadOnly', root).hidden = spec.mine;
+      $('#specImport', root).hidden = project || !spec.mine; // a master's articles come from a Word file
       back.href = project ? '#/' : '#/masters';
       back.title = project ? 'All projects' : 'All master specifications';
       back.setAttribute('aria-label', back.title);

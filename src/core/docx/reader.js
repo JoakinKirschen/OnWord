@@ -3,6 +3,7 @@
 import { sanitize } from '../html.js';
 import { readZip } from '../zip.js';
 import { readDocStyles } from './docStyles.js';
+import { numberHeadings } from './headingNumbers.js';
 import { readNumbering } from './numbering.js';
 import { readComments, readFootnotes } from './notes.js';
 import { readParagraph } from './paragraph.js';
@@ -201,15 +202,18 @@ function textWidth(/** @type {Element} */ body) {
 
 /**
  * @param {ArrayBuffer | Uint8Array} source the .docx file
+ * @param {{ headingNumbers?: boolean }} [options] `headingNumbers`: write Word's automatic heading numbers
+ *   into the headings, for reading an outline (otherwise a numbered heading reads as a list item)
  * @returns {Promise<{ html: string, page?: import('../page.js').PageSetup, styles: import('../docStyles.js').StyleOverrides }>}
  */
-export async function readDocx(source) {
+export async function readDocx(source, { headingNumbers = false } = {}) {
   const files = await readZip(source);
   const body = kid(parseXml(files.get('word/document.xml'))?.documentElement, 'body');
   if (!body) throw new Error('Not a Word document');
   const relationships = readRelationships(parseXml(files.get('word/_rels/document.xml.rels')));
   const part = (/** @type {string} */ name) => parseXml(files.get(`word/${name}.xml`));
   const sheet = readStyleSheet(part('styles'));
+  if (headingNumbers) numberHeadings(body, sheet, part('numbering'));
   /** @type {Context} */
   const ctx = {
     files,
