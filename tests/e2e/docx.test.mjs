@@ -98,6 +98,8 @@ test('a document survives export to .docx and re-import', async () => {
     '<span style="background-color: #F1C40F">marked</span> <a href="https://example.com/?a=1&amp;b=2">a link</a></p>' +
     '<p style="text-align: center; line-height: 2;">Centred</p>' +
     '<ul><li>one</li><li>two<ul><li>nested</li></ul></li></ul><ol><li>first</li></ol><p>between</p><ol><li>restart</li></ol>' +
+    '<ol style="list-style-type: upper-roman;"><li>roman<ol><li>plain nested</li></ol></li></ol>' +
+    '<ul style="list-style-type: square;"><li>square<ul style="list-style-type: disc;"><li>disc</li></ul></li></ul>' +
     '<ul class="checklist"><li class="checked">done</li><li>todo</li></ul>' +
     '<blockquote>A quote</blockquote><pre>line 1<br>  line 2</pre>' +
     '<table style="width: 100%;"><tbody><tr><td>a</td><td><b>b</b></td></tr></tbody></table>' +

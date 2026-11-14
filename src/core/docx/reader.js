@@ -3,6 +3,7 @@
 import { sanitize } from '../html.js';
 import { readZip } from '../zip.js';
 import { readDocStyles } from './docStyles.js';
+import { readNumbering } from './numbering.js';
 import { readComments, readFootnotes } from './notes.js';
 import { readParagraph } from './paragraph.js';
 import { inlineHtml, noteId } from './runs.js';
@@ -18,22 +19,9 @@ const NO_BORDER = ['nil', 'none'];
 
 /**
  * @typedef {import('./runs.js').Package & { sheet: import('./styles.js').StyleSheet, textWidth: number,
- *   table?: import('./styles.js').TextChains, ordered: (numId: string, level: number) => boolean }} Context
+ *   table?: import('./styles.js').TextChains, numbering: ReturnType<typeof readNumbering> }} Context
  * `table` holds what the table style of the table being read gives its paragraphs; `textWidth` is in twips.
  */
-
-/** Returns a function telling whether a numbering instance's level is ordered (numbers) or bulleted. */
-function readNumbering(/** @type {Document | null} */ doc) {
-  const formats = new Map();
-  for (const abstract of all(doc, 'abstractNum')) {
-    const levels = new Map();
-    for (const lvl of kids(abstract, 'lvl')) levels.set(attr(lvl, 'ilvl'), val(lvl, 'numFmt'));
-    formats.set(attr(abstract, 'abstractNumId'), levels);
-  }
-  const nums = new Map(all(doc, 'num').map((num) => [attr(num, 'numId'), val(num, 'abstractNumId')]));
-  return (/** @type {string} */ numId, /** @type {number} */ level) =>
-    (formats.get(nums.get(numId))?.get(String(level)) ?? 'bullet') !== 'bullet';
-}
 
 function readRelationships(/** @type {Document | null} */ doc) {
   const links = new Map();
@@ -54,10 +42,10 @@ function readRelationships(/** @type {Document | null} */ doc) {
 /** Collects output while tracking which lists are open, so consecutive list paragraphs nest correctly. */
 function createOutput() {
   const out = [];
-  const open = []; // tags of the lists currently open, outermost first
+  const open = []; // opening tags (with attributes) of the lists currently open, outermost first
   let checklist = false;
   const closeLists = (depth = 0) => {
-    while (open.length > depth) out.push(`</li></${open.pop()}>`);
+    while (open.length > depth) out.push(`</li></${open.pop().split(' ')[0]}>`);
   };
   const closeChecklist = () => {
     if (checklist) out.push('</ul>');
@@ -110,7 +98,9 @@ function listPlacement(/** @type {Element | undefined} */ pPr, /** @type {string
   const numId = val(numPr, 'numId');
   if (numId && numId !== '0') {
     const level = Number(val(numPr, 'ilvl')) || 0;
-    return { tag: ctx.ordered(numId, level) ? 'ol' : 'ul', level };
+    const { ordered, type } = ctx.numbering(numId, level);
+    const style = type ? ` style="list-style-type: ${type};"` : '';
+    return { tag: (ordered ? 'ol' : 'ul') + style, level };
   }
   return LIST_TAGS.includes(tag) ? { tag, level: 0 } : null;
 }
@@ -229,7 +219,7 @@ export async function readDocx(source) {
     sheet,
     characterStyle: sheet.character,
     textWidth: textWidth(body),
-    ordered: readNumbering(part('numbering')),
+    numbering: readNumbering(part('numbering')),
   };
   const html = blocks(body, ctx);
   // Footnotes are converted last: only now is it known which ones the text refers to, and in what order.

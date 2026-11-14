@@ -4,14 +4,13 @@ import { PX_PER_INCH, isBlank, normalizePage, pageGeometry } from '../page.js';
 import { writeZip } from '../zip.js';
 import { inlineRuns, textRun } from './inline.js';
 import { stylesXml } from './docStyles.js';
+import { BULLET_NUM_ID, numbering } from './numbering.js';
 import { commentsXml, footnotesXml, tocXml } from './notes.js';
 import { paragraphXml } from './paragraph.js';
 import {
-  BULLET_NUM_ID,
   contentTypes,
   DOCUMENT_NAMESPACES,
   documentRels,
-  numbering,
   partFile,
   partType,
   ROOT_RELS,
@@ -40,7 +39,8 @@ function preformattedText(/** @type {Node} */ node) {
 }
 
 /**
- * @typedef {{ pkg: import('./inline.js').Package, nextNumId: () => number, contentWidth: number }} State
+ * @typedef {{ pkg: import('./inline.js').Package, listNum: (list: HTMLElement) => number, contentWidth: number }} State
+ *   `listNum` gives a list its numbering instance
  * @typedef {import('./paragraph.js').ParagraphOptions} ParagraphOptions
  */
 
@@ -53,7 +53,7 @@ function list(
 ) {
   const out = [];
   const nested = (/** @type {Element} */ child) =>
-    list(child, level + 1, child.tagName === 'OL' ? state.nextNumId() : BULLET_NUM_ID, state);
+    list(child, level + 1, state.listNum(/** @type {HTMLElement} */ (child)), state);
   for (const child of el.children) {
     if (/^(UL|OL)$/.test(child.tagName)) {
       out.push(nested(child));
@@ -77,8 +77,7 @@ function block(/** @type {HTMLElement} */ el, /** @type {State} */ state, /** @t
   const { tagName } = el;
   if (el.matches('ol.footnotes')) return ''; // written to their own part
   if (el.matches('div.toc')) return tocXml(el, Math.round(state.contentWidth * TWIPS_PER_PX));
-  if (tagName === 'UL') return list(el, 0, BULLET_NUM_ID, state);
-  if (tagName === 'OL') return list(el, 0, state.nextNumId(), state);
+  if (tagName === 'UL' || tagName === 'OL') return list(el, 0, state.listNum(el), state);
   if (tagName === 'TABLE')
     return tableXml(/** @type {HTMLTableElement} */ (el), state.contentWidth * TWIPS_PER_PX, (cell) =>
       blocks(cell, state),
@@ -130,7 +129,8 @@ export async function writeDocx(content, { page, styles } = {}) {
   const rels = [];
   /** @type {{ name: string, data: Uint8Array | string }[]} */
   const extraParts = [];
-  const orderedNumIds = [];
+  /** @type {import('./numbering.js').ListNumbering[]} */
+  const lists = [];
   /** Registers a relationship from the document to `target` and returns its id. */
   const relate = (/** @type {import('./parts.js').Relationship['type']} */ type, /** @type {string} */ target) => {
     const id = `rId${rels.length + 1}`;
@@ -146,7 +146,15 @@ export async function writeDocx(content, { page, styles } = {}) {
   /** @type {State} */
   const state = {
     contentWidth,
-    nextNumId: () => orderedNumIds[orderedNumIds.push(BULLET_NUM_ID + 1 + orderedNumIds.length) - 1],
+    listNum(el) {
+      const ordered = el.tagName === 'OL';
+      const type = el.style.listStyleType;
+      if (!ordered && !type) return BULLET_NUM_ID;
+      // Bullets of one style share an instance; every numbered list has its own, to restart at 1.
+      const shared = !ordered && lists.find((l) => !l.ordered && l.type === type);
+      if (shared) return shared.numId;
+      return lists[lists.push({ numId: BULLET_NUM_ID + 1 + lists.length, type, ordered }) - 1].numId;
+    },
     pkg: {
       maxImageWidth: contentWidth,
       addLink: (url) => relate('hyperlink', url),
@@ -190,7 +198,7 @@ export async function writeDocx(content, { page, styles } = {}) {
     { name: 'word/document.xml', data: document },
     { name: 'word/_rels/document.xml.rels', data: documentRels(rels) },
     { name: 'word/styles.xml', data: stylesXml(styles) },
-    { name: 'word/numbering.xml', data: numbering(orderedNumIds) },
+    { name: 'word/numbering.xml', data: numbering(lists) },
     ...extraParts,
   ]);
 }

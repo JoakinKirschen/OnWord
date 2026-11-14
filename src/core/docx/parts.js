@@ -1,4 +1,4 @@
-/** The fixed XML parts of a .docx package: content types, relationships and numbering (styles: docStyles.js). */
+/** The fixed XML parts of a .docx package: content types and relationships (styles: docStyles.js, lists: numbering.js). */
 
 import { resolveStyles } from '../docStyles.js';
 import { esc } from '../html.js';
@@ -50,13 +50,6 @@ const PART_FILES = {
   footnotes: 'footnotes.xml',
   comments: 'comments.xml',
 };
-export const BULLET_NUM_ID = 1;
-const BULLET_ABSTRACT = 0;
-const DECIMAL_ABSTRACT = 1;
-const LIST_LEVELS = 9;
-const INDENT_PER_LEVEL = 720; // twips
-const BULLETS = ['•', '◦', '▪'];
-const NUMBER_FORMATS = ['decimal', 'lowerLetter', 'lowerRoman'];
 
 /** The kind of content a part holds, which names its content type and relationship. */
 const PART_TYPES = { firstHeader: 'header', firstFooter: 'footer' };
@@ -110,38 +103,4 @@ export function documentRels(extra) {
 <Relationship Id="rIdNumbering" Type="${REL}/numbering" Target="numbering.xml"/>
 ${items.join('\n')}
 </Relationships>`;
-}
-
-function abstractNum(/** @type {number} */ id, /** @type {(level: number) => string} */ format) {
-  const levels = Array.from({ length: LIST_LEVELS }, (_, level) => {
-    const left = INDENT_PER_LEVEL * (level + 1);
-    return `<w:lvl w:ilvl="${level}"><w:start w:val="1"/>${format(level)}<w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${left}" w:hanging="360"/></w:pPr></w:lvl>`;
-  });
-  return `<w:abstractNum w:abstractNumId="${id}"><w:multiLevelType w:val="hybridMultilevel"/>${levels.join('')}</w:abstractNum>`;
-}
-
-/**
- * word/numbering.xml. Every ordered list gets its own numbering instance so it restarts at 1.
- * @param {number[]} orderedNumIds
- */
-export function numbering(orderedNumIds) {
-  const bullets = abstractNum(
-    BULLET_ABSTRACT,
-    (l) => `<w:numFmt w:val="bullet"/><w:lvlText w:val="${BULLETS[l % BULLETS.length]}"/>`,
-  );
-  const decimals = abstractNum(
-    DECIMAL_ABSTRACT,
-    (l) => `<w:numFmt w:val="${NUMBER_FORMATS[l % NUMBER_FORMATS.length]}"/><w:lvlText w:val="%${l + 1}."/>`,
-  );
-  const restart = Array.from(
-    { length: LIST_LEVELS },
-    (_, l) => `<w:lvlOverride w:ilvl="${l}"><w:startOverride w:val="1"/></w:lvlOverride>`,
-  ).join('');
-  const ordered = orderedNumIds.map(
-    (id) => `<w:num w:numId="${id}"><w:abstractNumId w:val="${DECIMAL_ABSTRACT}"/>${restart}</w:num>`,
-  );
-  return `${XML_HEADER}<w:numbering xmlns:w="${WML}">${bullets}${decimals}
-<w:num w:numId="${BULLET_NUM_ID}"><w:abstractNumId w:val="${BULLET_ABSTRACT}"/></w:num>
-${ordered.join('\n')}
-</w:numbering>`;
 }

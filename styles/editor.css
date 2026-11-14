@@ -88,6 +88,12 @@
   cursor: pointer;
   font-size: 15px;
 }
+.tb.narrow {
+  min-width: 18px;
+  padding: 0 2px;
+  margin-left: -4px; /* belongs to the list buttons before it */
+  font-size: 11px;
+}
 .tb:hover {
   background: color-mix(in srgb, var(--text) 10%, transparent);
 }

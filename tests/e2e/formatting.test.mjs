@@ -54,6 +54,37 @@ test('paragraph styles, alignment, spacing and lists', async () => {
   assert.deepEqual(page.errors, []);
 });
 
+test('turning a paragraph into a list keeps the cursor where it was', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('item');
+  await page.click('[data-cmd="insertOrderedList"]');
+  await page.keyboard.type(' more');
+  assert.equal(await html(page), '<ol><li>item more</li></ol>');
+  assert.deepEqual(page.errors, []);
+});
+
+test('bullet and numbering styles', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('item');
+  const pick = async (type) => {
+    await page.click('[data-lists]');
+    await page.click(`.pop [data-act="format.listStyle"][data-arg="${type}"]`);
+  };
+  await pick('lower-roman');
+  assert.equal(await html(page), '<ol style="list-style-type: lower-roman;"><li>item</li></ol>');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('next');
+  assert.deepEqual(
+    await page.evaluate(() =>
+      [...document.querySelectorAll('#editor li')].map((li) => getComputedStyle(li).listStyleType),
+    ),
+    ['lower-roman', 'lower-roman'],
+  );
+  await pick('square');
+  assert.equal(await html(page), '<ul style="list-style-type: square;"><li>item</li><li>next</li></ul>');
+  assert.deepEqual(page.errors, []);
+});
+
 test('markdown shortcuts while typing', async () => {
   const page = await openEditor();
   await page.keyboard.type('## Section');

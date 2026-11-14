@@ -1,5 +1,6 @@
 import { $, hit } from '../../core/dom.js';
 import { MOD } from '../../core/platform.js';
+import { menuHtml } from '../../ui/popover.js';
 import { icon } from '../icons.js';
 
 const FONTS = [
@@ -57,6 +58,22 @@ const COLORS = [
   '#d9d2e9',
   '#ead1dc',
 ];
+const listStyle = (/** @type {string} */ label, /** @type {string} */ type) => ({
+  label,
+  act: 'format.listStyle',
+  arg: type,
+});
+const LIST_STYLES_HTML = menuHtml([
+  listStyle('• Bullets', 'disc'),
+  listStyle('○ Hollow bullets', 'circle'),
+  listStyle('■ Square bullets', 'square'),
+  '-',
+  listStyle('1. 2. 3.', 'decimal'),
+  listStyle('a. b. c.', 'lower-alpha'),
+  listStyle('A. B. C.', 'upper-alpha'),
+  listStyle('i. ii. iii.', 'lower-roman'),
+  listStyle('I. II. III.', 'upper-roman'),
+]);
 const STATEFUL = [
   'bold',
   'italic',
@@ -123,6 +140,7 @@ const TOOLBAR_HTML = [
   select('selSpacing', 'Line spacing', SPACINGS, 'Spacing'),
   cmd('insertUnorderedList', icon('ul'), 'Bulleted list'),
   cmd('insertOrderedList', icon('ol'), 'Numbered list'),
+  `<button class="tb narrow" data-lists ${tip('Bullet and numbering styles')}>${glyph('▾')}</button>`,
   act('format.checklist', icon('checklist'), 'Checklist'),
   act('format.indent', icon('outdent'), 'Decrease indent', { arg: 'out' }),
   act('format.indent', icon('indent'), 'Increase indent'),
@@ -159,6 +177,8 @@ export function initToolbar(ctx) {
   });
 
   bar.addEventListener('click', (e) => {
+    const listsBtn = hit(e, '[data-lists]');
+    if (listsBtn) return popover.toggle(listsBtn, LIST_STYLES_HTML);
     const colorBtn = hit(e, '[data-colors]');
     if (colorBtn) return popover.toggle(colorBtn, colorsHtml(colorBtn.dataset.colors), 'colors');
     const cmdBtn = hit(e, '[data-cmd]');

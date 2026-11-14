@@ -26,6 +26,7 @@ import { initFormatting } from './features/formatting.js';
 import { initHistory } from './features/history.js';
 import { initImages } from './features/images.js';
 import { initLinks } from './features/links.js';
+import { initListStyles } from './features/listStyles.js';
 import { initMenus } from './features/menus.js';
 import { initOutline } from './features/outline.js';
 import { initPageSetup } from './features/pageSetup.js';
@@ -34,6 +35,9 @@ import { initStyles } from './features/styles.js';
 import { initTables } from './features/tables.js';
 import { initToolbar } from './features/toolbar.js';
 import { initView } from './features/view.js';
+
+/** Browser commands that move the text but should leave the caret where it was. */
+const KEEPS_CARET = ['insertOrderedList', 'insertUnorderedList'];
 
 const FEATURES = [
   initFormatting,
@@ -48,6 +52,7 @@ const FEATURES = [
   initClipboard,
   initAutoformat,
   initChecklist,
+  initListStyles,
   initFootnotes,
   initComments,
   initTrackChanges,
@@ -111,8 +116,12 @@ export function createEditor({ root, store, prefs, commands, popover, toast, nav
   /** Run a browser editing command on the current selection and record the change. */
   function exec(command, value = null) {
     selection.restore();
+    const caret = KEEPS_CARET.includes(command) ? selection.offsets() : null;
     doc.execCommand('styleWithCSS', false, 'true');
     doc.execCommand(command, false, value);
+    // Chrome rebuilds the text in the new list item and leaves the caret at the start of the item.
+    const item = caret && selection.closest('li');
+    if (item) selection.restoreOffsets(caret, item);
     session.changed();
     events.emit('selection');
   }
