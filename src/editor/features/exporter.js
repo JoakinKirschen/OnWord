@@ -1,5 +1,6 @@
 import { DOCX_MIME, writeDocx } from '../../core/docx/writer.js';
 import { download } from '../../core/download.js';
+import { stylesCss } from '../../core/docStyles.js';
 import { esc } from '../../core/html.js';
 import { toMarkdown } from '../markdown.js';
 
@@ -26,7 +27,8 @@ export function initExporter(ctx) {
       .replace(/\s+/g, ' ')
       .trim() || 'document';
   const page = () =>
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(session.title())}</title><style>${EXPORT_CSS}</style></head><body>${content.innerHTML}</body></html>`;
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(session.title())}</title><style>${EXPORT_CSS}
+${stylesCss(session.meta()?.styles, 'body')}</style></head><body>${content.innerHTML}</body></html>`;
 
   commands.register({
     'file.downloadHtml'() {
@@ -34,7 +36,11 @@ export function initExporter(ctx) {
     },
     async 'file.downloadDocx'() {
       try {
-        download(fileBase() + '.docx', await writeDocx(content, { page: session.meta()?.page }), DOCX_MIME);
+        download(
+          fileBase() + '.docx',
+          await writeDocx(content, { page: session.meta()?.page, styles: session.meta()?.styles }),
+          DOCX_MIME,
+        );
       } catch (err) {
         console.error(err);
         toast('The Word file could not be created.');

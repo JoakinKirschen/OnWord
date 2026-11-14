@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 3; // 2: specifications and their articles; 3: contractors' offers
+const SCHEMA_VERSION = 4; // 2: specifications and their articles; 3: contractors' offers; 4: document styles
 
 function load_config(): array
 {
@@ -41,6 +41,7 @@ function connect(array $config): PDO
 /** Creates the tables on first use, so installing is only a matter of uploading and configuring. */
 function ensure_schema(PDO $db): void
 {
+    $version = false;
     try {
         $version = $db->query('SELECT version FROM schema_info')->fetchColumn();
         if ((int) $version === SCHEMA_VERSION) {
@@ -68,6 +69,7 @@ function ensure_schema(PDO $db): void
             title VARCHAR(200) NOT NULL,
             snippet TEXT NOT NULL,
             page TEXT NULL,
+            styles TEXT NULL,
             html $long NOT NULL,
             rev INT NOT NULL DEFAULT 1,
             created_at BIGINT NOT NULL,
@@ -126,8 +128,24 @@ function ensure_schema(PDO $db): void
     foreach ($tables as $sql) {
         $db->exec($sql . $options);
     }
+    // Columns added to tables that already exist: CREATE TABLE IF NOT EXISTS leaves those as they were.
+    if ($version !== false && (int) $version < 4) {
+        add_column($db, 'ALTER TABLE documents ADD COLUMN styles TEXT NULL');
+    }
     $db->exec('DELETE FROM schema_info');
     $db->prepare('INSERT INTO schema_info (version) VALUES (?)')->execute([SCHEMA_VERSION]);
+}
+
+/** Adds a column, unless a request upgrading the database at the same time has already added it. */
+function add_column(PDO $db, string $sql): void
+{
+    try {
+        $db->exec($sql);
+    } catch (PDOException $e) {
+        if (!preg_match('/duplicate column/i', $e->getMessage())) {
+            throw $e;
+        }
+    }
 }
 
 /** Runs a prepared statement. Values never go into the SQL text itself. */

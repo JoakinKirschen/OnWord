@@ -342,6 +342,42 @@
     </form>
   </dialog>
 
+  <dialog id="stylesDlg" class="dlg wide">
+    <form method="dialog">
+      <h2>Styles</h2>
+      <p class="dlg-hint">Changes apply to every paragraph with this style in the document.</p>
+      <label>Style<select id="styleId"></select></label>
+      <div class="dlg-cols three">
+        <label>Font<input id="styleFont" type="text" list="styleFonts" maxlength="60"></label>
+        <label>Size (pt)<input id="styleSize" type="number" min="6" max="96" step="0.5" required></label>
+        <label>Colour<input id="styleColor" type="color"></label>
+        <label>Alignment<select id="styleAlign">
+          <option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option><option value="justify">Justified</option></select></label>
+        <label>Space before (pt)<input id="styleBefore" type="number" min="0" max="96" step="1" required></label>
+        <label>Space after (pt)<input id="styleAfter" type="number" min="0" max="96" step="1" required></label>
+        <label>Line spacing<input id="styleLine" type="number" min="0.8" max="4" step="0.05" required></label>
+      </div>
+      <div class="dlg-checks">
+        <label><input id="styleBold" type="checkbox"> Bold</label>
+        <label><input id="styleItalic" type="checkbox"> Italic</label>
+        <label><input id="styleUnderline" type="checkbox"> Underline</label>
+      </div>
+      <div class="style-preview"><p id="stylePreview">The quick brown fox jumps over the lazy dog.</p></div>
+      <datalist id="styleFonts">
+        <option value="Arial"></option><option value="Calibri"></option><option value="Cambria"></option>
+        <option value="Courier New"></option><option value="Garamond"></option><option value="Georgia"></option>
+        <option value="Helvetica"></option><option value="Tahoma"></option><option value="Times New Roman"></option>
+        <option value="Trebuchet MS"></option><option value="Verdana"></option>
+      </datalist>
+      <div class="dlg-actions">
+        <button class="btn" type="button" data-act="format.styleReset">Reset to default</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="ok">Apply</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="wordCountDlg" class="dlg">
     <form method="dialog">
       <h2>Word count</h2>

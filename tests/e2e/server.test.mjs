@@ -158,10 +158,25 @@ test('an account keeps its documents on the server, across browsers', { skip: !h
   await phone.click('.card');
   await phone.waitForSelector('#editorView:not([hidden])');
   assert.equal(await editorText(phone), 'kept on the server');
+  // The document's styles are stored with it.
+  await phone.click('[data-menu="Format"]');
+  await phone.click('.pop [data-act="format.styles"]');
+  await phone.fill('#styleColor', '#1a55c9');
+  await phone.click('#stylesDlg .primary');
+  await phone.waitForFunction(() => getComputedStyle(document.querySelector('#editor')).color === 'rgb(26, 85, 201)');
+  await phone.waitForFunction(() => !document.querySelector('#saveState').textContent.includes('Saving'));
 
   await laptop.reload();
   await laptop.waitForSelector(SCREENS);
   assert.equal(await editorText(laptop), 'kept on the server', 'still signed in and loaded after a reload');
+  const color = () => laptop.evaluate(() => getComputedStyle(document.querySelector('#editor')).color);
+  assert.equal(await color(), 'rgb(26, 85, 201)');
+  await laptop.click('[data-menu="File"]');
+  await laptop.click('.pop [data-act="file.copy"]');
+  await laptop.waitForFunction(() => document.querySelector('#title').value.startsWith('Copy of'));
+  await laptop.reload();
+  await laptop.waitForSelector('#editorView:not([hidden])');
+  assert.equal(await color(), 'rgb(26, 85, 201)', 'a copy keeps the styles');
   await laptop.click('.doc-bar .brand');
   await laptop.click('[data-act="account.signOut"]');
   await laptop.waitForSelector('#account:not([hidden])');
@@ -438,6 +453,24 @@ test(
     assert.deepEqual([...owner.errors, ...other.errors], []);
   },
 );
+
+test('an older database gets the columns added since', { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG }, () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'onword-upgrade-')), 'old.sqlite');
+  // The documents table as schema version 3 created it, before documents had styles.
+  const script = `require '${join(ROOT, 'api/lib/db.php')}';
+      $db = new PDO('sqlite:${file}', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+      $db->exec('CREATE TABLE schema_info (version INT NOT NULL)');
+      $db->exec('INSERT INTO schema_info (version) VALUES (3)');
+      $db->exec('CREATE TABLE documents (id VARCHAR(32) NOT NULL PRIMARY KEY, owner_id INT NOT NULL,
+        title VARCHAR(200) NOT NULL, snippet TEXT NOT NULL, page TEXT NULL, html TEXT NOT NULL,
+        rev INT NOT NULL DEFAULT 1, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL)');
+      ensure_schema($db);
+      $columns = array_column($db->query('PRAGMA table_info(documents)')->fetchAll(), 'name');
+      echo json_encode([(int) $db->query('SELECT version FROM schema_info')->fetchColumn(), in_array('styles', $columns)]);`;
+  const [version, hasStyles] = JSON.parse(execFileSync('php', ['-r', script]).toString());
+  assert.equal(hasStyles, true);
+  assert.ok(version >= 4);
+});
 
 test('the API refuses requests without a session or security token', { skip: !hasPhp }, async () => {
   const api = (route, init) =>

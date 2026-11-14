@@ -68,15 +68,16 @@ src/
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
                         storage (documents in the browser), remoteStore (documents on the server,
                         same interface), api (server client), preferences, page (page setup model and
-                        geometry), units, tableGrid (merged cells), zip, xlsx (reading Excel
+                        geometry), docStyles (paragraph style definitions), units, tableGrid (merged cells), zip, xlsx (reading Excel
                         workbooks), csv, base64, download, platform, ids
     spec/               specifications: model (articles, tree, numbering, quantities), formula
                         (measurement arithmetic), output (document and CSV), prices (price library),
                         offers (reading, matching and comparing contractors' offers), aiReader
                         (client of the server's AI reader), localStore, remoteStore
     docx/               Word import/export: reader (+ runs, styles, xml) and writer (+ inline,
-                        parts); paragraph, section, tables (+ cells: widths, borders, padding) and
-                        notes (footnotes, comments, table of contents) convert in both directions
+                        parts); paragraph, section, docStyles (styles.xml), tables (+ cells: widths,
+                        borders, padding) and notes (footnotes, comments, table of contents) convert
+                        in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
   library/              the document list screen: library, templates, importer (files), backup,
                         sharing
@@ -94,7 +95,7 @@ src/
     pagination.js       pure page-break arithmetic (unit-tested)
     markdown.js         document → Markdown conversion
     icons.js            toolbar icons
-    features/           one file per feature: toolbar, menus, shortcuts; formatting, paragraph, textCase,
+    features/           one file per feature: toolbar, menus, shortcuts; formatting, styles, paragraph, textCase,
                         formatPainter, autoformat, checklist; tables, tableMerge, links, images,
                         symbols, clipboard, toc, footnotes; comments, trackChanges; ruler, pageSetup,
                         pagination, headerFooter, view, outline; find, wordCount, history, exporter,
@@ -297,10 +298,22 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - "Create document" turns a specification into an ordinary document (`specToHtml()`), which then has
   the editor's Word, PDF (print) and HTML export. The document is a snapshot: later changes to the
   specification do not flow into it.
-- The look of a document is defined in three places that must change together: `styles/document.css`
-  (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download) and `STYLES` in `core/docx/parts.js`
-  (Word download). `BODY` in `core/docx/parts.js` holds the plain paragraph's font, size, line height
-  and spacing that the Word reader compares against.
+- The look of a document is defined in four places that must change together: `styles/document.css`
+  (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download), `stylesXml()` in
+  `core/docx/docStyles.js` (Word download) and the defaults in `core/docStyles.js`, which describe that
+  look in numbers. `BODY` in `core/docx/parts.js` is the plain paragraph's part of those defaults, which
+  the Word reader compares against.
+- Document styles (Format → Styles…, "Update style to match selection") let a document change what
+  Normal text, Title, Subtitle, Heading 1–4 and Quote look like. Only the changes are stored, in the
+  document's metadata (`meta.styles`, type `StyleOverrides`; column `documents.styles` on the server);
+  always pass them through `normalizeStyles()`. `stylesCss()` turns them into rules scoped to the
+  document's container: `features/styles.js` puts them in a `<style>` outside `#editor` (and emits
+  `layout`), the HTML download appends them for `body`, and the Word writer builds styles.xml from them.
+  Paragraphs are not touched, so direct formatting still wins over the style, as in Word. Normal text's
+  font, size, colour and line spacing are set on the container and inherited by everything in it; its
+  alignment and spacing apply to paragraphs only. The Word reader turns a file's Title, Subtitle,
+  Heading 1–4 and Quote styles into overrides; its Normal style stays inline on the paragraphs, as
+  described below.
 - Word support is hand-written (`core/zip.js` + `core/docx/`) because the app takes no dependencies. It
   covers what the editor can produce: headings, character and paragraph formatting, lists, checklists,
   tables with merged cells, links, embedded images, rules, page breaks, page setup, header and footer,

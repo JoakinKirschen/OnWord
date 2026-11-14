@@ -95,7 +95,7 @@ export function createRemoteStore({ api, onConflict }) {
     meta,
     read: (id) => contents.get(id) ?? EMPTY_DOC,
 
-    create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page } = {}) {
+    create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles } = {}) {
       const now = Date.now();
       /** @type {DocMeta} */
       const entry = {
@@ -107,11 +107,12 @@ export function createRemoteStore({ api, onConflict }) {
         rev: 1,
         role: 'owner',
         ...(page && { page }),
+        ...(styles && { styles }),
       };
       metas.set(entry.id, entry);
       contents.set(entry.id, html);
       versionLists.set(entry.id, []);
-      post(entry.id, 'docs/create', { id: entry.id, title, html, snippet, page });
+      post(entry.id, 'docs/create', { id: entry.id, title, html, snippet, page, styles });
       return entry;
     },
 

@@ -53,6 +53,8 @@ const MENUS = {
     exec('Subscript', 'subscript'),
     '-',
     { label: 'Paragraph…', act: 'format.paragraph' },
+    { label: 'Styles…', act: 'format.styles' },
+    { label: 'Update style to match selection', act: 'format.updateStyle' },
     '-',
     { label: 'UPPERCASE', act: 'format.case', arg: 'upper' },
     { label: 'lowercase', act: 'format.case', arg: 'lower' },

@@ -30,12 +30,14 @@ import { initMenus } from './features/menus.js';
 import { initOutline } from './features/outline.js';
 import { initPageSetup } from './features/pageSetup.js';
 import { initShortcuts } from './features/shortcuts.js';
+import { initStyles } from './features/styles.js';
 import { initTables } from './features/tables.js';
 import { initToolbar } from './features/toolbar.js';
 import { initView } from './features/view.js';
 
 const FEATURES = [
   initFormatting,
+  initStyles,
   initParagraph,
   initToolbar,
   initMenus,
@@ -74,7 +76,7 @@ const FEATURES = [
  *
  * Events: 'open' (document loaded), 'input' (user typed, before save; payload: the InputEvent), 'change' (document
  * modified), 'selection' (caret moved / formatting changed), 'dismiss' (Escape pressed), 'layout' (page
- * geometry or zoom changed), 'pages' (the document was re-paginated; follows every 'change' and 'layout').
+ * geometry, zoom or the document's styles changed), 'pages' (the document was re-paginated; follows every 'change' and 'layout').
  *
  * @typedef {object} EditorDeps
  * @property {HTMLElement} root
