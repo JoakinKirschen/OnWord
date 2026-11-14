@@ -153,6 +153,8 @@ function specs_delete(PDO $db, array $user, array $in): array
     spec_access($db, $user, $id, true);
     run($db, 'DELETE FROM articles WHERE spec_id = ?', [$id]);
     run($db, 'DELETE FROM offers WHERE spec_id = ?', [$id]);
+    run($db, 'DELETE FROM review_photos WHERE review_id IN (SELECT id FROM reviews WHERE spec_id = ?)', [$id]);
+    run($db, 'DELETE FROM reviews WHERE spec_id = ?', [$id]);
     run($db, 'DELETE FROM specs WHERE id = ?', [$id]);
     return ['ok' => true];
 }

@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 5; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
-// 5: articles removed from a project but kept
+const SCHEMA_VERSION = 6; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
+// 5: articles removed from a project but kept; 6: site reviews and their photos
 
 function load_config(): array
 {
@@ -20,6 +20,7 @@ function load_config(): array
         'allow_registration' => true,
         'registration_code' => '',
         'max_document_bytes' => 5 * 1024 * 1024,
+        'max_photo_bytes' => 4 * 1024 * 1024,
         'anthropic_api_key' => '',
         'anthropic_base_url' => 'https://api.anthropic.com',
         'ai_model' => 'claude-opus-5-5',
@@ -118,6 +119,18 @@ function ensure_schema(PDO $db): void
             spec_id VARCHAR(32) NOT NULL,
             contractor VARCHAR(200) NOT NULL,
             created_at BIGINT NOT NULL,
+            data $long NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS reviews (
+            id VARCHAR(32) NOT NULL PRIMARY KEY,
+            spec_id VARCHAR(32) NOT NULL,
+            number INT NOT NULL,
+            updated_at BIGINT NOT NULL,
+            data $long NOT NULL
+        )",
+        "CREATE TABLE IF NOT EXISTS review_photos (
+            id VARCHAR(32) NOT NULL PRIMARY KEY,
+            review_id VARCHAR(32) NOT NULL,
             data $long NOT NULL
         )",
         "CREATE TABLE IF NOT EXISTS login_attempts (

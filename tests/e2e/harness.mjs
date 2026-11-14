@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
-const SCREENS = ['#home', '#editorView', '#account', '#specsHome', '#specView']
+const SCREENS = ['#home', '#editorView', '#account', '#specsHome', '#specView', '#reviewView']
   .map((id) => `${id}:not([hidden])`)
   .join(', ');
 // Tests run under the Content-Security-Policy the web host will send, so a violation fails here first.

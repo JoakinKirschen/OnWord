@@ -1,6 +1,7 @@
 import { sanitize } from '../html.js';
 import { newId } from '../ids.js';
 import { quantityOf } from './model.js';
+import { isPhotoData, normalizeReview } from './reviews.js';
 
 /** JSON has no NaN: the server sends a quantity a contractor did not give as null. */
 const quantity = (/** @type {number | null} */ value) => (value === null ? NaN : value);
@@ -44,5 +45,13 @@ export function createRemoteSpecStore({ api }) {
     offers: (specId) => api.get(`offers/list&specId=${id(specId)}`).then((data) => data.offers.map(offerIn)),
     saveOffer: (specId, offer) => api.post('offers/save', { specId, offer }),
     removeOffer: (specId, offerId) => api.post('offers/delete', { specId, id: offerId }),
+    reviews: (specId) => api.get(`reviews/list&specId=${id(specId)}`).then((data) => data.reviews.map(normalizeReview)),
+    saveReview: (specId, review) => api.post('reviews/save', { specId, review }),
+    removeReview: (specId, reviewId) => api.post('reviews/delete', { specId, id: reviewId }),
+    photos: (specId, reviewId) =>
+      api
+        .get(`photos/list&specId=${id(specId)}&reviewId=${id(reviewId)}`)
+        .then((data) => Object.fromEntries(Object.entries(data.photos).filter(([, image]) => isPhotoData(image)))),
+    savePhoto: (specId, reviewId, photo) => api.post('photos/add', { specId, reviewId, ...photo }),
   };
 }

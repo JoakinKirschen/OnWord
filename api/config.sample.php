@@ -18,6 +18,8 @@ return [
     // Largest document the server stores, in bytes. Keep it below PHP's post_max_size and
     // MySQL's max_allowed_packet.
     'max_document_bytes' => 5 * 1024 * 1024,
+    // Largest photo of a site review, as sent by the browser (which shrinks photos before sending them).
+    'max_photo_bytes' => 4 * 1024 * 1024,
 
     // The AI reader for contractors' offers (PDFs and unusual spreadsheets). Leave the key empty to turn
     // it off. With a key from console.anthropic.com, the offers people import are sent to Anthropic's

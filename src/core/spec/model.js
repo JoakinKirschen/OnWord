@@ -41,6 +41,13 @@ import { evaluate } from './formula.js';
  * @property {(specId: string) => Promise<import('./offers.js').Offer[]>} offers the contractors' offers for a project
  * @property {(specId: string, offer: import('./offers.js').Offer) => Promise<void>} saveOffer creates or replaces
  * @property {(specId: string, offerId: string) => Promise<void>} removeOffer
+ * @property {(specId: string) => Promise<import('./reviews.js').SiteReview[]>} reviews a project's site reviews
+ * @property {(specId: string, review: import('./reviews.js').SiteReview) => Promise<void>} saveReview creates or
+ *   replaces; photos it no longer refers to are dropped
+ * @property {(specId: string, reviewId: string) => Promise<void>} removeReview with its photos
+ * @property {(specId: string, reviewId: string) => Promise<Record<string, string>>} photos a review's images
+ *   (data URLs) by photo id
+ * @property {(specId: string, reviewId: string, photo: { id: string, data: string }) => Promise<void>} savePhoto
  *
  * @typedef {{ kind: 'master' | 'project', title: string, masterId?: string | null, phase?: string, lot?: string,
  *   articleIds?: string[] }} NewSpec `articleIds`: the master articles a new project starts with

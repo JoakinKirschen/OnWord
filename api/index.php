@@ -14,6 +14,7 @@ require __DIR__ . '/lib/documents.php';
 require __DIR__ . '/lib/specs.php';
 require __DIR__ . '/lib/prices.php';
 require __DIR__ . '/lib/offers.php';
+require __DIR__ . '/lib/reviews.php';
 require __DIR__ . '/lib/ai.php';
 
 /** "METHOD route" => [handler, must be signed in]. */
@@ -43,6 +44,11 @@ const ROUTES = [
     'GET offers/list' => ['offers_list', true],
     'POST offers/save' => ['offers_save', true],
     'POST offers/delete' => ['offers_delete', true],
+    'GET reviews/list' => ['reviews_list', true],
+    'POST reviews/save' => ['reviews_save', true],
+    'POST reviews/delete' => ['reviews_delete', true],
+    'GET photos/list' => ['photos_list', true],
+    'POST photos/add' => ['photos_add', true],
     'POST ai/read' => ['ai_read', true],
 ];
 
