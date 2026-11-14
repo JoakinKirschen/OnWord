@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 7; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
-// 5: articles removed from a project but kept; 6: site reviews and their photos; 7: single sign-on
+const SCHEMA_VERSION = 8; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
+// 5: articles removed from a project but kept; 6: site reviews and their photos; 7: single sign-on;
+// 8: document templates
 
 function load_config(): array
 {
@@ -78,6 +79,7 @@ function ensure_schema(PDO $db): void
             snippet TEXT NOT NULL,
             page TEXT NULL,
             styles TEXT NULL,
+            template INT NOT NULL DEFAULT 0,
             html $long NOT NULL,
             rev INT NOT NULL DEFAULT 1,
             created_at BIGINT NOT NULL,
@@ -158,6 +160,9 @@ function ensure_schema(PDO $db): void
     }
     if ($version !== false && (int) $version < 7) {
         add_column($db, 'ALTER TABLE users ADD COLUMN sso_subject VARCHAR(255) NULL');
+    }
+    if ($version !== false && (int) $version < 8) {
+        add_column($db, 'ALTER TABLE documents ADD COLUMN template INT NOT NULL DEFAULT 0');
     }
     $db->exec('DELETE FROM schema_info');
     $db->prepare('INSERT INTO schema_info (version) VALUES (?)')->execute([SCHEMA_VERSION]);

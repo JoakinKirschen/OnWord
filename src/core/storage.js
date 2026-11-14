@@ -16,12 +16,17 @@ const versionsKey = (/** @type {string} */ id) => 'onword:versions:' + id;
  * @property {string} snippet
  * @property {PageSetup} [page]
  * @property {StyleOverrides} [styles] what the document changes about its paragraph styles
+ * @property {boolean} [template] a template that new documents start from, listed apart from documents
  * @property {number} [rev] server stores only: the revision the local copy is based on
  * @property {'owner' | 'edit' | 'view'} [role] server stores only: what the signed-in user may do
  * @property {string} [owner] server stores only: name of the owner
  * @typedef {{ userId: number, name: string, email: string, role: string }} Share
  * @typedef {'saved' | 'saving' | 'retrying' | 'conflict'} SyncState
  * @typedef {{ at: number, html: string, snippet: string }} DocVersion
+ * @typedef {{ title?: string, html?: string, snippet?: string, page?: PageSetup, styles?: StyleOverrides,
+ *   template?: boolean }} NewDocument
+ * @typedef {{ title?: string, template?: boolean }} CopyOptions what the copy is called (else "Copy of …")
+ *   and whether it is a template (else what the original is)
  * @typedef {ReturnType<typeof createDocumentStore>} DocumentStore
  */
 
@@ -46,14 +51,23 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
   const read = (/** @type {string} */ id) => storage.getItem(docKey(id)) ?? EMPTY_DOC;
 
   /**
-   * @param {{ title?: string, html?: string, snippet?: string, page?: PageSetup, styles?: StyleOverrides }} [options]
+   * @param {NewDocument} [options]
    * @returns {DocMeta | null} null when storage is full
    */
-  function create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles } = {}) {
+  function create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles, template } = {}) {
     const now = Date.now();
     const id = now.toString(36) + Math.random().toString(36).slice(2, 8);
     /** @type {DocMeta} */
-    const entry = { id, title, created: now, updated: now, snippet, ...(page && { page }), ...(styles && { styles }) };
+    const entry = {
+      id,
+      title,
+      created: now,
+      updated: now,
+      snippet,
+      ...(page && { page }),
+      ...(styles && { styles }),
+      ...(template && { template }),
+    };
     try {
       storage.setItem(docKey(entry.id), html);
       saveIndex([...index(), entry]);
@@ -87,11 +101,19 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
     }
   }
 
-  function duplicate(/** @type {string} */ id) {
+  /** @param {string} id @param {CopyOptions} [options] */
+  function duplicate(id, { title, template } = {}) {
     const src = meta(id);
     if (!src) return null;
     const { snippet, page, styles } = src;
-    return create({ title: 'Copy of ' + src.title, html: read(id), snippet, page, styles });
+    return create({
+      title: title ?? 'Copy of ' + src.title,
+      html: read(id),
+      snippet,
+      page,
+      styles,
+      template: template ?? src.template,
+    });
   }
 
   function remove(/** @type {string} */ id) {

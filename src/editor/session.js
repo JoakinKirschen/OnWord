@@ -20,6 +20,7 @@ export function createSession({ root, content, store, events }) {
   const doc = root.ownerDocument;
   const titleEl = $('#title', root),
     saveStateEl = $('#saveState', root),
+    templateBadge = $('#templateBadge', root),
     countsEl = $('#counts', root);
   /** @type {string | null} */
   let id = null;
@@ -71,6 +72,7 @@ export function createSession({ root, content, store, events }) {
     dirty = false;
     content.innerHTML = store.read(docId);
     titleEl.value = entry.title;
+    templateBadge.hidden = !entry.template;
     doc.title = entry.title + ' – OnWord';
     saveStateEl.textContent = '';
     const readOnly = entry.role === 'view';

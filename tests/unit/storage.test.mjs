@@ -57,6 +57,16 @@ test('duplicate copies content under a new id', () => {
   assert.equal(store.read(copy.id), '<p>a</p>');
   assert.equal(copy.page.margin, 'wide', 'page setup is copied');
   assert.equal(store.duplicate('missing'), null);
+  assert.equal(copy.template, undefined, 'a copy of a document is a document');
+});
+
+test('a document can be copied as a template, which stays a template when copied', () => {
+  const { store } = setup();
+  const doc = store.create({ title: 'Report', html: '<p>r</p>' });
+  const template = store.duplicate(doc.id, { title: 'Report', template: true });
+  assert.deepEqual([template.title, template.template, store.read(template.id)], ['Report', true, '<p>r</p>']);
+  assert.equal(store.meta(doc.id).template, undefined, 'the document stays a document');
+  assert.equal(store.duplicate(template.id).template, true);
 });
 
 test('remove deletes content, versions and the index entry', () => {

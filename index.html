@@ -229,6 +229,7 @@
     <div class="doc-head">
       <div class="doc-title-row">
         <input id="title" class="doc-title" type="text" spellcheck="false" aria-label="Document title" maxlength="120">
+        <span id="templateBadge" class="doc-badge" title="New documents can start from this template; it is on the home screen" hidden>Template</span>
         <span id="saveState" class="save-state" aria-live="polite"></span>
       </div>
       <nav id="menubar" class="menubar" aria-label="Menu"></nav>
@@ -247,6 +248,7 @@
         <div id="ruler" class="ruler" aria-hidden="true">
           <div id="rulerScale" class="ruler-scale"></div>
           <button class="ruler-marker first-line" data-marker="firstLine" title="First line indent" tabindex="-1"></button>
+          <button class="ruler-marker hanging" data-marker="hanging" title="Hanging indent" tabindex="-1"></button>
           <button class="ruler-marker left" data-marker="left" title="Left indent" tabindex="-1"></button>
           <button class="ruler-marker right" data-marker="right" title="Right indent" tabindex="-1"></button>
         </div>

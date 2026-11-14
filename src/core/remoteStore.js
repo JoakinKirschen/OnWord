@@ -95,7 +95,7 @@ export function createRemoteStore({ api, onConflict }) {
     meta,
     read: (id) => contents.get(id) ?? EMPTY_DOC,
 
-    create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles } = {}) {
+    create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles, template } = {}) {
       const now = Date.now();
       /** @type {DocMeta} */
       const entry = {
@@ -108,11 +108,12 @@ export function createRemoteStore({ api, onConflict }) {
         role: 'owner',
         ...(page && { page }),
         ...(styles && { styles }),
+        ...(template && { template }),
       };
       metas.set(entry.id, entry);
       contents.set(entry.id, html);
       versionLists.set(entry.id, []);
-      post(entry.id, 'docs/create', { id: entry.id, title, html, snippet, page, styles });
+      post(entry.id, 'docs/create', { id: entry.id, title, html, snippet, page, styles, template: !!template });
       return entry;
     },
 
@@ -126,7 +127,7 @@ export function createRemoteStore({ api, onConflict }) {
       return true;
     },
 
-    duplicate(id) {
+    duplicate(id, { title, template } = {}) {
       const source = meta(id);
       if (!source) return null;
       const now = Date.now();
@@ -134,14 +135,19 @@ export function createRemoteStore({ api, onConflict }) {
       const copy = {
         ...source,
         id: newId(),
-        title: 'Copy of ' + source.title,
+        title: title ?? 'Copy of ' + source.title,
         created: now,
         updated: now,
         rev: 1,
         role: 'owner',
+        template: template ?? !!source.template,
       };
       metas.set(copy.id, copy);
-      post(id, 'docs/copy', { id, newId: copy.id }); // the server copies the content, which may not be loaded here
+      // The server copies the content, which may not be loaded here.
+      post(id, 'docs/copy', { id, newId: copy.id, title: copy.title, template: copy.template });
+      // Until then the copy does not exist on the server: loading, saving or copying it must wait.
+      const copying = sending.get(id);
+      enqueue(copy.id, () => copying);
       return copy;
     },
 

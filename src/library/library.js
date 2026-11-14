@@ -1,10 +1,6 @@
 import { $ } from '../core/dom.js';
-import { esc } from '../core/html.js';
-import { menuHtml } from '../ui/popover.js';
-import { TEMPLATES } from './templates.js';
-
-const MORE_ICON =
-  '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+import { MORE_ICON, menuHtml } from '../ui/popover.js';
+import { createTemplateBand } from './templateBand.js';
 
 const formatDate = (ts) => {
   const d = new Date(ts);
@@ -29,6 +25,7 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
   const grid = $('#grid', root),
     empty = $('#empty', root),
     search = $('#search', root);
+  const templates = createTemplateBand({ root: $('#templates', root), store, commands, popover, toast, navigate });
 
   function card(d) {
     const a = document.createElement('a');
@@ -54,6 +51,7 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
           { label: 'Open', act: 'library.open', arg: d.id },
           { label: 'Rename', act: 'library.rename', arg: d.id },
           { label: 'Make a copy', act: 'library.copy', arg: d.id },
+          { label: 'Save as template', act: 'library.saveAsTemplate', arg: d.id },
           ...(store.remote && !shared ? [{ label: 'Share…', act: 'library.share', arg: d.id }] : []),
           '-',
           { label: shared ? 'Remove from my list' : 'Delete', act: 'library.delete', arg: d.id, danger: true },
@@ -65,7 +63,11 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
 
   function render() {
     const q = search.value.trim().toLowerCase();
-    const all = store.index().sort((a, b) => b.updated - a.updated);
+    templates.render();
+    const all = store
+      .index()
+      .filter((d) => !d.template)
+      .sort((a, b) => b.updated - a.updated);
     const docs = q ? all.filter((d) => (d.title + ' ' + (d.snippet || '')).toLowerCase().includes(q)) : all;
     grid.replaceChildren(...docs.map(card));
     empty.hidden = docs.length > 0;
@@ -73,18 +75,12 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
   }
 
   commands.register({
-    /** Creates a document, optionally from the template with the given id, and opens it. */
-    'library.new'(templateId) {
-      const template = TEMPLATES.find((t) => t.id === templateId);
-      const entry = store.create(template && { title: template.title, html: template.html });
-      if (entry) navigate('#/d/' + entry.id);
-    },
     'library.open'(id) {
       navigate('#/d/' + id);
     },
     'library.rename'(id) {
       const entry = store.meta(id);
-      const title = entry && prompt('Rename document', entry.title);
+      const title = entry && prompt(entry.template ? 'Rename template' : 'Rename document', entry.title);
       if (!title?.trim()) return;
       if (!store.write(id, null, { title: title.trim().slice(0, 120) })) toast('You cannot rename this document.');
       render();
@@ -107,10 +103,6 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
     },
   });
 
-  $('#templates', root).innerHTML = TEMPLATES.map(
-    (t) =>
-      `<button class="template" data-act="library.new" data-arg="${t.id}"><span class="template-page">${t.html}</span><span class="template-name">${esc(t.name)}</span></button>`,
-  ).join('');
   search.addEventListener('input', render);
 
   return {
@@ -120,7 +112,13 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
       root.ownerDocument.title = 'OnWord';
       render();
       // A server store may have changed since it was last read: other devices, documents shared with you.
-      store.refresh().then(render, () => toast('The list of documents could not be updated.'));
+      store.refresh().then(
+        () => {
+          render();
+          return templates.loadPreviews();
+        },
+        () => toast('The list of documents could not be updated.'),
+      );
     },
     hide() {
       root.hidden = true;

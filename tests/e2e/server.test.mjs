@@ -498,6 +498,47 @@ test(
   },
 );
 
+test('templates are kept on the server and private to their owner', { skip: !hasPhp }, async () => {
+  const laptop = await visitor();
+  await register(laptop, 'Tess', email('tess'));
+  await laptop.waitForSelector('#home:not([hidden])');
+  await laptop.click('[data-act="library.newTemplate"]');
+  await laptop.waitForSelector('#editorView:not([hidden])');
+  await laptop.fill('#title', 'Weekly report');
+  await laptop.click('#editor');
+  await laptop.keyboard.type('Progress this week');
+  await saved(laptop);
+
+  const phone = await visitor();
+  await signIn(phone, email('tess'));
+  await phone.waitForSelector('#home:not([hidden])');
+  await phone.waitForFunction(() => /Progress this week/.test(document.querySelector('#templates').textContent));
+  assert.equal(await phone.locator('.card').count(), 0, 'a template is not listed as a document');
+  await phone.click('.template-item:nth-child(6) .template');
+  await phone.waitForSelector('#editorView:not([hidden])');
+  assert.equal(await editorText(phone), 'Progress this week');
+  await phone.click('[data-menu="File"]');
+  await phone.click('.pop [data-act="file.saveAsTemplate"]');
+  await phone.waitForFunction(() => !document.querySelector('#saveState').textContent.includes('Saving'));
+
+  const [, { documents }] = await call(laptop, 'docs/list');
+  assert.deepEqual(documents.map((d) => [d.title, d.template]).sort(), [
+    ['Weekly report', false],
+    ['Weekly report', true],
+    ['Weekly report', true],
+  ]);
+  const template = documents.find((d) => d.template);
+  assert.equal((await call(laptop, 'docs/update', { id: template.id, template: 'yes' }))[0], 400);
+
+  const other = await visitor();
+  await register(other, 'Ugo', email('ugo'));
+  await other.waitForSelector('#home:not([hidden])');
+  assert.deepEqual((await call(other, 'docs/list'))[1], { documents: [] }, "another account sees no one's templates");
+  assert.equal((await call(other, `docs/get&id=${template.id}`))[0], 404);
+  assert.equal((await call(other, 'docs/copy', { id: template.id, newId: 'stolencopy1' }))[0], 404);
+  assert.deepEqual([...laptop.errors, ...phone.errors, ...other.errors], []);
+});
+
 /** Calls the API from a signed-in page, as the app does: JSON, with the session's security token. */
 const call = (page, route, body) =>
   page.evaluate(
@@ -588,12 +629,15 @@ test('an older database gets the columns added since', { skip: !hasPhp || !!proc
       $columns = fn ($table) => array_column($db->query("PRAGMA table_info($table)")->fetchAll(), 'name');
       echo json_encode([(int) $db->query('SELECT version FROM schema_info')->fetchColumn(),
         in_array('styles', $columns('documents')), in_array('removed', $columns('articles')),
-        in_array('sso_subject', $columns('users'))]);`;
-  const [version, hasStyles, hasRemoved, hasSso] = JSON.parse(execFileSync('php', ['-r', script]).toString());
+        in_array('sso_subject', $columns('users')), in_array('template', $columns('documents'))]);`;
+  const [version, hasStyles, hasRemoved, hasSso, hasTemplate] = JSON.parse(
+    execFileSync('php', ['-r', script]).toString(),
+  );
+  assert.equal(hasTemplate, true, 'documents can be templates');
   assert.equal(hasSso, true, 'accounts can be linked to a sign-on provider');
   assert.equal(hasStyles, true);
   assert.equal(hasRemoved, true, 'articles taken out of a project are kept');
-  assert.ok(version >= 7);
+  assert.ok(version >= 8);
 });
 
 /** A bare API client with its own cookie and address, like a script someone runs against the site. */
