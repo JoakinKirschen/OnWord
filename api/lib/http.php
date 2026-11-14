@@ -86,9 +86,17 @@ function require_csrf(): void
     }
 }
 
-function client_ip(): string
+/**
+ * The visitor's IP address. Behind a proxy or CDN every request comes from the proxy, so the address is
+ * taken from the header it names (`client_ip_header`, e.g. HTTP_CF_CONNECTING_IP for Cloudflare): only
+ * set that when the site is reachable through that proxy alone, or anyone could claim any address.
+ */
+function client_ip(array $config): string
 {
-    return substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    $header = $config['client_ip_header'];
+    $forwarded = $header ? trim(explode(',', (string) ($_SERVER[$header] ?? ''))[0]) : '';
+    $ip = filter_var($forwarded, FILTER_VALIDATE_IP) ? $forwarded : ($_SERVER['REMOTE_ADDR'] ?? '');
+    return substr((string) $ip, 0, 45);
 }
 
 /** Milliseconds since the epoch, the unit the browser uses for dates. */

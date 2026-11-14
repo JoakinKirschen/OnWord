@@ -266,6 +266,15 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   opened (the router does this), `write()` returning true means accepted, not stored (`syncState()` and
   `onStatus()` tell the rest), and ids are generated in the browser. Every update carries the revision
   it is based on; the server refuses a stale one (`conflict`) rather than overwrite newer work.
+- Accounts (`api/lib/auth.php`): passwords are bcrypt hashes of at least 10 characters and at most 72
+  bytes, refused when common, built on a common word, or containing the user's name or address. Failed
+  sign-ins are limited per address *and* connection (8 in 15 minutes), so nobody can lock someone else
+  out, and per connection (30), so one machine cannot try address after address; an address without an
+  account is checked against a stand-in hash so it answers as fast as a wrong password. Attempts to
+  create an account are limited per connection and hour (`max_registrations_per_hour`), wrong codes
+  included. The connection is `client_ip()`: REMOTE_ADDR, or the header `client_ip_header` names behind a
+  proxy; the server tests set it to `HTTP_X_TEST_IP` and give every browser its own address
+  (`ONWORD_TEST_CONFIG` files need the same setting). `.htaccess` sends plain http to https and sets HSTS.
 - HTML that arrives from the server is foreign, because another account may have written it: it goes
   through `sanitize()` in `remoteStore.load()`. The server stores it as it is given.
 - Version snapshots are capped at 10 per document in both stores.

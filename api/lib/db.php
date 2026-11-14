@@ -19,6 +19,8 @@ function load_config(): array
         'db_password' => null,
         'allow_registration' => true,
         'registration_code' => '',
+        'max_registrations_per_hour' => 10,
+        'client_ip_header' => '',
         'max_document_bytes' => 5 * 1024 * 1024,
         'max_photo_bytes' => 4 * 1024 * 1024,
         'anthropic_api_key' => '',
