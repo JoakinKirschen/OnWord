@@ -15,7 +15,8 @@ export const PAGE_MARGINS = {
   wide: { label: 'Wide (1.5 in)', px: 144 },
 };
 const DEFAULTS = { size: 'letter', orientation: 'portrait', margin: 'normal' };
-const ALIGNMENTS = ['left', 'center', 'right'];
+/** The parts of a header or footer line, as Word's centre and right tab stops divide it. */
+export const RUNNING_PARTS = /** @type {const} */ (['left', 'center', 'right']);
 const MAX_COLUMNS = 3;
 const MAX_RUNNING_TEXT = 200;
 /** Placeholders in header/footer text for the current page number and the page count. */
@@ -23,16 +24,35 @@ export const PAGE_TOKEN = '{page}';
 export const PAGES_TOKEN = '{pages}';
 
 /**
- * @typedef {{ text: string, align: string }} RunningText a header or footer: one line of text
- * @typedef {{ size: string, orientation: string, margin: string, columns: number, header: RunningText, footer: RunningText }} PageSetup
+ * @typedef {{ left: string, center: string, right: string }} RunningText a header or footer: one line of
+ *   text in up to three parts
+ * @typedef {object} PageSetup
+ * @property {string} size
+ * @property {string} orientation
+ * @property {string} margin
+ * @property {number} columns
+ * @property {RunningText} header
+ * @property {RunningText} footer
+ * @property {boolean} firstPage whether the first page has a header and footer of its own
+ * @property {RunningText} firstHeader
+ * @property {RunningText} firstFooter
  * @typedef {{ width: number, height: number, margin: number, bodyHeight: number, css: string, orientation: string, columns: number }} PageGeometry
  */
 
-/** @param {Partial<RunningText>} [value] @returns {RunningText} */
-const normalizeRunning = (value) => ({
-  text: String(value?.text ?? '').slice(0, MAX_RUNNING_TEXT),
-  align: ALIGNMENTS.includes(value?.align) ? value.align : 'center',
-});
+/** @param {Record<string, any>} [value] @returns {RunningText} */
+function normalizeRunning(value) {
+  const given = value ?? {};
+  // Before headers had three parts they were one text with an alignment.
+  const legacy =
+    typeof given.text === 'string'
+      ? { [RUNNING_PARTS.includes(given.align) ? given.align : 'center']: given.text }
+      : {};
+  const part = (/** @type {string} */ name) => String(given[name] ?? legacy[name] ?? '').slice(0, MAX_RUNNING_TEXT);
+  return { left: part('left'), center: part('center'), right: part('right') };
+}
+
+/** Whether a header or footer has no text at all. */
+export const isBlank = (/** @type {RunningText} */ running) => RUNNING_PARTS.every((part) => !running[part].trim());
 
 /**
  * Fills in defaults and drops unknown values (metadata may come from an older version or a file).
@@ -48,6 +68,9 @@ export function normalizePage(given) {
     columns: Math.min(MAX_COLUMNS, Math.max(1, Math.round(Number(page.columns)) || 1)),
     header: normalizeRunning(page.header),
     footer: normalizeRunning(page.footer),
+    firstPage: page.firstPage === true,
+    firstHeader: normalizeRunning(page.firstHeader),
+    firstFooter: normalizeRunning(page.firstFooter),
   };
 }
 

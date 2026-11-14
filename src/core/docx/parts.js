@@ -45,6 +45,8 @@ export const STYLE = {
 const PART_FILES = {
   header: 'header1.xml',
   footer: 'footer1.xml',
+  firstHeader: 'header2.xml',
+  firstFooter: 'footer2.xml',
   footnotes: 'footnotes.xml',
   comments: 'comments.xml',
 };
@@ -56,10 +58,16 @@ const INDENT_PER_LEVEL = 720; // twips
 const BULLETS = ['•', '◦', '▪'];
 const NUMBER_FORMATS = ['decimal', 'lowerLetter', 'lowerRoman'];
 
-/** @typedef {'header' | 'footer' | 'footnotes' | 'comments'} OptionalPart */
+/** The kind of content a part holds, which names its content type and relationship. */
+const PART_TYPES = { firstHeader: 'header', firstFooter: 'footer' };
+
+/** @typedef {'header' | 'footer' | 'firstHeader' | 'firstFooter' | 'footnotes' | 'comments'} OptionalPart */
 
 /** Archive path of an optional part, relative to word/. @param {OptionalPart} kind */
 export const partFile = (kind) => PART_FILES[kind];
+
+/** @param {OptionalPart} kind @returns {'header' | 'footer' | 'footnotes' | 'comments'} */
+export const partType = (kind) => PART_TYPES[kind] ?? kind;
 
 /**
  * [Content_Types].xml
@@ -67,7 +75,7 @@ export const partFile = (kind) => PART_FILES[kind];
  */
 export function contentTypes(optional) {
   const overrides = optional.map(
-    (kind) => `<Override PartName="/word/${PART_FILES[kind]}" ContentType="${CT}.${kind}+xml"/>`,
+    (kind) => `<Override PartName="/word/${PART_FILES[kind]}" ContentType="${CT}.${partType(kind)}+xml"/>`,
   );
   return `${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -86,7 +94,7 @@ export const ROOT_RELS = `${XML_HEADER}<Relationships xmlns="${PKG_REL}">
 <Relationship Id="rId1" Type="${REL}/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
-/** @typedef {{ id: string, type: 'hyperlink' | 'image' | OptionalPart, target: string }} Relationship */
+/** @typedef {{ id: string, type: 'hyperlink' | 'image' | ReturnType<typeof partType>, target: string }} Relationship */
 
 /**
  * word/_rels/document.xml.rels

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { matchPage, normalizePage, pageGeometry } from '../../src/core/page.js';
 
-const BLANK = { text: '', align: 'center' };
+const BLANK = { left: '', center: '', right: '' };
+const FIRST = { firstPage: false, firstHeader: BLANK, firstFooter: BLANK };
 
 test('normalizePage fills defaults and drops unknown values', () => {
   assert.deepEqual(normalizePage(), {
@@ -12,24 +13,30 @@ test('normalizePage fills defaults and drops unknown values', () => {
     columns: 1,
     header: BLANK,
     footer: BLANK,
+    ...FIRST,
   });
   const messy = {
     size: 'tabloid',
     orientation: 'sideways',
     margin: 'narrow',
     columns: 9,
-    header: { text: 'Hi', align: 'up' },
+    header: { left: 'Hi', center: 42, extra: 'x' },
+    firstPage: 'yes',
   };
   assert.deepEqual(normalizePage(messy), {
     size: 'letter',
     orientation: 'portrait',
     margin: 'narrow',
     columns: 3,
-    header: { text: 'Hi', align: 'center' },
+    header: { left: 'Hi', center: '42', right: '' },
     footer: BLANK,
+    ...FIRST,
   });
   assert.equal(normalizePage(null).size, 'letter', 'a document stored without page setup');
-  assert.equal(normalizePage({ footer: { text: 'x'.repeat(500), align: 'right' } }).footer.text.length, 200);
+  assert.equal(normalizePage({ footer: { right: 'x'.repeat(500) } }).footer.right.length, 200);
+  // Documents saved before headers had three parts: one text and its alignment.
+  assert.deepEqual(normalizePage({ header: { text: 'Old', align: 'right' } }).header, { ...BLANK, right: 'Old' });
+  assert.deepEqual(normalizePage({ footer: { text: 'Old', align: 'up' } }).footer, { ...BLANK, center: 'Old' });
 });
 
 test('pageGeometry swaps the sides for landscape', () => {

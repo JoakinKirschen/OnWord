@@ -104,18 +104,17 @@ test('header, footer and page numbers', async () => {
   const page = await openEditor();
   await page.keyboard.type('content');
   await page.dblclick('#pageHeader');
-  await page.fill('#headerText', 'Annual "report"');
-  await page.selectOption('#headerAlign', 'right');
+  await page.fill('#header-right', 'Annual "report"');
   await page.click('[data-act="page.numberFooter"]');
-  assert.equal(await page.inputValue('#footerText'), 'Page {page} of {pages}');
+  assert.equal(await page.inputValue('#footer-center'), 'Page {page} of {pages}');
   await page.click('#headerFooterDlg .primary');
   await page.waitForFunction(() => document.querySelector('#pageHeader').textContent === 'Annual "report"');
   assert.equal(await page.textContent('#pageFooter'), 'Page 1 of 1');
-  assert.equal(await page.evaluate(() => document.querySelector('#pageHeader').style.textAlign), 'right');
+  assert.equal(await page.textContent('#pageHeader .band-right'), 'Annual "report"');
   assert.equal(
     await page.evaluate(() => document.querySelector('style[data-print="running"]').textContent.replace(/\s+/g, ' ')),
     '@page { @top-right { content: "Annual \\"report\\""; font: 9pt Arial, Helvetica, sans-serif; color: #555; } ' +
-      '@bottom-center { content: "Page " counter(page) " of " counter(pages); font: 9pt Arial, Helvetica, sans-serif; color: #555; } }',
+      '@bottom-center { content: "Page " counter(page) " of " counter(pages); font: 9pt Arial, Helvetica, sans-serif; color: #555; } } ',
   );
 
   await page.reload();
@@ -125,6 +124,37 @@ test('header, footer and page numbers', async () => {
   await page.click('#pageDlg .primary');
   await page.waitForFunction(() => document.querySelector('#sheet').style.getPropertyValue('--page-margin') === '48px');
   assert.equal(await page.textContent('#pageFooter'), 'Page 1 of 1', 'page setup keeps the header and footer');
+  assert.deepEqual(page.errors, []);
+});
+
+test('a header in three parts, and a different first page', async () => {
+  const page = await openEditor();
+  await page.keyboard.type('first');
+  for (let i = 0; i < 30; i++) await page.keyboard.press('Enter');
+  await page.keyboard.type('second page');
+  await menu(page, 'File', 'page.headerFooter');
+  assert.ok(await page.isHidden('#firstPageFields'));
+  await page.fill('#header-left', 'Acme');
+  await page.fill('#header-center', 'Annual report');
+  await page.fill('#header-right', '{page}');
+  await page.check('#firstPageOwn');
+  await page.fill('#firstFooter-right', 'Confidential');
+  await page.click('#headerFooterDlg .primary');
+  await page.waitForFunction(() => document.querySelectorAll('.page-band:not(.blank)').length === 2);
+
+  const bands = await page.evaluate(() =>
+    [...document.querySelectorAll('.page-band')].map((band) =>
+      [...band.querySelectorAll('span')].map((part) => part.textContent).join('|'),
+    ),
+  );
+  // Page 1: its own (empty) header and its footer; page 2: the ordinary header and (empty) footer.
+  assert.deepEqual(bands, ['', '||Confidential', 'Acme|Annual report|2', '']);
+  const printed = await page.evaluate(() =>
+    document.querySelector('style[data-print="running"]').textContent.replace(/\s+/g, ' '),
+  );
+  assert.match(printed, /@top-left \{ content: "Acme";/);
+  assert.match(printed, /@top-right \{ content: counter\(page\);/);
+  assert.match(printed, /@page :first \{ @top-left \{ content: none; \}.*@bottom-right \{ content: "Confidential";/);
   assert.deepEqual(page.errors, []);
 });
 
