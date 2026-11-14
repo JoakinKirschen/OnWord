@@ -95,7 +95,7 @@ export function createRemoteStore({ api, onConflict }) {
     meta,
     read: (id) => contents.get(id) ?? EMPTY_DOC,
 
-    create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles, template } = {}) {
+    create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles, template, project } = {}) {
       const now = Date.now();
       /** @type {DocMeta} */
       const entry = {
@@ -109,11 +109,21 @@ export function createRemoteStore({ api, onConflict }) {
         ...(page && { page }),
         ...(styles && { styles }),
         ...(template && { template }),
+        ...(project && { project }),
       };
       metas.set(entry.id, entry);
       contents.set(entry.id, html);
       versionLists.set(entry.id, []);
-      post(entry.id, 'docs/create', { id: entry.id, title, html, snippet, page, styles, template: !!template });
+      post(entry.id, 'docs/create', {
+        id: entry.id,
+        title,
+        html,
+        snippet,
+        page,
+        styles,
+        template: !!template,
+        project: project || null,
+      });
       return entry;
     },
 
@@ -142,6 +152,7 @@ export function createRemoteStore({ api, onConflict }) {
         role: 'owner',
         template: template ?? !!source.template,
       };
+      copy.project = copy.template ? null : (source.project ?? null); // the server decides the same
       metas.set(copy.id, copy);
       // The server copies the content, which may not be loaded here.
       post(id, 'docs/copy', { id, newId: copy.id, title: copy.title, template: copy.template });

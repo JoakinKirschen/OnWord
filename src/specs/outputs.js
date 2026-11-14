@@ -21,12 +21,16 @@ export function initOutputs({ commands, documents, navigate, current }) {
       const { spec, articles } = current();
       download(`${spec.title} - quantities.csv`, quantitiesCsv(articles), 'text/csv');
     },
-    /** Turns the specification into an ordinary document, from where it can be printed or exported. */
+    /**
+     * Turns the specification into an ordinary document, from where it can be printed or exported. A project's
+     * is filed under the project.
+     */
     'spec.compose'() {
       const { spec, articles } = current();
       const html = specToHtml(spec, articles);
       const text = new DOMParser().parseFromString(html, 'text/html').body.textContent;
-      const created = documents.create({ title: spec.title, html, snippet: text.slice(0, SNIPPET_LENGTH) });
+      const project = spec.kind === 'project' ? spec.id : null;
+      const created = documents.create({ title: spec.title, html, snippet: text.slice(0, SNIPPET_LENGTH), project });
       if (created) navigate('#/d/' + created.id);
     },
   });

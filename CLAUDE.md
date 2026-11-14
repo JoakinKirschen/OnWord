@@ -59,46 +59,54 @@ different tables. Fetch immediately before bumping it, and merge a schema change
 ## Layout
 
 ```
-index.html              static markup for both screens; no inline scripts or handlers
+index.html              static markup for every screen; no inline scripts or handlers
 .htaccess               Apache settings for the web host: MIME type, security policy, caching
 api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
   index.php             the entry point: route table, session, CSRF check, error handling
   sso.php               where single sign-on providers send people back (runs index.php)
   lib/                  http (JSON, session, CSRF), db (connection, schema), auth, sso (single sign-on
-                        with OpenID Connect: Microsoft 365, Google), documents, specs,
+                        with OpenID Connect: Microsoft 365, Google), documents, shares (sharing
+                        documents with other accounts), specs,
                         prices, offers, reviews (site reviews and their photos), ai (the AI reader:
                         calls the Claude API)
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        account, legal, specs, offers, reviews (site reviews), overlays, outline, ruler,
-                        page, find, images, history, review (comments, changes), print)
+                        account, legal, specs, projects (the Projects page, a project's documents and the
+                        labels naming a document's project), offers, reviews (site reviews), overlays,
+                        outline, ruler, page, find, images, history, review (comments, changes), print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
                         storage (documents in the browser), remoteStore (documents on the server,
                         same interface), api (server client), preferences, page (page setup model and
-                        geometry), docStyles (paragraph style definitions), version, units, tableGrid (merged cells), zip, xlsx (reading Excel
-                        workbooks), csv, base64, download, platform, ids
+                        geometry), docStyles (paragraph style definitions), templates (what new documents
+                        start from: the built-in templates and the user's own), version, units, tableGrid
+                        (merged cells), zip, xlsx (reading Excel workbooks), csv, base64, download,
+                        platform, ids
     spec/               specifications: model (articles, tree, numbering, quantities), formula
                         (measurement arithmetic), output (document and CSV), prices (price library),
                         offers (reading, matching and comparing contractors' offers), aiReader
                         (client of the server's AI reader), reviews (site reviews: visits with
                         observations and photos), reviewOutput (a review as a report document),
+                        directory (the specifications last listed, to name a document's project),
                         localStore, remoteStore
     docx/               Word import/export: reader (+ runs, styles, xml) and writer (+ inline,
                         parts); paragraph, section, docStyles (styles.xml), numbering (lists), tables (+ cells: widths,
                         borders, padding) and notes (footnotes, comments, table of contents) convert
                         in both directions
-  ui/                   reusable widgets shared by screens: popover, toast, theme
-  library/              the document list screen: library, templates (the built-in ones), templateBand
-                        (the templates band: using, creating and managing templates), importer (files),
-                        backup, sharing
+  ui/                   reusable widgets shared by screens: popover, toast, theme, templateTiles (tiles
+                        that start a document from a template), documentCard (a document as a card)
+  library/              the Documents page: library, templateBand (the templates band: using, creating
+                        and managing templates), importer (files), backup, sharing, filing (moving a
+                        document to a project)
   account/              the sign-in / create-account screen
   legal/                the privacy policy and terms of use (#/privacy, #/terms): legal (the pages), texts
   reviews/              the site review screen, for phones and tablets: review (the screen), templates
                         (its markup), photos (shrinking photos before they are stored)
-  specs/                the specification screens: list (+ new-project dialog), workspace (article
-                        tree, article form, bill of quantities), articleText (editing an article's
+  specs/                the specification screens: list (the Projects page, which is the home screen,
+                        and the Masters page), newProject (its dialog), workspace (article tree,
+                        article form, bill of quantities), header (the workspace's top bar),
+                        projectDocuments (a project's Documents tab), articleText (editing an article's
                         text), masterPicker (a project's Master / Project sidebar tabs), articleChanges
                         (+ removal: taking articles out, with its warning, and bringing them in),
                         outputs (CSV, document), views (the workspace's tabs), siteReviews (a
@@ -307,11 +315,26 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - A template is a document with `template: true` in its metadata (column `documents.template` on the
   server), so it is edited, renamed, shared, backed up and deleted like any document; the library lists
   it in the templates band instead of with the documents, and the editor shows a "Template" badge. Using
-  it creates an ordinary document from its content, page setup and styles (`library.new` with its id;
-  on a server store it is `load()`ed first). The built-in templates (`library/templates.js`) cannot be
+  it creates an ordinary document from its content, page setup and styles (`fromTemplate()` in
+  `core/templates.js`, run by `library.new` and, in a project, `spec.newDocument`; on a server store the
+  template is `load()`ed first). The built-in templates (`TEMPLATES` in `core/templates.js`) cannot be
   changed or deleted; "Edit a copy" makes a stored template of one. "Save as template" is
   `duplicate(id, { title, template: true })`; a copy of a template is a template. A server copy is
   queued under both ids, so the copy is not loaded, saved or copied before the server has made it.
+- The home screen is one view (`#home`) with a shared header and three pages: Projects (`#/`, where the app
+  starts: the projects and the latest documents), Documents (`#/docs`: every document, the templates band,
+  search and a project filter) and Masters (`#/masters`). `main.js` shows one of them (`showHome()`). The
+  editor's logo goes to Documents; a workspace's goes to Projects or Masters, by the kind it shows.
+- A document can be filed under one of its owner's projects (`meta.project`, the project's id; column
+  `documents.project_id` on the server). A project's Documents tab lists its documents and starts new ones
+  from the same templates as the Documents page; "Create document" and site review reports are filed under
+  their project; "Move to project…" on a document's card files an existing one. The editor shows the project
+  in front of the title, linking back to it. Only the owner files a document and only the owner is told
+  where it is filed: projects are not shared, so the server sends `project: null` to anyone else. A copy
+  stays in the original's project unless it is a template (templates belong to no project). Deleting a
+  project keeps its documents, in no project (the server clears `project_id`; the browser writes
+  `project: null`). Screens name projects through `core/spec/directory.js`, which keeps the last listing of
+  specifications; a project id it cannot name counts as none.
 - Specifications (`core/spec/`) are a separate kind of data from documents, with their own store
   interface (`SpecStore` in `core/spec/model.js`), which is asynchronous: every call goes to the store,
   and the workspace keeps the open specification in memory and saves changed articles after a short

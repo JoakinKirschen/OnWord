@@ -13,8 +13,11 @@ A browser-based word processor. Plain HTML, CSS and JavaScript — no dependenci
   filled-in bill of quantities, as Excel or CSV) are imported and compared side by side per article and in
   total; with the server part an AI reader (Claude) also reads PDFs and unusual layouts. A specification
   can be turned into a document for Word or PDF.
-- Document library with search, rename, duplicate and delete, plus templates (letter, meeting notes,
-  résumé, project brief)
+- Projects first: the home screen lists the projects and the latest documents. A project keeps its
+  specification, bill of quantities, offers, site reviews and documents together; documents are started in
+  it from the templates, and generated ones (the specification, site review reports) are filed there
+- Document library with search, a filter by project, rename, duplicate, move to a project and delete, plus
+  templates (letter, meeting notes, résumé, project brief)
 - Word documents: open `.docx` files and download as `.docx`
 - Back up every document to one file and restore it in another browser
 - Rich text: paragraph styles (Title, Subtitle, Heading 1–4, Quote, Code), fonts, sizes, bold/italic/underline/strikethrough, text and highlight colours,
@@ -101,7 +104,7 @@ limited to a few megabytes (large images are scaled down to help). With the serv
 stored per account and can be shared, but two people editing the same document at the same time do not
 see each other's changes live: whoever saves second is told the document changed elsewhere and has to
 reload. There is no password reset by email yet.
-Use **File → Download** to move a document, or **Back up** on the home screen to save all of them.
+Use **File → Download** to move a document, or **Back up** on the Documents page to save all of them.
 
 Word import keeps text, headings, character formatting, lists, tables, links, images and page setup.
 Headers and footers, comments, footnotes, tracked changes and merged cells are not carried over.

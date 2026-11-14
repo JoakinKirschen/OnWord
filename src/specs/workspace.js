@@ -1,13 +1,15 @@
-import { $, $$, hit } from '../core/dom.js';
+import { $, hit } from '../core/dom.js';
 import { newId } from '../core/ids.js';
 import { evaluate } from '../core/spec/formula.js';
 import { blankArticle, suggestNumber } from '../core/spec/model.js';
 import { initArticleText } from './articleText.js';
 import { createArticleChanges } from './articleChanges.js';
+import { createHeader } from './header.js';
 import { createMasterPicker } from './masterPicker.js';
 import { createOffers } from './offers.js';
 import { initOutputs } from './outputs.js';
 import { createPriceLibrary } from './prices.js';
+import { createProjectDocuments } from './projectDocuments.js';
 import { createSaver } from './saver.js';
 import { createSiteReviews } from './siteReviews.js';
 import { createViews } from './views.js';
@@ -16,11 +18,13 @@ import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText,
 const NOTHING = '<p class="spec-empty">Choose an article in the list, or add one.</p>';
 
 /**
- * The workspace for one specification: article tree, article form, bill of quantities, prices and offers.
+ * The workspace for one specification: article tree, article form, bill of quantities, prices, offers, site
+ * reviews and documents.
  * @typedef {object} WorkspaceDeps
  * @property {HTMLElement} root
  * @property {import('../core/spec/model.js').SpecStore} specStore
- * @property {import('../core/storage.js').DocumentStore} documents where "Create document" puts its result
+ * @property {import('../core/storage.js').DocumentStore} documents a project's documents, and where "Create
+ *   document" puts its result
  * @property {import('../core/commands.js').Commands} commands
  * @property {import('../ui/toast.js').Toast} toast
  * @property {(hash: string) => void} navigate
@@ -34,7 +38,6 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     panel = $('#articlePanel', root),
     search = $('#articleSearch', root),
     state = $('#specState', root);
-  const inputs = { title: $('#specTitle', root), phase: $('#specPhase', root), lot: $('#specLot', root) };
   /** @type {import('../core/spec/model.js').Spec | null} */
   let spec = null;
   /** The articles in use, and (in a project) those taken out but kept with their changes. */
@@ -52,6 +55,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       prices: ['#pricesPanel', () => library.viewHtml()],
       offers: ['#offersPanel', () => offers.viewHtml()],
       reviews: ['#reviewsPanel', () => siteReviews.viewHtml()],
+      documents: ['#documentsPanel', () => projectDocuments.viewHtml(), (element) => projectDocuments.drawn(element)],
     },
   });
 
@@ -71,6 +75,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     update: (project) => ({ articles, removed } = project),
   });
   const changed = saver.changed;
+  const header = createHeader({ root, current: () => spec, changed });
   const target = { spec: () => spec, articles: () => articles, selected, editable, setPrices };
   const library = createPriceLibrary({ specStore, commands, toast, target });
   const offers = createOffers({
@@ -100,6 +105,14 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
 
   const redraw = () => views.show('reviews');
   const siteReviews = createSiteReviews({ specStore, commands, toast, navigate, target, redraw });
+  const projectDocuments = createProjectDocuments({
+    documents,
+    commands,
+    toast,
+    navigate,
+    target,
+    redraw: () => views.show('documents'),
+  });
 
   function drawTree() {
     tree.innerHTML = treeHtml(articles, { selectedId, filter: search.value, sources });
@@ -197,12 +210,6 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   });
   initArticleText(panel);
   search.addEventListener('input', drawTree);
-  for (const [name, input] of Object.entries(inputs)) {
-    input.addEventListener('input', () => {
-      spec[name] = input.value;
-      changed();
-    });
-  }
 
   return {
     /** Loads and shows a specification. Resolves to false when it does not exist. */
@@ -217,16 +224,10 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
         library.load(),
         offers.load(),
         siteReviews.load(),
+        projectDocuments.load(),
       ]);
       sources = new Map((master?.articles ?? []).map((a) => [a.id, a]));
-      for (const [name, input] of Object.entries(inputs)) {
-        input.value = spec[name];
-        input.disabled = !spec.mine;
-      }
-      $('#specKind', root).textContent = spec.kind === 'master' ? 'Master specification' : 'Project';
-      const projectOnly = $$('#specProject, [data-arg="offers"], [data-arg="reviews"]', root);
-      for (const element of projectOnly) element.hidden = spec.kind !== 'project';
-      $('#specReadOnly', root).hidden = spec.mine;
+      header.show(spec);
       state.textContent = '';
       search.value = '';
       picker.reset(spec.kind === 'project' && spec.mine && sources.size > 0);

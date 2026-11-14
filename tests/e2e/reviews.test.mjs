@@ -13,7 +13,7 @@ const card = (n) => `#reviewBody article.obs:nth-of-type(${n + 1})`; // the card
 /** A master with two articles and a project built from it, left open on its Site reviews tab. */
 async function project(page) {
   page.on('dialog', (dialog) => dialog.accept('Standard'));
-  await page.click('#home .main-nav a[href="#/specs"]');
+  await page.click('#home .main-nav a[href="#/masters"]');
   await page.click('[data-act="spec.newMaster"]');
   await page.waitForSelector('#specView:not([hidden])');
   for (const title of ['Walls', 'Roof']) {
@@ -22,6 +22,7 @@ async function project(page) {
   }
   await page.waitForFunction(() => document.querySelector('#specState').textContent === 'Saved');
   await page.click('.spec-bar .brand');
+  await page.click('#home .main-nav a[href="#/"]');
   await page.click('[data-act="spec.newProject"]');
   await page.fill('#projectDlg [name=title]', 'School');
   await page.waitForSelector('#projectArticles input');
@@ -104,6 +105,8 @@ test('a site review on a phone: visit, observations with photos and follow-up, k
   await page.click('[data-act="site.report"]');
   await page.waitForSelector('#editorView:not([hidden])');
   assert.equal(await page.inputValue('#title'), 'Site review 1 – School');
+  await page.waitForSelector('#docProject:not([hidden])');
+  assert.equal(await page.textContent('#docProject'), 'School', 'the report is filed under the project');
   const report = await html(page); // dates are written in the reader's own language
   assert.match(report, /^<h1>Site review 1<\/h1><p class="subtitle">School — [^<]*2026<\/p>/);
   assert.match(report, /Ann \(architect\), Bo \(contractor\)/);

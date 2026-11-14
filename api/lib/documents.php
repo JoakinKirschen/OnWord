@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-/** Documents: listing, reading, creating, saving, copying, deleting, versions and sharing. */
+/** Documents: listing, reading, creating, saving, copying, deleting and versions. Sharing is in shares.php. */
 
 const MAX_VERSIONS = 10;
 const MAX_SETTINGS_BYTES = 20000; // page setup and styles, each; a TEXT column holds 64 KB
 const ID_PATTERN = '/^[a-z0-9]{8,32}$/';
-const META = 'd.id, d.title, d.snippet, d.page, d.styles, d.template, d.rev, d.created_at, d.updated_at, d.owner_id';
+const META = 'd.id, d.title, d.snippet, d.page, d.styles, d.template, d.project_id, d.rev, d.created_at, d.updated_at, d.owner_id';
 
 function doc_id(array $in, string $field = 'id'): string
 {
@@ -17,7 +17,10 @@ function doc_id(array $in, string $field = 'id'): string
     return $id;
 }
 
-/** The metadata the client keeps for a document. `role` is owner, edit or view. */
+/**
+ * The metadata the client keeps for a document. `role` is owner, edit or view. Only the owner learns which
+ * project it is filed under: projects are not shared, so to anyone else the id would point at nothing.
+ */
 function doc_meta(array $row, string $role, string $owner): array
 {
     return [
@@ -27,6 +30,7 @@ function doc_meta(array $row, string $role, string $owner): array
         'page' => $row['page'] ? json_decode($row['page'], true) : null,
         'styles' => $row['styles'] ? json_decode($row['styles'], true) : null,
         'template' => (bool) $row['template'],
+        'project' => $role === 'owner' ? $row['project_id'] : null,
         'rev' => (int) $row['rev'],
         'created' => (int) $row['created_at'],
         'updated' => (int) $row['updated_at'],
@@ -73,6 +77,20 @@ function flag_field(array $in, string $name): int
         fail(400, 'bad_request', "Field '$name' must be true or false.");
     }
     return $in[$name] ? 1 : 0;
+}
+
+/** The project a document is filed under: none, or a project of the user's own. */
+function project_field(PDO $db, array $user, array $in): ?string
+{
+    if (($in['project'] ?? null) === null) {
+        return null;
+    }
+    $id = doc_id($in, 'project');
+    $kind = run($db, 'SELECT kind FROM specs WHERE id = ? AND owner_id = ?', [$id, $user['id']])->fetchColumn();
+    if ($kind !== 'project') {
+        fail(404, 'no_project', 'This project does not exist or is not yours.');
+    }
+    return $id;
 }
 
 /** Validated fields of a document from the request; only the ones that were sent. */
@@ -137,12 +155,13 @@ function docs_create(PDO $db, array $user, array $in, array $config): array
 {
     $id = doc_id($in);
     $fields = doc_fields($in, $config) + ['title' => 'Untitled document', 'snippet' => '', 'page' => null, 'styles' => null, 'template' => 0, 'html' => '<p><br></p>'];
+    $project = project_field($db, $user, $in);
     if (run($db, 'SELECT 1 FROM documents WHERE id = ?', [$id])->fetch()) {
         fail(409, 'exists', 'A document with this id already exists.');
     }
     $now = now_ms();
-    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, template, html, rev, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)', [
-        $id, $user['id'], $fields['title'], $fields['snippet'], $fields['page'], $fields['styles'], $fields['template'], $fields['html'], $now, $now,
+    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, template, project_id, html, rev, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)', [
+        $id, $user['id'], $fields['title'], $fields['snippet'], $fields['page'], $fields['styles'], $fields['template'], $project, $fields['html'], $now, $now,
     ]);
     return ['rev' => 1, 'updated' => $now];
 }
@@ -150,12 +169,19 @@ function docs_create(PDO $db, array $user, array $in, array $config): array
 function docs_update(PDO $db, array $user, array $in, array $config): array
 {
     $id = doc_id($in);
-    $row = doc_access($db, $user, $id, true)['row'];
+    $access = doc_access($db, $user, $id, true);
+    $row = $access['row'];
     // The client says which revision its changes are based on; a mismatch means someone else saved first.
     if (isset($in['rev']) && (int) $in['rev'] !== (int) $row['rev']) {
         fail(409, 'conflict', 'This document was changed somewhere else.');
     }
     $fields = doc_fields($in, $config);
+    if (array_key_exists('project', $in)) {
+        if ($access['role'] !== 'owner') {
+            fail(403, 'not_owner', 'Only the owner of a document can file it under a project.');
+        }
+        $fields['project_id'] = project_field($db, $user, $in);
+    }
     $now = now_ms();
     $rev = (int) $row['rev'] + 1;
     $set = implode(', ', array_map(fn ($name) => "$name = ?", array_keys($fields)));
@@ -163,21 +189,26 @@ function docs_update(PDO $db, array $user, array $in, array $config): array
     return ['rev' => $rev, 'updated' => $now];
 }
 
-/** Copies a document, by default as "Copy of …" and a template only if the original is one. */
+/**
+ * Copies a document, by default as "Copy of …" and a template only if the original is one. The owner's copy
+ * stays in the original's project; a template, and anyone else's copy, is in none.
+ */
 function docs_copy(PDO $db, array $user, array $in): array
 {
     $id = doc_id($in);
     $copy = doc_id($in, 'newId');
-    $row = doc_access($db, $user, $id)['row'];
+    $access = doc_access($db, $user, $id);
+    $row = $access['row'];
     $title = array_key_exists('title', $in) ? text_field($in, 'title', 200) : mb_substr('Copy of ' . $row['title'], 0, 200);
     $template = array_key_exists('template', $in) ? flag_field($in, 'template') : (int) $row['template'];
+    $project = !$template && $access['role'] === 'owner' ? $row['project_id'] : null;
     if (run($db, 'SELECT 1 FROM documents WHERE id = ?', [$copy])->fetch()) {
         fail(409, 'exists', 'A document with this id already exists.');
     }
     $now = now_ms();
-    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, template, html, rev, created_at, updated_at)
-        SELECT ?, ?, ?, snippet, page, styles, ?, html, 1, ?, ? FROM documents WHERE id = ?', [
-        $copy, $user['id'], $title, $template, $now, $now, $id,
+    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, template, project_id, html, rev, created_at, updated_at)
+        SELECT ?, ?, ?, snippet, page, styles, ?, ?, html, 1, ?, ? FROM documents WHERE id = ?', [
+        $copy, $user['id'], $title, $template, $project, $now, $now, $id,
     ]);
     return ['rev' => 1, 'updated' => $now];
 }
@@ -206,38 +237,5 @@ function versions_add(PDO $db, array $user, array $in, array $config): array
     foreach (array_slice($old, MAX_VERSIONS) as $versionId) {
         run($db, 'DELETE FROM versions WHERE id = ?', [$versionId]);
     }
-    return ['ok' => true];
-}
-
-function shares_list(PDO $db, array $user): array
-{
-    $id = doc_id($_GET);
-    require_owner($db, $user, $id);
-    $rows = run($db, 'SELECT u.id, u.name, u.email, s.role FROM shares s JOIN users u ON u.id = s.user_id WHERE s.doc_id = ? ORDER BY u.name', [$id])->fetchAll();
-    return ['shares' => array_map(fn ($r) => ['userId' => (int) $r['id'], 'name' => $r['name'], 'email' => $r['email'], 'role' => $r['role']], $rows)];
-}
-
-function shares_add(PDO $db, array $user, array $in): array
-{
-    $id = doc_id($in);
-    require_owner($db, $user, $id);
-    $role = ($in['role'] ?? '') === 'edit' ? 'edit' : 'view';
-    $other = run($db, 'SELECT id FROM users WHERE email = ?', [strtolower(text_field($in, 'email', 190))])->fetchColumn();
-    if (!$other) {
-        fail(404, 'no_such_user', 'Nobody has an account with that email address.');
-    }
-    if ((int) $other === $user['id']) {
-        fail(400, 'own_document', 'This is your own document.');
-    }
-    run($db, 'DELETE FROM shares WHERE doc_id = ? AND user_id = ?', [$id, $other]);
-    run($db, 'INSERT INTO shares (doc_id, user_id, role) VALUES (?, ?, ?)', [$id, $other, $role]);
-    return ['ok' => true];
-}
-
-function shares_remove(PDO $db, array $user, array $in): array
-{
-    $id = doc_id($in);
-    require_owner($db, $user, $id);
-    run($db, 'DELETE FROM shares WHERE doc_id = ? AND user_id = ?', [$id, (int) ($in['userId'] ?? 0)]);
     return ['ok' => true];
 }

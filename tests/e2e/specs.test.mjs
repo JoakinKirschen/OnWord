@@ -16,8 +16,8 @@ async function confirmRemoval(page, left) {
 /** Opens the specifications screen and creates a master with the given name. */
 async function newMaster(page, name) {
   page.on('dialog', (dialog) => dialog.accept(name));
-  await page.click('#home .main-nav a[href="#/specs"]');
-  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.click('#home .main-nav a[href="#/masters"]');
+  await page.waitForSelector('#mastersPage:not([hidden])');
   await page.click('[data-act="spec.newMaster"]');
   await page.waitForSelector('#specView:not([hidden])');
 }
@@ -120,7 +120,8 @@ test('a project takes articles from a master and shows where it differs', async 
   await saved(page);
 
   await page.click('.spec-bar .brand');
-  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.click('#home .main-nav a[href="#/"]');
+  await page.waitForSelector('#projectsPage:not([hidden])');
   await page.click('[data-act="spec.newProject"]');
   await page.fill('#projectDlg [name=title]', 'School');
   await page.fill('#projectDlg [name=phase]', 'Tender');
@@ -163,7 +164,7 @@ test('a project takes articles from a master and shows where it differs', async 
   assert.equal(await page.textContent('#articleTree'), 'No articles yet. Add the first one.');
   await saved(page);
   await page.click('.spec-bar .brand');
-  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.waitForSelector('#projectsPage:not([hidden])');
   assert.match(await page.innerText('#projectList'), /School[\s\S]*Phase Tender · Lot 2 · from Standard/);
   assert.equal(await page.locator('#masterList .spec-row').count(), 1);
   assert.deepEqual(page.errors, []);
@@ -181,7 +182,8 @@ test("a project's Master tab adds and removes articles, and keeps the changes of
   assert.ok(await page.isHidden('#specTabs'), 'a master has nothing to pick from');
   await saved(page);
   await page.click('.spec-bar .brand');
-  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.click('#home .main-nav a[href="#/"]');
+  await page.waitForSelector('#projectsPage:not([hidden])');
   await page.click('[data-act="spec.newProject"]');
   await page.fill('#projectDlg [name=title]', 'School');
   await page.uncheck('#projectArticles label:has-text("Roofing") input');
@@ -265,7 +267,8 @@ test("a project's Master tab adds and removes articles, and keeps the changes of
 /** Goes back to the list and starts a project from the only master, with all of its articles. */
 async function newProject(page, title) {
   await page.click('.spec-bar .brand');
-  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.click('#home .main-nav a[href="#/"]');
+  await page.waitForSelector('#projectsPage:not([hidden])');
   await page.click('[data-act="spec.newProject"]');
   await page.fill('#projectDlg [name=title]', title);
   await page.waitForSelector('#projectArticles input');
@@ -340,6 +343,7 @@ test('the price library relates prices to quantities and fills in missing prices
 
   // The master sees the prices of every project built from it.
   await page.click('.spec-bar .brand');
+  await page.click('#home .main-nav a[href="#/masters"]');
   await page.click('#masterList a');
   await page.waitForSelector('#specView:not([hidden])');
   await page.click('[data-act="spec.view"][data-arg="prices"]');

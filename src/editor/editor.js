@@ -103,15 +103,16 @@ const FEATURES = [
  *
  * @typedef {EditorDeps & EditorServices} EditorContext
  *
- * @param {EditorDeps} deps
+ * @param {EditorDeps & { directory: import('../core/spec/directory.js').SpecDirectory }} deps `directory` names
+ *   the project the open document is filed under
  */
-export function createEditor({ root, store, prefs, commands, popover, toast, navigate }) {
+export function createEditor({ root, store, prefs, commands, popover, toast, navigate, directory }) {
   const doc = root.ownerDocument;
   const content = $('#editor', root);
   const scroller = $('#scroller', root);
   const events = createEmitter();
   const selection = createSelection(content);
-  const session = createSession({ root, content, store, events });
+  const session = createSession({ root, content, store, events, directory });
 
   /** Run a browser editing command on the current selection and record the change. */
   function exec(command, value = null) {

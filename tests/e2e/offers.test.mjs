@@ -14,7 +14,7 @@ const summary = (page) => page.innerText('#offerSummary');
 /** A master with the articles the fixture prices, and a project built from it with its own quantities. */
 async function project(page) {
   page.on('dialog', (dialog) => dialog.accept('Standard'));
-  await page.click('#home .main-nav a[href="#/specs"]');
+  await page.click('#home .main-nav a[href="#/masters"]');
   await page.click('[data-act="spec.newMaster"]');
   await page.waitForSelector('#specView:not([hidden])');
   for (const [where, title, unit] of [
@@ -33,6 +33,7 @@ async function project(page) {
   }
   await saved(page);
   await page.click('.spec-bar .brand');
+  await page.click('#home .main-nav a[href="#/"]');
   await page.click('[data-act="spec.newProject"]');
   await page.fill('#projectDlg [name=title]', 'School');
   await page.waitForSelector('#projectArticles input');

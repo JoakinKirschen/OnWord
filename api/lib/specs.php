@@ -155,6 +155,8 @@ function specs_delete(PDO $db, array $user, array $in): array
     run($db, 'DELETE FROM offers WHERE spec_id = ?', [$id]);
     run($db, 'DELETE FROM review_photos WHERE review_id IN (SELECT id FROM reviews WHERE spec_id = ?)', [$id]);
     run($db, 'DELETE FROM reviews WHERE spec_id = ?', [$id]);
+    // The project's documents stay, filed under no project.
+    run($db, 'UPDATE documents SET project_id = NULL WHERE project_id = ?', [$id]);
     run($db, 'DELETE FROM specs WHERE id = ?', [$id]);
     return ['ok' => true];
 }

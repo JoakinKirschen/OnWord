@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
-const SCREENS = ['#home', '#editorView', '#account', '#specsHome', '#specView', '#reviewView']
+const SCREENS = ['#home', '#editorView', '#account', '#specView', '#reviewView']
   .map((id) => `${id}:not([hidden])`)
   .join(', ');
 // Tests run under the Content-Security-Policy the web host will send, so a violation fails here first.
@@ -47,8 +47,11 @@ export function useApp() {
     server?.close();
   });
 
-  /** Opens the library screen. `page.errors` collects uncaught errors and console errors. */
-  async function openApp() {
+  /**
+   * Opens the app at `hash`, by default on the Documents page. `page.errors` collects uncaught errors and
+   * console errors.
+   */
+  async function openApp(hash = '#/docs') {
     const context = await browser.newContext({ viewport: { width: 1280, height: 850 }, acceptDownloads: true });
     contexts.push(context);
     const page = await context.newPage();
@@ -65,7 +68,7 @@ export function useApp() {
       await ready();
       return response;
     };
-    await page.goto(base);
+    await page.goto(base + hash);
     await ready();
     return page;
   }
