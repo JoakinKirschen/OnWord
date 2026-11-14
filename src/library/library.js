@@ -1,19 +1,19 @@
 import { $ } from '../core/dom.js';
+import { esc } from '../core/html.js';
+import { documentCard } from '../ui/documentCard.js';
 import { MORE_ICON, menuHtml } from '../ui/popover.js';
 import { createTemplateBand } from './templateBand.js';
 
-const formatDate = (ts) => {
-  const d = new Date(ts);
-  return d.toDateString() === new Date().toDateString()
-    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-};
+/** The filter's choices besides the projects themselves. */
+const ALL = '';
+const LOOSE = 'none';
 
 /**
- * The document list (home screen).
+ * The Documents page: every document, with the templates to start new ones from.
  * @typedef {object} LibraryDeps
  * @property {HTMLElement} root
  * @property {import('../core/storage.js').DocumentStore} store
+ * @property {import('../core/spec/directory.js').SpecDirectory} directory names the projects documents are filed under
  * @property {import('../core/commands.js').Commands} commands
  * @property {import('../ui/popover.js').Popover} popover
  * @property {import('../ui/toast.js').Toast} toast
@@ -21,27 +21,20 @@ const formatDate = (ts) => {
  *
  * @param {LibraryDeps} deps
  */
-export function createLibrary({ root, store, commands, popover, toast, navigate }) {
+export function createLibrary({ root, store, directory, commands, popover, toast, navigate }) {
   const grid = $('#grid', root),
     empty = $('#empty', root),
-    search = $('#search', root);
+    search = $('#search', root),
+    filter = $('#docFilter', root);
   const templates = createTemplateBand({ root: $('#templates', root), store, commands, popover, toast, navigate });
 
-  function card(d) {
-    const a = document.createElement('a');
-    a.className = 'card';
-    a.href = '#/d/' + d.id;
-    a.innerHTML = `<div class="thumb"><div class="thumb-page"></div></div>
-      <div class="card-meta"><div class="card-title"></div><div class="card-date"></div></div>
-      <button class="icon-btn sm card-more" aria-label="Document options" title="Options">${MORE_ICON}</button>`;
-    $('.thumb-page', a).textContent = d.snippet || '';
-    $('.card-title', a).textContent = d.title;
+  function card(/** @type {import('../core/storage.js').DocMeta} */ d) {
+    const a = documentCard(root.ownerDocument, d, directory.title(d.project));
     const shared = d.role && d.role !== 'owner';
-    const dateEl = $('.card-date', a);
-    dateEl.textContent = shared
-      ? `Shared by ${d.owner}${d.role === 'view' ? ' · view only' : ''}`
-      : 'Edited ' + formatDate(d.updated);
-    dateEl.classList.toggle('card-shared', !!shared);
+    a.insertAdjacentHTML(
+      'beforeend',
+      `<button class="icon-btn sm card-more" aria-label="Document options" title="Options">${MORE_ICON}</button>`,
+    );
     $('.card-more', a).addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -51,6 +44,7 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
           { label: 'Open', act: 'library.open', arg: d.id },
           { label: 'Rename', act: 'library.rename', arg: d.id },
           { label: 'Make a copy', act: 'library.copy', arg: d.id },
+          ...(shared ? [] : [{ label: 'Move to project…', act: 'library.move', arg: d.id }]),
           { label: 'Save as template', act: 'library.saveAsTemplate', arg: d.id },
           ...(store.remote && !shared ? [{ label: 'Share…', act: 'library.share', arg: d.id }] : []),
           '-',
@@ -61,17 +55,35 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
     return a;
   }
 
+  /** The filter's choices: everything, what is in no project, and each project. */
+  function drawFilter() {
+    const projects = directory.projects();
+    const chosen = filter.value;
+    filter.innerHTML =
+      `<option value="${ALL}">All documents</option><option value="${LOOSE}">Not in a project</option>` +
+      projects.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('');
+    filter.value = chosen === LOOSE || projects.some((p) => p.id === chosen) ? chosen : ALL;
+  }
+
+  /** Whether a document passes the filter. A project nobody can name counts as none. */
+  function shown(/** @type {import('../core/storage.js').DocMeta} */ d) {
+    const project = directory.title(d.project) ? d.project : null;
+    if (filter.value === ALL) return true;
+    return filter.value === LOOSE ? !project : project === filter.value;
+  }
+
   function render() {
     const q = search.value.trim().toLowerCase();
     templates.render();
+    drawFilter();
     const all = store
       .index()
       .filter((d) => !d.template)
       .sort((a, b) => b.updated - a.updated);
-    const docs = q ? all.filter((d) => (d.title + ' ' + (d.snippet || '')).toLowerCase().includes(q)) : all;
+    const docs = all.filter((d) => shown(d) && (!q || (d.title + ' ' + (d.snippet || '')).toLowerCase().includes(q)));
     grid.replaceChildren(...docs.map(card));
     empty.hidden = docs.length > 0;
-    empty.textContent = all.length ? 'No documents match your search.' : 'No documents yet. Create one to get started.';
+    empty.textContent = all.length ? 'No documents match.' : 'No documents yet. Start one from a template above.';
   }
 
   commands.register({
@@ -104,15 +116,16 @@ export function createLibrary({ root, store, commands, popover, toast, navigate 
   });
 
   search.addEventListener('input', render);
+  filter.addEventListener('change', render);
 
   return {
     render,
     show() {
       root.hidden = false;
-      root.ownerDocument.title = 'OnWord';
+      root.ownerDocument.title = 'Documents – OnWord';
       render();
       // A server store may have changed since it was last read: other devices, documents shared with you.
-      store.refresh().then(
+      Promise.all([store.refresh(), directory.refresh().catch(() => [])]).then(
         () => {
           render();
           return templates.loadPreviews();

@@ -19,14 +19,6 @@
   color: var(--accent);
 }
 
-.spec-group {
-  max-width: 1080px;
-  margin: 26px auto 10px;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
 .spec-list {
   max-width: 1080px;
   margin: 0 auto;

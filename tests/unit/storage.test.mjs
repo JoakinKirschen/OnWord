@@ -69,6 +69,17 @@ test('a document can be copied as a template, which stays a template when copied
   assert.equal(store.duplicate(template.id).template, true);
 });
 
+test('a document filed under a project keeps it in copies, but not as a template', () => {
+  const { store } = setup();
+  const doc = store.create({ title: 'Letter', project: 'school' });
+  assert.equal(store.meta(doc.id).project, 'school');
+  assert.equal(store.duplicate(doc.id).project, 'school', 'a copy stays in the project');
+  assert.ok(!store.duplicate(doc.id, { template: true }).project, 'templates belong to no project');
+  assert.ok(store.write(doc.id, null, { project: null }));
+  assert.equal(store.meta(doc.id).project, null, 'taken out of the project');
+  assert.equal(store.create({ title: 'Loose' }).project, undefined);
+});
+
 test('remove deletes content, versions and the index entry', () => {
   const { store, storage } = setup();
   const doc = store.create({ title: 'A' });

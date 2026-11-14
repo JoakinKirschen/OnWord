@@ -123,7 +123,7 @@ async function visitor() {
   const page = await context.newPage();
   page.errors = [];
   page.on('pageerror', (e) => page.errors.push(e.message));
-  await page.goto(base);
+  await page.goto(base + '#/docs'); // the Documents page, once signed in
   await page.waitForSelector(SCREENS);
   return page;
 }
@@ -293,7 +293,7 @@ test(
     await register(author, 'Mia', email('mia'));
     await author.waitForSelector('#home:not([hidden])');
     author.on('dialog', (dialog) => dialog.accept('Shared master'));
-    await author.click('#home .main-nav a[href="#/specs"]');
+    await author.click('#home .main-nav a[href="#/masters"]');
     await author.click('[data-act="spec.newMaster"]');
     await author.waitForSelector('#specView:not([hidden])');
     await author.click('.spec-tree-tools [data-act="spec.addArticle"]');
@@ -309,7 +309,7 @@ test(
     const reader = await visitor();
     await register(reader, 'Raf', email('raf'));
     await reader.waitForSelector('#home:not([hidden])');
-    await reader.click('#home .main-nav a[href="#/specs"]');
+    await reader.click('#home .main-nav a[href="#/masters"]');
     await reader.waitForSelector('#masterList .spec-row');
     assert.match(await reader.innerText('#masterList'), /Shared master[\s\S]*by Mia[\s\S]*read only/);
     await reader.click('#masterList a');
@@ -319,6 +319,7 @@ test(
     assert.equal(await reader.getAttribute('#articleText', 'contenteditable'), 'false');
 
     await reader.click('.spec-bar .brand');
+    await reader.click('#home .main-nav a[href="#/"]');
     await reader.click('[data-act="spec.newProject"]');
     await reader.fill('#projectDlg [name=title]', 'Raf project');
     await reader.waitForSelector('#projectArticles input');
@@ -339,6 +340,7 @@ test(
     // The price library: the reader's own project prices show in the master they came from.
     const prices = (page) => page.locator('#pricesPanel tbody tr').allInnerTexts();
     await reader.click('.spec-bar .brand');
+    await reader.click('#home .main-nav a[href="#/masters"]');
     await reader.click('#masterList a');
     await reader.waitForSelector('#specView:not([hidden])');
     await reader.click('[data-act="spec.view"][data-arg="prices"]');
@@ -353,6 +355,7 @@ test(
 
     // Taking an article out of the project keeps it, with its measurements and price, but out of the prices.
     await reader.click('.spec-bar .brand');
+    await reader.click('#home .main-nav a[href="#/"]');
     await reader.click('#projectList a');
     await reader.waitForSelector('#specView:not([hidden])');
     await reader.click('[data-act="spec.side"][data-arg="master"]');
@@ -365,11 +368,13 @@ test(
     await reader.waitForSelector('#specView:not([hidden])');
     assert.equal(await reader.locator('#articleTree .tree-item').count(), 0);
     await reader.click('.spec-bar .brand');
+    await reader.click('#home .main-nav a[href="#/masters"]');
     await reader.click('#masterList a');
     await reader.waitForSelector('#specView:not([hidden])');
     await reader.click('[data-act="spec.view"][data-arg="prices"]');
     assert.deepEqual(await prices(reader), ['1\tPaving\tm²\t0\t—\t0\t\t\t\t'], 'a removed article has no price');
     await reader.click('.spec-bar .brand');
+    await reader.click('#home .main-nav a[href="#/"]');
     await reader.click('#projectList a');
     await reader.waitForSelector('#specView:not([hidden])');
     await reader.click('[data-act="spec.side"][data-arg="master"]');
@@ -382,6 +387,7 @@ test(
 
     // The project is not visible to the master's author, and the API refuses writes to someone else's master.
     await author.click('.spec-bar .brand');
+    await author.click('#home .main-nav a[href="#/"]');
     await author.waitForSelector('#projectList');
     assert.doesNotMatch(await author.innerText('#projectList'), /Raf project/);
     const masterId = await author.evaluate(() => document.querySelector('#masterList a').hash.split('/').pop());
@@ -395,6 +401,7 @@ test(
       return [response.status, (await response.json()).error];
     }, masterId);
     assert.deepEqual(refused, [403, 'read_only']);
+    await author.click('#home .main-nav a[href="#/masters"]');
     await author.click('#masterList a');
     await author.waitForSelector('#specView:not([hidden])');
     await author.click('[data-act="spec.view"][data-arg="prices"]');
@@ -412,7 +419,7 @@ test(
     const owner = await visitor();
     await register(owner, 'Ines', email('ines'));
     await owner.waitForSelector('#home:not([hidden])');
-    await owner.click('#home .main-nav a[href="#/specs"]');
+    await owner.click('#home .main-nav a[href="#/"]');
     await owner.click('[data-act="spec.newProject"]');
     await owner.fill('#projectDlg [name=title]', 'Ines project');
     await owner.selectOption('#projectMaster', '');
@@ -610,6 +617,61 @@ test('site reviews and their photos on the server, for the project owner only', 
   assert.deepEqual([...owner.errors, ...other.errors], []);
 });
 
+test('documents filed under projects: only the owner files, only the owner sees where', { skip: !hasPhp }, async () => {
+  const owner = await visitor();
+  await register(owner, 'Pia', email('pia'));
+  await owner.waitForSelector('#home:not([hidden])');
+  const guest = await visitor();
+  await register(guest, 'Gil', email('gil'));
+  await guest.waitForSelector('#home:not([hidden])');
+  const id = (name) => name + RUN; // unique per run, like the addresses
+  const [, { spec: project }] = await call(owner, 'specs/create', { id: id('proja'), kind: 'project', title: 'Pia A' });
+  const [, { spec: master }] = await call(owner, 'specs/create', { id: id('mastera'), kind: 'master', title: 'M' });
+  const [, { spec: theirs }] = await call(guest, 'specs/create', { id: id('projg'), kind: 'project', title: 'Gil' });
+  const create = (page, doc, projectId) => call(page, 'docs/create', { id: id(doc), title: doc, project: projectId });
+  const listed = async (page, doc) =>
+    (await call(page, 'docs/list'))[1].documents.find((d) => d.id === id(doc))?.project;
+
+  assert.equal((await create(owner, 'letter', project.id))[0], 200);
+  assert.equal(await listed(owner, 'letter'), project.id);
+  assert.deepEqual((await create(owner, 'stray', master.id))[1].error, 'no_project', 'a master is not a project');
+  assert.deepEqual((await create(owner, 'stray', theirs.id))[1].error, 'no_project', "nor is someone else's");
+  assert.deepEqual((await create(owner, 'stray', 'bad id!'))[0], 400);
+  assert.equal((await create(owner, 'loose', null))[0], 200);
+  assert.equal(await listed(owner, 'loose'), null);
+
+  // Shared with someone else, the document does not say where it is filed, and they cannot file it.
+  await call(owner, 'shares/add', { id: id('letter'), email: email('gil'), role: 'edit' });
+  assert.equal(await listed(guest, 'letter'), null);
+  assert.equal((await call(guest, `docs/get&id=${id('letter')}`))[1].document.project, null);
+  assert.deepEqual(await call(guest, 'docs/update', { id: id('letter'), project: theirs.id }), [
+    403,
+    { error: 'not_owner', message: 'Only the owner of a document can file it under a project.' },
+  ]);
+  assert.equal((await call(guest, 'docs/update', { id: id('letter'), title: 'Letter to Gus' }))[0], 200);
+  assert.equal(await listed(owner, 'letter'), project.id, 'editing does not move it');
+
+  // Copies: the owner's stays in the project; a template and someone else's copy are in none.
+  await call(owner, 'docs/copy', { id: id('letter'), newId: id('copy') });
+  await call(owner, 'docs/copy', { id: id('letter'), newId: id('tmpl'), template: true });
+  await call(guest, 'docs/copy', { id: id('letter'), newId: id('gcopy') });
+  assert.deepEqual(
+    [await listed(owner, 'copy'), await listed(owner, 'tmpl'), await listed(guest, 'gcopy')],
+    [project.id, null, null],
+  );
+
+  // Moving between projects and out of them; deleting the project keeps its documents, in none.
+  const [, { spec: other }] = await call(owner, 'specs/create', { id: id('projb'), kind: 'project', title: 'Pia B' });
+  assert.equal((await call(owner, 'docs/update', { id: id('loose'), project: other.id }))[0], 200);
+  assert.equal(await listed(owner, 'loose'), other.id);
+  assert.equal((await call(owner, 'docs/update', { id: id('copy'), project: null }))[0], 200);
+  assert.equal(await listed(owner, 'copy'), null);
+  assert.deepEqual(await call(owner, 'specs/delete', { id: project.id }), [200, { ok: true }]);
+  assert.equal(await listed(owner, 'letter'), null);
+  assert.equal(await listed(owner, 'loose'), other.id, 'documents of other projects stay where they are');
+  assert.deepEqual([...owner.errors, ...guest.errors], []);
+});
+
 test('an older database gets the columns added since', { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG }, () => {
   const file = join(mkdtempSync(join(tmpdir(), 'onword-upgrade-')), 'old.sqlite');
   // The users, documents and articles tables as schema version 3 created them.
@@ -629,15 +691,17 @@ test('an older database gets the columns added since', { skip: !hasPhp || !!proc
       $columns = fn ($table) => array_column($db->query("PRAGMA table_info($table)")->fetchAll(), 'name');
       echo json_encode([(int) $db->query('SELECT version FROM schema_info')->fetchColumn(),
         in_array('styles', $columns('documents')), in_array('removed', $columns('articles')),
-        in_array('sso_subject', $columns('users')), in_array('template', $columns('documents'))]);`;
-  const [version, hasStyles, hasRemoved, hasSso, hasTemplate] = JSON.parse(
+        in_array('sso_subject', $columns('users')), in_array('template', $columns('documents')),
+        in_array('project_id', $columns('documents'))]);`;
+  const [version, hasStyles, hasRemoved, hasSso, hasTemplate, hasProject] = JSON.parse(
     execFileSync('php', ['-r', script]).toString(),
   );
+  assert.equal(hasProject, true, 'documents can be filed under a project');
   assert.equal(hasTemplate, true, 'documents can be templates');
   assert.equal(hasSso, true, 'accounts can be linked to a sign-on provider');
   assert.equal(hasStyles, true);
   assert.equal(hasRemoved, true, 'articles taken out of a project are kept');
-  assert.ok(version >= 8);
+  assert.ok(version >= 9);
 });
 
 /** A bare API client with its own cookie and address, like a script someone runs against the site. */
@@ -738,6 +802,8 @@ test(
     oidc.user = { sub: 'work-1', email: `ann.${RUN}@work.test`, name: 'Ann Work' };
     await signOn('Work account');
     assert.equal(await page.textContent('#userName'), 'Ann Work');
+    assert.ok(await page.isVisible('#projectsPage'), 'the home screen comes first');
+    await page.click('#home .main-nav a[href="#/docs"]');
     await page.click('[data-act="library.new"]');
     await page.waitForSelector('#editorView:not([hidden])');
     await page.click('.doc-bar .brand');
@@ -745,7 +811,7 @@ test(
     oidc.user = { ...oidc.user, name: 'Renamed at the provider' };
     await signOn('Work account');
     assert.equal(await page.textContent('#userName'), 'Ann Work', 'the same account the next time');
-    assert.equal(await page.locator('.card').count(), 1, 'with its documents');
+    assert.equal(await page.locator('#recentList .card').count(), 1, 'with its documents');
     await signOut();
 
     // An address outside the work domain, an unverified one, a cancelled and a forged sign-in are refused.

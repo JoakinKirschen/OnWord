@@ -3,4 +3,4 @@
  * runs. Keep it equal to `version` in package.json (a unit test checks): the minor number goes up with
  * every change people can see, the patch number with a fix only.
  */
-export const VERSION = '1.13.0';
+export const VERSION = '1.14.0';

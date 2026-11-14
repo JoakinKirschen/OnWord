@@ -120,7 +120,7 @@ export function createReviewScreen({ root, specStore, documents, commands, toast
       draw();
       changed();
     },
-    /** Turns the review into an ordinary document, from where it can be printed or exported. */
+    /** Turns the review into an ordinary document, filed under the project, to be printed or exported. */
     async 'site.report'() {
       await save();
       toast('Making the report…');
@@ -130,7 +130,7 @@ export function createReviewScreen({ root, specStore, documents, commands, toast
       const html = reviewToHtml(spec, review, { articles, photos });
       const text = new DOMParser().parseFromString(html, 'text/html').body.textContent;
       const title = `Site review ${review.number} – ${spec.title}`;
-      const created = documents.create({ title, html, snippet: text.slice(0, SNIPPET_LENGTH) });
+      const created = documents.create({ title, html, snippet: text.slice(0, SNIPPET_LENGTH), project: spec.id });
       if (created) navigate('#/d/' + created.id);
     },
   });

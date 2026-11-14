@@ -12,6 +12,7 @@ require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/sso.php';
 require __DIR__ . '/lib/documents.php';
+require __DIR__ . '/lib/shares.php';
 require __DIR__ . '/lib/specs.php';
 require __DIR__ . '/lib/prices.php';
 require __DIR__ . '/lib/offers.php';

@@ -115,6 +115,18 @@ test('a copy is made by the server and listed locally right away', async () => {
   assert.deepEqual(api.calls[1], ['docs/copy', { id: doc.id, newId: copy.id, title: 'Copy of Plan', template: false }]);
 });
 
+test("a document is created in its project, and a copy stays there unless it's a template", async () => {
+  const { api, store } = setup();
+  const doc = store.create({ title: 'Letter', project: 'school' });
+  assert.equal(doc.project, 'school');
+  assert.equal(api.calls.length, 0);
+  await settle();
+  assert.equal(api.calls[0][1].project, 'school', 'the server is told the project');
+  assert.equal(store.create({ title: 'Loose' }).project, undefined);
+  assert.equal(store.duplicate(doc.id).project, 'school');
+  assert.equal(store.duplicate(doc.id, { template: true }).project, null);
+});
+
 test('a copy can be kept as a template, under a title of its own', async () => {
   const { api, store } = setup();
   const doc = store.create({ title: 'Plan' });

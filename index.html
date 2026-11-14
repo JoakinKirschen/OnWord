@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="styles/account.css">
 <link rel="stylesheet" href="styles/legal.css">
 <link rel="stylesheet" href="styles/specs.css">
+<link rel="stylesheet" href="styles/projects.css">
 <link rel="stylesheet" href="styles/offers.css">
 <link rel="stylesheet" href="styles/editor.css">
 <link rel="stylesheet" href="styles/document.css">
@@ -63,15 +64,15 @@
   </div>
 </div>
 
-<!-- ───────────── Home: document list ───────────── -->
+<!-- ───────────── Home: projects, documents and master specifications ───────────── -->
 <div id="home" class="view" hidden>
   <header class="home-bar">
     <a class="brand" href="#/">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
       <span>OnWord</span>
     </a>
-    <nav class="main-nav" aria-label="Sections"><a href="#/" aria-current="page">Documents</a><a href="#/specs">Specifications</a></nav>
-    <input id="search" class="search" type="search" placeholder="Search documents" aria-label="Search documents">
+    <nav class="main-nav" aria-label="Sections"><a href="#/" data-page="projects">Projects</a><a href="#/docs" data-page="documents">Documents</a><a href="#/masters" data-page="masters">Masters</a></nav>
+    <span class="spacer"></span>
     <div id="userChip" class="user-chip" hidden>
       <span id="userName"></span>
       <button class="btn sm" data-act="account.signOut">Sign out</button>
@@ -80,13 +81,32 @@
       <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>
     </button>
   </header>
-  <main class="home-main">
+  <main id="projectsPage" class="home-main" hidden>
+    <div class="home-head">
+      <h1>Projects</h1>
+      <div class="home-actions">
+        <button class="btn primary" data-act="spec.newProject">+ Project</button>
+      </div>
+    </div>
+    <div id="projectList" class="project-grid"></div>
+    <div class="home-head recent-head">
+      <h2>Recent documents</h2>
+      <a class="btn" href="#/docs">All documents</a>
+    </div>
+    <div id="recentList" class="grid"></div>
+    <p id="recentEmpty" class="empty" hidden>No documents yet. Start one in a project, or on the Documents page.</p>
+  </main>
+  <main id="documentsPage" class="home-main" hidden>
     <section class="template-band" aria-labelledby="templatesTitle">
       <h2 id="templatesTitle">Start a new document</h2>
       <div id="templates" class="templates"></div>
     </section>
     <div class="home-head">
       <h1>Your documents</h1>
+      <div class="home-tools">
+        <input id="search" class="search" type="search" placeholder="Search documents" aria-label="Search documents">
+        <select id="docFilter" class="doc-filter" aria-label="Which documents to show"></select>
+      </div>
       <div class="home-actions">
         <button class="btn" data-act="library.backup" title="Download all documents as one file">Back up</button>
         <button class="btn" data-act="library.import" title="Word, HTML, text or an OnWord backup">Import</button>
@@ -95,32 +115,19 @@
     <div id="grid" class="grid"></div>
     <p id="empty" class="empty" hidden></p>
   </main>
-</div>
-
-<!-- ───────────── Specifications: list ───────────── -->
-<div id="specsHome" class="view" hidden>
-  <header class="home-bar">
-    <a class="brand" href="#/"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>OnWord</span></a>
-    <nav class="main-nav" aria-label="Sections"><a href="#/">Documents</a><a href="#/specs" aria-current="page">Specifications</a></nav>
-    <span class="spacer"></span>
-    <button class="icon-btn" data-act="app.theme" title="Toggle dark mode" aria-label="Toggle dark mode"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg></button>
-  </header>
-  <main class="home-main">
+  <main id="mastersPage" class="home-main" hidden>
     <div class="home-head">
-      <h1>Specifications</h1>
+      <h1>Master specifications</h1>
       <div class="home-actions">
-        <button class="btn" data-act="spec.newMaster">+ Master specification</button>
-        <button class="btn primary" data-act="spec.newProject">+ Project</button>
+        <button class="btn primary" data-act="spec.newMaster">+ Master specification</button>
       </div>
     </div>
-    <h2 class="spec-group">Projects</h2>
-    <div id="projectList" class="spec-list"></div>
-    <h2 class="spec-group">Master specifications</h2>
+    <p class="home-note">The reference texts that projects take their articles from.</p>
     <div id="masterList" class="spec-list"></div>
   </main>
 </div>
 
-<!-- ───────────── Specifications: workspace ───────────── -->
+<!-- ───────────── Site review ───────────── -->
 <div id="reviewView" class="view review-view" hidden>
   <header class="review-bar">
     <a id="reviewBack" class="icon-btn" href="#/specs" title="Back to the project" aria-label="Back to the project">
@@ -144,9 +151,10 @@
   </datalist>
 </div>
 
+<!-- ───────────── Specifications: workspace ───────────── -->
 <div id="specView" class="view" hidden>
   <header class="spec-bar">
-    <a class="brand" href="#/specs" title="All specifications" aria-label="All specifications"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></a>
+    <a class="brand" href="#/" title="All projects" aria-label="All projects"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></a>
     <div class="spec-head">
       <input id="specTitle" class="doc-title" type="text" maxlength="200" aria-label="Name of the specification">
       <span id="specKind" class="spec-kind"></span>
@@ -163,6 +171,7 @@
       <button class="btn sm" data-act="spec.view" data-arg="prices">Prices</button>
       <button class="btn sm" data-act="spec.view" data-arg="offers">Offers</button>
       <button class="btn sm" data-act="spec.view" data-arg="reviews">Site reviews</button>
+      <button class="btn sm" data-act="spec.view" data-arg="documents">Documents</button>
       <button class="btn sm" data-act="spec.compose" title="Make a document of this specification, to print or export">Create document</button>
     </div>
   </header>
@@ -192,6 +201,7 @@
     <section id="pricesPanel" class="spec-panel" hidden></section>
     <section id="offersPanel" class="spec-panel" hidden></section>
     <section id="reviewsPanel" class="spec-panel" hidden></section>
+    <section id="documentsPanel" class="spec-panel" hidden></section>
   </div>
   <dialog id="removeDlg" class="dlg wide" aria-labelledby="removeTitle">
     <form method="dialog">
@@ -233,13 +243,14 @@
 <!-- ───────────── Editor ───────────── -->
 <div id="editorView" class="view" hidden>
   <header class="doc-bar">
-    <a class="brand" href="#/" title="All documents" aria-label="All documents">
+    <a class="brand" href="#/docs" title="All documents" aria-label="All documents">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
     </a>
     <div class="doc-head">
       <div class="doc-title-row">
+        <a id="docProject" class="doc-project" title="Open the project" hidden></a>
         <input id="title" class="doc-title" type="text" spellcheck="false" aria-label="Document title" maxlength="120">
-        <span id="templateBadge" class="doc-badge" title="New documents can start from this template; it is on the home screen" hidden>Template</span>
+        <span id="templateBadge" class="doc-badge" title="New documents can start from this template; it is on the Documents page" hidden>Template</span>
         <span id="saveState" class="save-state" aria-live="polite"></span>
       </div>
       <nav id="menubar" class="menubar" aria-label="Menu"></nav>
@@ -497,6 +508,19 @@
       <span class="spacer"></span>
       <button class="btn" value="cancel" formnovalidate>Cancel</button>
       <button class="btn primary" value="ok">Create project</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="moveDlg" class="dlg">
+  <form method="dialog">
+    <h2 id="moveTitle">Move to a project</h2>
+    <label>Project<select id="moveProject"></select></label>
+    <p class="dlg-note">The document is listed in the project’s Documents tab, and stays on the Documents page.</p>
+    <div class="dlg-actions">
+      <span class="spacer"></span>
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn primary" value="ok">Move</button>
     </div>
   </form>
 </dialog>

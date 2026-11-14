@@ -60,11 +60,11 @@ test('library: import a text file and switch theme', async () => {
   assert.deepEqual(page.errors, []);
 });
 
-test('an unknown document address falls back to the library', async () => {
+test('an unknown document address falls back to the Documents page', async () => {
   const page = await openApp();
-  await page.goto(page.url() + '#/d/missing');
-  await page.waitForSelector('#home:not([hidden])');
-  assert.equal(new URL(page.url()).hash, '#/');
+  await page.goto(page.url().split('#')[0] + '#/d/missing');
+  await page.waitForSelector('#documentsPage:not([hidden])');
+  assert.equal(new URL(page.url()).hash, '#/docs');
 });
 
 test('templates create a pre-filled document', async () => {
@@ -74,7 +74,7 @@ test('templates create a pre-filled document', async () => {
     await page.evaluate(
       () =>
         document.querySelector('.template-band').getBoundingClientRect().bottom <=
-        document.querySelector('.home-head').getBoundingClientRect().top,
+        document.querySelector('#documentsPage .home-head').getBoundingClientRect().top,
     ),
     'above the documents',
   );

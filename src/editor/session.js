@@ -12,15 +12,23 @@ const STATE_LABELS = {
 };
 
 /**
- * The open document: loading, autosave, title and word count.
+ * The open document: loading, autosave, title, the project it is filed under, and word count.
  * @typedef {ReturnType<typeof createSession>} Session
- * @param {{ root: HTMLElement, content: HTMLElement, store: import('../core/storage.js').DocumentStore, events: import('../core/events.js').Emitter }} deps
+ * @typedef {object} SessionDeps
+ * @property {HTMLElement} root
+ * @property {HTMLElement} content
+ * @property {import('../core/storage.js').DocumentStore} store
+ * @property {import('../core/events.js').Emitter} events
+ * @property {import('../core/spec/directory.js').SpecDirectory} directory
+ *
+ * @param {SessionDeps} deps
  */
-export function createSession({ root, content, store, events }) {
+export function createSession({ root, content, store, events, directory }) {
   const doc = root.ownerDocument;
   const titleEl = $('#title', root),
     saveStateEl = $('#saveState', root),
     templateBadge = $('#templateBadge', root),
+    projectLink = $('#docProject', root),
     countsEl = $('#counts', root);
   /** @type {string | null} */
   let id = null;
@@ -54,6 +62,23 @@ export function createSession({ root, content, store, events }) {
     else saveStateEl.textContent = accepted ? STATE_LABELS[store.syncState(id)] : 'Not saved';
   }
 
+  /** Links to the project the document is filed under, once its name is known. */
+  function drawProject(/** @type {string | null | undefined} */ project) {
+    const name = directory.title(project);
+    projectLink.hidden = !name;
+    projectLink.textContent = name ?? '';
+    projectLink.href = name ? `#/s/${project}/documents` : '';
+  }
+  /** Shows the project by the name last listed, then by its current one (it may have been renamed). */
+  function showProject(/** @type {string} */ docId, /** @type {string | null | undefined} */ project) {
+    drawProject(project);
+    if (!project) return;
+    directory.refresh().then(
+      () => id === docId && drawProject(project),
+      () => {},
+    );
+  }
+
   /** Call after any change to the document or its title. */
   function changed() {
     tidy(content);
@@ -73,6 +98,7 @@ export function createSession({ root, content, store, events }) {
     content.innerHTML = store.read(docId);
     titleEl.value = entry.title;
     templateBadge.hidden = !entry.template;
+    showProject(docId, entry.project);
     doc.title = entry.title + ' – OnWord';
     saveStateEl.textContent = '';
     const readOnly = entry.role === 'view';

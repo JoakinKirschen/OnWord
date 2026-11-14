@@ -5,14 +5,16 @@
 import { createAccount } from './account/account.js';
 import { createApi } from './core/api.js';
 import { createCommands } from './core/commands.js';
-import { $, hit } from './core/dom.js';
+import { $, $$, hit } from './core/dom.js';
 import { createPreferences } from './core/preferences.js';
 import { createRemoteStore } from './core/remoteStore.js';
 import { createAiReader } from './core/spec/aiReader.js';
+import { createSpecDirectory } from './core/spec/directory.js';
 import { createLocalSpecStore } from './core/spec/localStore.js';
 import { createRemoteSpecStore } from './core/spec/remoteStore.js';
 import { createDocumentStore } from './core/storage.js';
 import { createEditor } from './editor/editor.js';
+import { initFiling } from './library/filing.js';
 import { initImporter } from './library/importer.js';
 import { createLibrary } from './library/library.js';
 import { initSharing } from './library/sharing.js';
@@ -25,6 +27,8 @@ import { createTheme } from './ui/theme.js';
 import { createToast } from './ui/toast.js';
 
 const API_URL = 'api/index.php';
+/** The pages of the home screen by their address; any other address is the Projects page. */
+const HOME_PAGES = { '#/docs': 'documents', '#/masters': 'masters' };
 const QUOTA_MESSAGES = {
   write: 'Browser storage is full — download this document to keep your changes.',
   create: 'Browser storage is full — delete some documents first.',
@@ -67,13 +71,23 @@ addEventListener('resize', popover.close);
  * @param {import('./core/spec/aiReader.js').AiReader | null} [aiReader] when the server has one set up
  */
 function startApp(store, specStore, user, aiReader = null) {
+  const home = $('#home', document);
+  const directory = createSpecDirectory({ specStore });
   const shared = { store, commands, popover, toast, navigate };
-  const library = createLibrary({ root: $('#home', document), ...shared });
-  const editor = createEditor({ root: $('#editorView', document), prefs, ...shared });
+  const library = createLibrary({ root: $('#documentsPage', home), directory, ...shared });
+  const editor = createEditor({ root: $('#editorView', document), prefs, directory, ...shared });
   initImporter({ input: $('#importInput', document), ...shared, refresh: library.render });
   initSharing({ dialog: $('#shareDlg', document), store, commands, toast });
+  initFiling({ dialog: $('#moveDlg', document), store, directory, commands, toast, refresh: library.render });
   const specDeps = { specStore, commands, toast, navigate };
-  const specList = createSpecList({ root: $('#specsHome', document), dialog: $('#projectDlg', document), ...specDeps });
+  const specList = createSpecList({
+    projectsRoot: $('#projectsPage', home),
+    mastersRoot: $('#mastersPage', home),
+    dialog: $('#projectDlg', document),
+    documents: store,
+    directory,
+    ...specDeps,
+  });
   const workspace = createWorkspace({ root: $('#specView', document), documents: store, aiReader, ...specDeps });
   const review = createReviewScreen({ root: $('#reviewView', document), documents: store, ...specDeps });
   let navigation = 0;
@@ -86,10 +100,23 @@ function startApp(store, specStore, user, aiReader = null) {
     return Promise.resolve(false);
   }
 
+  /** Shows one page of the home screen, or (with null) none. */
+  function showHome(/** @type {'projects' | 'documents' | 'masters' | null} */ page) {
+    home.hidden = !page;
+    for (const link of $$('.main-nav a', home)) {
+      if (link.dataset.page === page) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    }
+    if (page === 'documents') library.show();
+    else library.hide();
+    if (page === 'projects' || page === 'masters') specList.show(page);
+    else specList.hide();
+  }
+
   /**
    * Shows the screen named by the URL hash: `#/d/<id>` a document, `#/s/<id>` a specification (and
-   * `#/s/<id>/<view>` one of its views), `#/r/<project id>/<review id>` a site review, `#/specs` the list
-   * of specifications, anything else the library.
+   * `#/s/<id>/<view>` one of its views), `#/r/<project id>/<review id>` a site review, `#/docs` all
+   * documents, `#/masters` the master specifications, anything else the projects (the home screen).
    */
   async function route() {
     if (legal.owns(location.hash)) return; // opens over the current screen, which stays as it is
@@ -101,12 +128,8 @@ function startApp(store, specStore, user, aiReader = null) {
     // A server store has to fetch the content before it can be shown.
     const found = await open(kind, id, sub);
     if (turn !== navigation) return; // the user has moved on meanwhile
-    const specs = kind === 's' || kind === 'r' || location.hash.startsWith('#/specs');
-    if (kind && !found) history.replaceState(null, '', specs ? '#/specs' : '#/');
-    if (found || specs) library.hide();
-    else library.show();
-    if (specs && !found) specList.show();
-    else specList.hide();
+    if (kind && !found) history.replaceState(null, '', kind === 'd' ? '#/docs' : '#/');
+    showHome(found ? null : (HOME_PAGES[location.hash] ?? 'projects'));
   }
 
   commands.register({
