@@ -25,6 +25,31 @@ export function createSelection(content) {
     return /** @type {HTMLElement} */ (node.nodeType === 1 ? node : node.parentElement);
   }
 
+  /** Characters of text between the start of the document and a point. */
+  function textOffset(/** @type {Node} */ node, /** @type {number} */ offset) {
+    const r = doc.createRange();
+    r.setStart(content, 0);
+    r.setEnd(node, offset);
+    return r.toString().length;
+  }
+  /** The text node and offset `chars` characters into the document (its end if it is shorter). */
+  function textPoint(/** @type {number} */ chars) {
+    const walker = doc.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+    let left = chars;
+    /** @type {Text | null} */
+    let last = null;
+    for (
+      let node = /** @type {Text | null} */ (walker.nextNode());
+      node;
+      node = /** @type {Text | null} */ (walker.nextNode())
+    ) {
+      if (left <= node.length) return { node, offset: left };
+      left -= node.length;
+      last = node;
+    }
+    return last ? { node: last, offset: last.length } : null;
+  }
+
   return {
     current,
     setRange,
@@ -45,6 +70,22 @@ export function createSelection(content) {
     closest(selector) {
       const el = anchorElement()?.closest(selector);
       return el && el !== content && content.contains(el) ? el : null;
+    },
+    /** The selection as character offsets, which survive the browser rebuilding the nodes around it. */
+    offsets() {
+      const s = current();
+      return s ? [textOffset(s.anchorNode, s.anchorOffset), textOffset(s.focusNode, s.focusOffset)] : null;
+    },
+    /**
+     * Selects what `offsets()` described, if that lies inside `within` (an offset at the edge of a block
+     * also describes the end of the text before it, which is not where an empty block's caret belongs).
+     * @param {number[] | null} offsets
+     * @param {Node} within
+     */
+    restoreOffsets(offsets, within) {
+      const [anchor, focus] = (offsets ?? []).map(textPoint);
+      if (!anchor || !focus || !within.contains(anchor.node) || !within.contains(focus.node)) return;
+      doc.getSelection().setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
     },
     caretInto(node) {
       const r = doc.createRange();

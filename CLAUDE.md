@@ -75,7 +75,7 @@ src/
                         offers (reading, matching and comparing contractors' offers), aiReader
                         (client of the server's AI reader), localStore, remoteStore
     docx/               Word import/export: reader (+ runs, styles, xml) and writer (+ inline,
-                        parts); paragraph, section, docStyles (styles.xml), tables (+ cells: widths,
+                        parts); paragraph, section, docStyles (styles.xml), numbering (lists), tables (+ cells: widths,
                         borders, padding) and notes (footnotes, comments, table of contents) convert
                         in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
@@ -95,7 +95,7 @@ src/
     pagination.js       pure page-break arithmetic (unit-tested)
     markdown.js         document → Markdown conversion
     icons.js            toolbar icons
-    features/           one file per feature: toolbar, menus, shortcuts; formatting, styles, paragraph, textCase,
+    features/           one file per feature: toolbar, menus, shortcuts; formatting, styles, paragraph, listStyles, textCase,
                         formatPainter, autoformat, checklist; tables, tableMerge, links, images,
                         symbols, clipboard, toc, footnotes; comments, trackChanges; ruler, pageSetup,
                         pagination, headerFooter, view, outline; find, wordCount, history, exporter,
@@ -334,6 +334,12 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   only where they differ from the editor's default cell. The writer turns them back into `w:tblGrid`,
   `w:tcBorders`, `w:tcMar`, `w:shd` and `w:vAlign`, and writes the editor's own padding as the table's
   cell margins so plain tables round-trip unchanged.
+- A list's bullet or numbering style is an inline `list-style-type` on its `<ul>`/`<ol>`
+  (`features/listStyles.js`); without one the browser's own applies (bullets change with nesting,
+  numbers stay decimal), and the Word writer writes exactly that. A styled list gets a numbering of its
+  own in Word, with its style at every level; the reader sets a style only where Word's differs from what
+  the browser would draw. Chrome's list commands leave the caret at the start of the new item, so
+  `ctx.exec` puts it back (`selection.offsets()`).
 - A paragraph becomes a checklist item only when it is indented and starts with ☐/☑, as the writer
   writes them; a ballot box in ordinary text (a form's options in a table) stays text.
 - The app's "Title" is `<h1>`, "Subtitle" is `<p class="subtitle">` and "Heading 1–4" are `<h2>`–`<h5>`;
