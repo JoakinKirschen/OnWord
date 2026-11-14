@@ -4,7 +4,8 @@
  * @typedef {{ id: number, email: string, name: string }} User
  * @typedef {{ id: string, label: string }} SsoProvider a single sign-on provider the server offers
  * @typedef {{ user: User | null, csrf: string, registration?: { open: boolean, code: boolean }, ai?: boolean,
- *   passwords?: boolean, sso?: SsoProvider[], ssoError?: string | null }} Session `passwords`: whether the
+ *   passwords?: boolean, sso?: SsoProvider[], ssoError?: string | null,
+ *   site?: { owner?: string, contact?: string } }} Session `site`: who runs it, for the legal pages; `passwords`: whether the
  *   password form is offered; `ssoError`: why the last single sign-on did not work
  *   `ai`: whether the server's AI reader is set up
  * @typedef {Error & { status: number, code: string }} ApiError `status` 0 means the server was not reached

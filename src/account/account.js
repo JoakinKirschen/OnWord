@@ -1,5 +1,6 @@
 import { $, hit } from '../core/dom.js';
 import { esc } from '../core/html.js';
+import { VERSION } from '../core/version.js';
 
 const NEW_PASSWORD_LENGTH = 10; // MIN_PASSWORD in api/lib/auth.php
 const MODES = {
@@ -77,6 +78,7 @@ export function createAccount({ root, api, session, onSignedIn }) {
   return {
     show() {
       root.hidden = false;
+      $('#appVersion', root).textContent = `OnWord ${VERSION}`;
       // Single sign-on leaves the page for the provider's, so these are links, not requests.
       $('#accountSso', root).innerHTML = providers
         .map(

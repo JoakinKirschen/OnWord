@@ -20,6 +20,7 @@ import { createReviewScreen } from './reviews/review.js';
 import { createSpecList } from './specs/list.js';
 import { createWorkspace } from './specs/workspace.js';
 import { createPopover } from './ui/popover.js';
+import { createLegal } from './legal/legal.js';
 import { createTheme } from './ui/theme.js';
 import { createToast } from './ui/toast.js';
 
@@ -38,7 +39,15 @@ const api = createApi({ base: API_URL });
 const navigate = (/** @type {string} */ hash) => {
   location.hash = hash;
 };
-commands.register({ 'app.theme': theme.toggle });
+const legal = createLegal({ root: $('#legal', document) });
+commands.register({
+  'app.theme': theme.toggle,
+  /** Back from a page opened by a link; to the start when there is nothing to go back to. */
+  'app.back': () => (history.length > 1 ? history.back() : navigate('#/')),
+});
+// The legal pages open over any screen, also before signing in, so they follow the hash on their own.
+addEventListener('hashchange', () => legal.route(location.hash));
+legal.route(location.hash);
 
 // Any element with `data-act` (and optional `data-arg`) runs the command of that name.
 document.addEventListener('click', (e) => {
@@ -83,6 +92,7 @@ function startApp(store, specStore, user, aiReader = null) {
    * of specifications, anything else the library.
    */
   async function route() {
+    if (legal.owns(location.hash)) return; // opens over the current screen, which stays as it is
     const turn = ++navigation;
     popover.close();
     editor.close();
@@ -166,6 +176,7 @@ async function start() {
     return startApp(store, createLocalSpecStore({ storage: localStorage }), null);
   }
   const ai = !!session.ai;
+  legal.setSite(session.site);
   if (session.user) return startOnServer(session.user, ai);
   createAccount({
     root: $('#account', document),

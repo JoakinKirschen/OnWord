@@ -1,5 +1,6 @@
 {
   "name": "onword",
+  "version": "1.13.0",
   "private": true,
   "description": "Browser-based word processor. The app itself has no dependencies; these are development tools only.",
   "scripts": {

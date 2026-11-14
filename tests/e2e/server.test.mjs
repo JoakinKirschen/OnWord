@@ -81,7 +81,7 @@ before(async () => {
       `['id' => '${id}', 'label' => '${label}', 'issuer' => '${oidc.url}/${id}', 'client_id' => 'onword-${id}', 'client_secret' => 'test-secret', 'domains' => [${domains}]]`;
     const sso = `'sso' => [${provider('work', 'Work account', "'work.test'")}, ${provider('open', 'Google', '')}]`;
     // Visitors' addresses come from a header, so that each test browser is a connection of its own.
-    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}', 'client_ip_header' => 'HTTP_X_TEST_IP', ${sso}`;
+    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}', 'client_ip_header' => 'HTTP_X_TEST_IP', 'site_owner' => 'Test Owner', 'site_contact' => 'owner@example.com', ${sso}`;
     writeFileSync(config, `<?php return [${settings}];`);
   }
   const port = await freePort();
@@ -724,6 +724,13 @@ test(
       'Sign in with Google',
     ]);
     assert.ok(await page.isVisible('#accountForm'), 'passwords are still allowed here');
+    // The sign-in screen shows the version and links to the legal pages, which name who runs the site.
+    assert.match(await page.textContent('#appVersion'), /^OnWord \d+\.\d+\.\d+$/);
+    await page.click('.account-foot a[href="#/privacy"]');
+    await page.waitForSelector('#legal:not([hidden])');
+    assert.match(await page.innerText('#legalText'), /run by Test Owner \(owner@example\.com\)/);
+    await page.click('[data-act="app.back"]');
+    await page.waitForSelector('#legal', { state: 'hidden' });
     const gap = await page.evaluate(() => document.querySelector('#accountError').getBoundingClientRect().height);
     assert.equal(gap, 0, 'no empty space where an error would go');
 
