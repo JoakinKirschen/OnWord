@@ -25,11 +25,12 @@
 .home-main {
   flex: 1;
   overflow: auto;
-  padding: 28px 20px 60px;
+  padding: 0 20px 60px;
 }
 .home-head,
 .grid,
-.empty {
+.empty,
+.template-band > * {
   max-width: 1080px;
   margin-inline: auto;
 }
@@ -134,10 +135,19 @@
   }
 }
 
-/* Template strip */
+/* Templates: a band across the top of the screen, apart from the documents below it. */
+.template-band {
+  margin: 0 -20px 28px;
+  padding: 18px 20px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.template-band h2 {
+  margin-block: 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
 .templates {
-  max-width: 1080px;
-  margin: 0 auto 26px;
   display: flex;
   gap: 14px;
   overflow-x: auto;

@@ -68,15 +68,17 @@
     </button>
   </header>
   <main class="home-main">
+    <section class="template-band" aria-labelledby="templatesTitle">
+      <h2 id="templatesTitle">Start a new document</h2>
+      <div id="templates" class="templates"></div>
+    </section>
     <div class="home-head">
       <h1>Your documents</h1>
       <div class="home-actions">
         <button class="btn" data-act="library.backup" title="Download all documents as one file">Back up</button>
         <button class="btn" data-act="library.import" title="Word, HTML, text or an OnWord backup">Import</button>
-        <button class="btn primary" data-act="library.new">+ New document</button>
       </div>
     </div>
-    <div id="templates" class="templates" aria-label="Start from a template"></div>
     <div id="grid" class="grid"></div>
     <p id="empty" class="empty" hidden></p>
   </main>
