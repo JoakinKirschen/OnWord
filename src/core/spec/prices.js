@@ -64,7 +64,7 @@ export function collectPrices(specs, articlesBySpec) {
     .filter((spec) => spec.kind === 'project')
     .flatMap((spec) =>
       (articlesBySpec[spec.id] ?? [])
-        .filter((a) => a.sourceId && a.price > 0)
+        .filter((a) => a.sourceId && a.price > 0 && !a.removed)
         .map((a) => ({
           sourceId: a.sourceId,
           specId: spec.id,

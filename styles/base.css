@@ -115,6 +115,14 @@ svg {
   padding: 5px 10px;
   font-size: 13px;
 }
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.btn.danger:hover {
+  filter: brightness(1.1);
+}
 .btn.danger-text {
   color: var(--danger);
   border-color: transparent;

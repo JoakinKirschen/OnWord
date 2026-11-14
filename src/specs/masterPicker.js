@@ -1,8 +1,10 @@
-/** The sidebar's two tabs in a project: the master's articles to pick from, and the project's own tree. */
+/**
+ * The sidebar's two tabs in a project: the master's articles, ticked where the project has them, to add
+ * and remove articles; and the project's own tree.
+ */
 
 import { $, $$, hit } from '../core/dom.js';
-import { newId } from '../core/ids.js';
-import { copyArticles, subtree } from '../core/spec/model.js';
+import { subtree } from '../core/spec/model.js';
 import { masterTreeHtml } from './templates.js';
 
 /** @typedef {import('../core/spec/model.js').Article} Article */
@@ -13,32 +15,34 @@ import { masterTreeHtml } from './templates.js';
  * @property {import('../core/commands.js').Commands} commands
  * @property {import('../ui/toast.js').Toast} toast
  * @property {() => Article[]} master the master's articles ([] when the project has none)
- * @property {() => Article[]} articles the project's articles
- * @property {(copies: Article[]) => void} add puts new articles into the project
+ * @property {() => Article[]} articles the project's articles in use
+ * @property {(changes: { add: string[], remove: string[] }) => Promise<boolean>} apply adds master articles
+ *   (by master id) and removes project articles (by project id); false when the user cancelled
  *
  * @param {MasterPickerDeps} deps
  */
-export function createMasterPicker({ root, commands, toast, master, articles, add }) {
+export function createMasterPicker({ root, commands, toast, master, articles, apply }) {
   const tabs = $('#specTabs', root),
     sides = { master: $('#masterSide', root), project: $('#projectSide', root) },
     tree = $('#masterTree', root),
     search = $('#masterSearch', root),
-    button = $('#masterAdd', root);
-  /** Master articles ticked to be added. */
-  const ticked = new Set();
+    button = $('#masterApply', root);
+  /** Master ids ticked: what the project should contain once the choice is applied. */
+  let wanted = new Set();
 
-  /** Master ids the project already has copies of. */
-  const present = () =>
-    new Set(
-      articles()
-        .map((a) => a.sourceId)
-        .filter(Boolean),
-    );
+  /** Master ids the project has copies of. */
+  const present = () => new Set(articles().flatMap((a) => (a.sourceId ? [a.sourceId] : [])));
+  const pending = () => {
+    const has = present();
+    return { add: [...wanted].filter((id) => !has.has(id)), remove: [...has].filter((id) => !wanted.has(id)) };
+  };
 
   function draw() {
-    tree.innerHTML = masterTreeHtml(master(), { filter: search.value, ticked, present: present() });
-    button.disabled = !ticked.size;
-    button.textContent = ticked.size ? `Add to project (${ticked.size})` : 'Add to project';
+    tree.innerHTML = masterTreeHtml(master(), { filter: search.value, wanted, present: present() });
+    const { add, remove } = pending();
+    const words = [add.length && `add ${add.length}`, remove.length && `remove ${remove.length}`].filter(Boolean);
+    button.disabled = !words.length;
+    button.textContent = words.length ? `Apply: ${words.join(', ')}` : 'No changes';
   }
 
   function show(/** @type {keyof typeof sides} */ side) {
@@ -48,24 +52,13 @@ export function createMasterPicker({ root, commands, toast, master, articles, ad
       tab.classList.toggle('on', on);
       tab.setAttribute('aria-selected', String(on));
     }
-    if (side === 'master') draw();
+    if (side === 'master') {
+      wanted = present();
+      draw();
+    }
   }
 
-  commands.register({
-    'spec.side': (side) => show(side === 'master' ? 'master' : 'project'),
-    'spec.addFromMaster'() {
-      const copies = copyArticles(master(), ticked, newId, articles());
-      ticked.clear();
-      if (!copies.length) return;
-      add(copies);
-      show('project');
-      toast(
-        copies.length === 1 ? 'Added 1 article to the project.' : `Added ${copies.length} articles to the project.`,
-      );
-    },
-  });
-
-  /** The ids of an article's ancestors in the master, nearest first. */
+  /** The ids of an article's ancestors in the master. */
   function ancestors(/** @type {string} */ id) {
     const byId = new Map(master().map((a) => [a.id, a]));
     const out = [];
@@ -73,16 +66,29 @@ export function createMasterPicker({ root, commands, toast, master, articles, ad
     return out;
   }
 
-  // Ticking an article ticks everything under it, and the articles above it so that it keeps its place in
-  // the outline; unticking unticks what is under it. What the project already has is left alone.
+  commands.register({
+    'spec.side': (side) => show(side === 'master' ? 'master' : 'project'),
+    async 'spec.applyMaster'() {
+      const { add, remove } = pending();
+      const ids = articles()
+        .filter((a) => remove.includes(a.sourceId))
+        .map((a) => a.id);
+      if (!(await apply({ add, remove: ids }))) return;
+      const done = [add.length && `${add.length} added`, ids.length && `${ids.length} removed`];
+      toast(`Project updated: ${done.filter(Boolean).join(', ')}.`);
+      show(add.length ? 'project' : 'master');
+    },
+  });
+
+  // Ticking an article ticks everything under it and the articles above it, so that it keeps its place
+  // in the outline; unticking unticks everything under it.
   tree.addEventListener('change', (e) => {
     const box = hit(e, 'input');
     if (!box) return;
-    const has = present();
     const ids = [...subtree(master(), box.value), ...(box.checked ? ancestors(box.value) : [])];
-    for (const id of ids.filter((i) => !has.has(i))) {
-      if (box.checked) ticked.add(id);
-      else ticked.delete(id);
+    for (const id of ids) {
+      if (box.checked) wanted.add(id);
+      else wanted.delete(id);
     }
     draw();
   });
@@ -91,7 +97,6 @@ export function createMasterPicker({ root, commands, toast, master, articles, ad
   return {
     /** Shows the tabs only where there is a master to pick from, and starts on the project's tree. */
     reset(/** @type {boolean} */ available) {
-      ticked.clear();
       search.value = '';
       tabs.hidden = !available;
       show('project');

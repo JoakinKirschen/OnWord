@@ -7,6 +7,11 @@ const { openApp } = useApp();
 const saved = (page) => page.waitForFunction(() => document.querySelector('#specState').textContent === 'Saved');
 const tree = (page) => page.locator('#articleTree .tree-item').allInnerTexts();
 const field = (name) => `#articlePanel [data-field="${name}"]`;
+/** Confirms the warning before articles are removed, and waits until the tree has `left` articles. */
+async function confirmRemoval(page, left) {
+  await page.click('#removeDlg [value="remove"]');
+  await page.waitForFunction((n) => document.querySelectorAll('#articleTree .tree-item').length === n, left);
+}
 
 /** Opens the specifications screen and creates a master with the given name. */
 async function newMaster(page, name) {
@@ -138,38 +143,6 @@ test('a project takes articles from a master and shows where it differs', async 
     'only the chosen articles, with their structure',
   );
 
-  // The Master tab adds what was left out, under the copies the project already has.
-  await page.click('[data-act="spec.side"][data-arg="master"]');
-  assert.ok(await page.isHidden('#articleTree'));
-  const picks = page.locator('#masterTree .pick-item');
-  assert.deepEqual(await picks.allInnerTexts(), [
-    '1\nEarthworks\nin project',
-    '1.1\nTrench\nin project',
-    '2\nRoofing',
-    '2.1\nTiles',
-  ]);
-  assert.ok(
-    await page.isDisabled('#masterTree input[value]:checked >> nth=0'),
-    'what the project has cannot be added again',
-  );
-  assert.ok(await page.isDisabled('#masterAdd'));
-  await page.check('#masterTree .pick-item:has-text("Tiles") input');
-  assert.ok(await page.isChecked('#masterTree .pick-item:has-text("Roofing") input'), 'with the article above it');
-  assert.equal(await page.textContent('#masterAdd'), 'Add to project (2)');
-  await page.click('#masterAdd');
-  assert.ok(await page.isVisible('#articleTree'), 'back on the project once added');
-  assert.deepEqual(await tree(page), ['1\nEarthworks', '1.1\nTrench', '2\nRoofing', '2.1\nTiles']);
-  assert.equal(await page.inputValue(field('title')), 'Roofing', 'the first added article is opened');
-  assert.equal(await page.textContent('#articleSource'), 'Same as the master specification.');
-  await saved(page);
-  await page.reload();
-  await page.waitForSelector('#specView:not([hidden])');
-  assert.deepEqual(await tree(page), ['1\nEarthworks', '1.1\nTrench', '2\nRoofing', '2.1\nTiles'], 'stored');
-  await page.click('[data-act="spec.side"][data-arg="master"]');
-  assert.equal(await page.locator('#masterTree .pick-item.present').count(), 4);
-  await page.click('[data-act="spec.side"][data-arg="project"]');
-  await page.click('#articleTree .tree-item >> nth=2');
-  await page.click('[data-act="spec.deleteArticle"]');
   await page.click('#articleTree .tree-item >> nth=0');
   assert.equal(await page.textContent('#articleSource'), 'Same as the master specification.');
 
@@ -183,6 +156,9 @@ test('a project takes articles from a master and shows where it differs', async 
   assert.equal(await page.locator('#articleTree .tree-flag').count(), 0);
 
   await page.click('[data-act="spec.deleteArticle"]');
+  assert.equal(await page.textContent('#removeTitle'), 'Remove 2 articles?');
+  assert.deepEqual(await page.locator('#removeList li').allInnerTexts(), ['1 Earthworks', '1.1 Trench']);
+  await confirmRemoval(page, 0);
   assert.deepEqual(await tree(page), [], 'deleting an article removes what is under it');
   assert.equal(await page.textContent('#articleTree'), 'No articles yet. Add the first one.');
   await saved(page);
@@ -190,6 +166,99 @@ test('a project takes articles from a master and shows where it differs', async 
   await page.waitForSelector('#specsHome:not([hidden])');
   assert.match(await page.innerText('#projectList'), /School[\s\S]*Phase Tender · Lot 2 · from Standard/);
   assert.equal(await page.locator('#masterList .spec-row').count(), 1);
+  assert.deepEqual(page.errors, []);
+});
+
+test("a project's Master tab adds and removes articles, and keeps the changes of removed ones", async () => {
+  const page = await openApp();
+  await newMaster(page, 'Standard');
+  await addArticle(page, { title: 'Earthworks', text: 'Master text.' });
+  await addArticle(page, { child: true, title: 'Trench', unit: 'm' });
+  await page.click('#articleTree .tree-item >> nth=0');
+  await page.click('.spec-tree-tools [data-act="spec.addArticle"]');
+  await page.fill(field('title'), 'Roofing');
+  await addArticle(page, { child: true, title: 'Tiles' });
+  assert.ok(await page.isHidden('#specTabs'), 'a master has nothing to pick from');
+  await saved(page);
+  await page.click('.spec-bar .brand');
+  await page.waitForSelector('#specsHome:not([hidden])');
+  await page.click('[data-act="spec.newProject"]');
+  await page.fill('#projectDlg [name=title]', 'School');
+  await page.uncheck('#projectArticles label:has-text("Roofing") input');
+  await page.click('#projectDlg .primary');
+  await page.waitForSelector('#specView:not([hidden])');
+  const master = page.locator('#masterTree .pick-item');
+  const box = (title) => `#masterTree .pick-item:has-text("${title}") input`;
+
+  // Adding: ticking an article ticks the article above it too.
+  await page.click('[data-act="spec.side"][data-arg="master"]');
+  assert.ok(await page.isHidden('#articleTree'));
+  assert.deepEqual(await master.allInnerTexts(), [
+    '1\nEarthworks\nin project',
+    '1.1\nTrench\nin project',
+    '2\nRoofing',
+    '2.1\nTiles',
+  ]);
+  assert.ok(await page.isDisabled('#masterApply'));
+  await page.check(box('Tiles'));
+  assert.ok(await page.isChecked(box('Roofing')), 'with the article above it');
+  assert.equal(await page.textContent('#masterApply'), 'Apply: add 2');
+  await page.click('#masterApply');
+  await page.waitForSelector('#articleTree:visible');
+  assert.deepEqual(await tree(page), ['1\nEarthworks', '1.1\nTrench', '2\nRoofing', '2.1\nTiles']);
+  assert.equal(await page.inputValue(field('title')), 'Roofing', 'the first added article is opened');
+
+  // The project's own changes to Trench, which removing it must not lose.
+  await page.click('#articleTree .tree-item >> nth=1');
+  await page.click('[data-act="spec.addLine"]');
+  await page.fill('[data-line="0"][data-part="formula"]', '12');
+  await page.fill(field('price'), '30');
+  await page.click('#articleText');
+  await page.keyboard.type('Dig by hand.');
+
+  // Removing: unticking an article unticks what is under it; the warning lists both.
+  await page.click('[data-act="spec.side"][data-arg="master"]');
+  await page.uncheck(box('Earthworks'));
+  assert.ok(!(await page.isChecked(box('Trench'))));
+  assert.match(await page.innerText('#masterTree'), /Earthworks\nwill be removed[\s\S]*Trench\nwill be removed/);
+  assert.equal(await page.textContent('#masterApply'), 'Apply: remove 2');
+  await page.click('#masterApply');
+  assert.equal(await page.textContent('#removeTitle'), 'Remove 2 articles?');
+  assert.deepEqual(await page.locator('#removeList li').allInnerTexts(), ['1 Earthworks', '1.1 Trench']);
+  assert.match(await page.textContent('#removeText'), /kept with your changes/);
+  await page.click('#removeDlg [value="cancel"]');
+  assert.equal(await page.locator('#masterTree .pick-item.removing').count(), 2, 'cancelling changes nothing');
+  await page.click('#masterApply');
+  await page.click('#removeDlg [value="remove"]');
+  await page.waitForSelector('#masterTree .pick-item.removing', { state: 'detached' });
+  await page.click('[data-act="spec.side"][data-arg="project"]');
+  assert.deepEqual(await tree(page), ['2\nRoofing', '2.1\nTiles']);
+  await saved(page);
+
+  // Bringing Trench back brings Earthworks with it, and Trench comes back as the project left it.
+  await page.reload();
+  await page.waitForSelector('#specView:not([hidden])');
+  await page.click('[data-act="spec.side"][data-arg="master"]');
+  await page.check(box('Trench'));
+  await page.click('#masterApply');
+  await page.waitForSelector('#articleTree:visible');
+  assert.deepEqual(
+    await tree(page),
+    ['1\nEarthworks', '1.1\nTrench\n●', '2\nRoofing', '2.1\nTiles'],
+    'Trench still differs from the master',
+  );
+  await page.click('#articleTree .tree-item >> nth=1');
+  assert.equal(await page.innerText('#articleText'), 'Dig by hand.');
+  assert.equal(await page.textContent('#articleQuantity'), '12 m');
+  assert.equal(await page.inputValue(field('price')), '30');
+
+  // An article of the project's own is deleted for good, and the warning says so.
+  await page.click('#projectSide [data-act="spec.addArticle"]'); // under Earthworks, which stays
+  await page.fill(field('title'), 'Extra');
+  await page.click('#articlePanel [data-act="spec.deleteArticle"]');
+  assert.match(await page.textContent('#removeText'), /deleted for good/);
+  await confirmRemoval(page, 4);
+  assert.deepEqual(await tree(page), ['1\nEarthworks', '1.1\nTrench\n●', '2\nRoofing', '2.1\nTiles']);
   assert.deepEqual(page.errors, []);
 });
 

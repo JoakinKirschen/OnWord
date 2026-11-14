@@ -182,14 +182,39 @@
   margin: 0;
   align-self: center;
 }
-.pick-item.present {
-  color: var(--muted);
-  cursor: default;
-}
 .tree-note {
   flex: none;
   font-size: 11px;
   color: var(--muted);
+}
+.pick-item.adding .tree-note {
+  color: var(--accent);
+}
+.pick-item.removing .tree-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.pick-item.removing .tree-note {
+  color: var(--danger);
+}
+/* The warning before articles are removed (removal.js). */
+.dlg-warning {
+  margin: 0 0 12px;
+  color: var(--danger);
+  font-size: 14px;
+}
+.remove-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.remove-list li {
+  padding: 2px 0;
 }
 .tree-item {
   display: flex;
@@ -461,4 +486,9 @@
     grid-column: 1 / -1;
     grid-row: 1;
   }
+}
+.remove-mark {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--danger);
 }

@@ -1,12 +1,12 @@
 import { $, $$, hit } from '../core/dom.js';
-import { download } from '../core/download.js';
 import { newId } from '../core/ids.js';
 import { evaluate } from '../core/spec/formula.js';
-import { blankArticle, subtree, suggestNumber } from '../core/spec/model.js';
-import { quantitiesCsv, specToHtml } from '../core/spec/output.js';
+import { blankArticle, suggestNumber } from '../core/spec/model.js';
 import { initArticleText } from './articleText.js';
+import { createArticleChanges } from './articleChanges.js';
 import { createMasterPicker } from './masterPicker.js';
 import { createOffers } from './offers.js';
+import { initOutputs } from './outputs.js';
 import { createPriceLibrary } from './prices.js';
 import { createSaver } from './saver.js';
 import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText, treeHtml } from './templates.js';
@@ -38,8 +38,9 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   const inputs = { title: $('#specTitle', root), phase: $('#specPhase', root), lot: $('#specLot', root) };
   /** @type {import('../core/spec/model.js').Spec | null} */
   let spec = null;
-  /** @type {import('../core/spec/model.js').Article[]} */
-  let articles = [];
+  /** The articles in use, and (in a project) those taken out but kept with their changes. */
+  let /** @type {import('../core/spec/model.js').Article[]} */ articles = [],
+    /** @type {import('../core/spec/model.js').Article[]} */ removed = [];
   /** Master articles by id, to tell whether a project article still matches. @type {Map<string, import('../core/spec/model.js').Article>} */
   let sources = new Map();
   let selectedId = null;
@@ -47,7 +48,19 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
 
   const selected = () => articles.find((a) => a.id === selectedId);
   const editable = () => !!spec?.mine;
-  const saver = createSaver({ specStore, state, toast, current: () => ({ spec, articles }) });
+  const saver = createSaver({
+    specStore,
+    state,
+    toast,
+    current: () => ({ spec, articles: [...articles, ...removed] }),
+  });
+  initOutputs({ commands, documents, navigate, current: () => ({ spec, articles }) });
+  const articleChanges = createArticleChanges({
+    dialog: $('#removeDlg', root),
+    saver,
+    project: () => ({ articles, removed }),
+    update: (project) => ({ articles, removed } = project),
+  });
   const changed = saver.changed;
   const target = { spec: () => spec, articles: () => articles, selected, editable, setPrices };
   const library = createPriceLibrary({ specStore, commands, toast, target });
@@ -68,10 +81,11 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     toast,
     master: () => [...sources.values()],
     articles: () => articles,
-    add(copies) {
-      articles.push(...copies);
-      copies.forEach((a) => changed(a.id));
-      select(copies[0].id);
+    async apply({ add, remove }) {
+      if (remove.length && !(await articleChanges.remove(remove))) return false;
+      const added = articleChanges.bring([...sources.values()], add);
+      select(added[0]?.id ?? (selected() ? selectedId : null));
+      return true;
     },
   });
 
@@ -136,14 +150,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       $('[data-field="title"]', panel).focus();
     },
     async 'spec.deleteArticle'() {
-      const article = selected();
-      const count = article ? subtree(articles, article.id).size : 0;
-      const what = count > 1 ? `this article and the ${count - 1} below it` : 'this article';
-      if (!article || !confirm(`Delete ${what}?`)) return;
-      const gone = subtree(articles, article.id);
-      articles = articles.filter((a) => !gone.has(a.id));
-      select(null);
-      await saver.remove(article.id, gone);
+      if (selected() && (await articleChanges.remove([selectedId]))) select(null);
     },
     'spec.addLine'() {
       const article = selected();
@@ -166,14 +173,6 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       Object.assign(article, { html: source.html, title: source.title, unit: source.unit });
       changed(article.id);
       select(article.id);
-    },
-    'spec.exportCsv': () => download(`${spec.title} - quantities.csv`, quantitiesCsv(articles), 'text/csv'),
-    /** Turns the specification into an ordinary document, from where it can be printed or exported. */
-    'spec.compose'() {
-      const html = specToHtml(spec, articles);
-      const text = new DOMParser().parseFromString(html, 'text/html').body.textContent;
-      const created = documents.create({ title: spec.title, html, snippet: text.slice(0, 500) });
-      if (created) navigate('#/d/' + created.id);
     },
   });
 
@@ -207,7 +206,9 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     async open(/** @type {string} */ id) {
       const loaded = await specStore.get(id);
       if (!loaded) return false;
-      ({ spec, articles } = loaded);
+      spec = loaded.spec;
+      articles = loaded.articles.filter((a) => !a.removed);
+      removed = loaded.articles.filter((a) => a.removed);
       const [master] = await Promise.all([
         spec.masterId ? specStore.get(spec.masterId).catch(() => null) : null,
         library.load(),

@@ -43,23 +43,30 @@ export function treeHtml(articles, { selectedId, filter, sources }) {
 }
 
 /**
- * The master's articles to choose from, for adding to a project. Articles the project already has are
- * ticked and cannot be chosen again.
+ * The master's articles, ticked where the project has them or will have them, for choosing what the
+ * project contains. Rows say what applying the choice will do to them.
  * @param {Article[]} articles the master's articles
- * @param {{ filter: string, ticked: Set<string>, present: Set<string> }} view `present`: master ids the
- *   project has copies of
+ * @param {{ filter: string, wanted: Set<string>, present: Set<string> }} view master ids ticked, and those
+ *   the project has copies of
  */
-export function masterTreeHtml(articles, { filter, ticked, present }) {
+export function masterTreeHtml(articles, { filter, wanted, present }) {
   const needle = filter.trim().toLowerCase();
   const rows = outline(articles)
     .filter(({ article }) => !needle || `${article.number} ${article.title}`.toLowerCase().includes(needle))
     .map(({ article, depth }) => {
+      const want = wanted.has(article.id);
       const has = present.has(article.id);
-      const state = has ? ' checked disabled' : ticked.has(article.id) ? ' checked' : '';
-      return `<label class="tree-item pick-item${has ? ' present' : ''}" style="padding-left: ${8 + (needle ? 0 : depth) * INDENT}px">
-        <input type="checkbox" value="${article.id}"${state}>
+      const [state, note] = has
+        ? want
+          ? ['present', 'in project']
+          : ['removing', 'will be removed']
+        : want
+          ? ['adding', 'will be added']
+          : ['', ''];
+      return `<label class="tree-item pick-item ${state}" style="padding-left: ${8 + (needle ? 0 : depth) * INDENT}px">
+        <input type="checkbox" value="${article.id}"${want ? ' checked' : ''}>
         <span class="tree-number">${esc(article.number)}</span><span class="tree-title">${esc(article.title) || '<i>Untitled</i>'}</span>
-        ${has ? '<span class="tree-note">in project</span>' : ''}</label>`;
+        ${note ? `<span class="tree-note">${note}</span>` : ''}</label>`;
     });
   if (rows.length) return rows.join('');
   return `<p class="spec-empty">${needle ? 'No article matches.' : 'The master has no articles.'}</p>`;

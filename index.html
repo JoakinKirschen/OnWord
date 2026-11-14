@@ -136,7 +136,7 @@
       <div id="masterSide" class="spec-side" role="tabpanel" aria-label="Master specification" hidden>
         <div class="spec-tree-tools">
           <input id="masterSearch" type="search" placeholder="Search the master" aria-label="Search the master">
-          <button id="masterAdd" class="btn sm primary" data-act="spec.addFromMaster" disabled>Add to project</button>
+          <button id="masterApply" class="btn sm primary" data-act="spec.applyMaster" disabled>No changes</button>
         </div>
         <nav id="masterTree"></nav>
       </div>
@@ -153,6 +153,18 @@
     <section id="pricesPanel" class="spec-panel" hidden></section>
     <section id="offersPanel" class="spec-panel" hidden></section>
   </div>
+  <dialog id="removeDlg" class="dlg wide" aria-labelledby="removeTitle">
+    <form method="dialog">
+      <h2 id="removeTitle">Remove articles?</h2>
+      <p id="removeText" class="dlg-note"></p>
+      <ul id="removeList" class="remove-list"></ul>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn danger" value="remove">Remove</button>
+      </div>
+    </form>
+  </dialog>
   <input id="offerInput" type="file" accept=".xlsx,.csv,.pdf" hidden>
   <dialog id="offerDlg" class="dlg wide">
     <form method="dialog">

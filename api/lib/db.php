@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 4; // 2: specifications and their articles; 3: contractors' offers; 4: document styles
+const SCHEMA_VERSION = 5; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
+// 5: articles removed from a project but kept
 
 function load_config(): array
 {
@@ -109,7 +110,8 @@ function ensure_schema(PDO $db): void
             html $long NOT NULL,
             source_id VARCHAR(32) NULL,
             line_data TEXT NOT NULL,
-            price DOUBLE NOT NULL DEFAULT 0
+            price DOUBLE NOT NULL DEFAULT 0,
+            removed INT NOT NULL DEFAULT 0
         )",
         "CREATE TABLE IF NOT EXISTS offers (
             id VARCHAR(32) NOT NULL PRIMARY KEY,
@@ -131,6 +133,9 @@ function ensure_schema(PDO $db): void
     // Columns added to tables that already exist: CREATE TABLE IF NOT EXISTS leaves those as they were.
     if ($version !== false && (int) $version < 4) {
         add_column($db, 'ALTER TABLE documents ADD COLUMN styles TEXT NULL');
+    }
+    if ($version !== false && (int) $version < 5) {
+        add_column($db, 'ALTER TABLE articles ADD COLUMN removed INT NOT NULL DEFAULT 0');
     }
     $db->exec('DELETE FROM schema_info');
     $db->prepare('INSERT INTO schema_info (version) VALUES (?)')->execute([SCHEMA_VERSION]);
