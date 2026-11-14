@@ -3,6 +3,7 @@
 import { PX_PER_INCH, normalizePage, pageGeometry } from '../page.js';
 import { writeZip } from '../zip.js';
 import { inlineRuns, textRun } from './inline.js';
+import { stylesXml } from './docStyles.js';
 import { commentsXml, footnotesXml, tocXml } from './notes.js';
 import { paragraphXml } from './paragraph.js';
 import {
@@ -14,7 +15,6 @@ import {
   partFile,
   ROOT_RELS,
   STYLE,
-  STYLES,
   XML_HEADER,
 } from './parts.js';
 import { runningXml, sectionXml } from './section.js';
@@ -118,10 +118,10 @@ function blocks(
 
 /**
  * @param {Element} content the document body element
- * @param {{ page?: Partial<import('../page.js').PageSetup> }} [options]
+ * @param {{ page?: Partial<import('../page.js').PageSetup>, styles?: import('../docStyles.js').StyleOverrides }} [options]
  * @returns {Promise<Uint8Array>} the .docx file
  */
-export async function writeDocx(content, { page } = {}) {
+export async function writeDocx(content, { page, styles } = {}) {
   const setup = normalizePage(page);
   const geometry = pageGeometry(setup);
   const contentWidth = geometry.width - 2 * geometry.margin;
@@ -182,7 +182,7 @@ export async function writeDocx(content, { page } = {}) {
     { name: '_rels/.rels', data: ROOT_RELS },
     { name: 'word/document.xml', data: document },
     { name: 'word/_rels/document.xml.rels', data: documentRels(rels) },
-    { name: 'word/styles.xml', data: STYLES },
+    { name: 'word/styles.xml', data: stylesXml(styles) },
     { name: 'word/numbering.xml', data: numbering(orderedNumIds) },
     ...extraParts,
   ]);

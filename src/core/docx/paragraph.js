@@ -161,3 +161,21 @@ export function readParagraph({ pPr, rPr }, kind) {
   ].filter(Boolean);
   return { attr: css.length ? ` style="${css.join('; ')};"` : '', base };
 }
+
+/**
+ * What a paragraph style gives its paragraphs, in the terms of a document style (core/docStyles.js).
+ * @param {import('./styles.js').TextChains} chains the document defaults and the style's lineage
+ * @returns {Partial<import('../docStyles.js').StyleDefinition>}
+ */
+export function styleLook({ pPr, rPr }) {
+  const lineHeight = lineHeightOf(pPr) ?? SINGLE_LINE_CSS;
+  const { size, font } = baseFont(rPr);
+  return {
+    align: FROM_WORD_ALIGN[attr(decide(pPr, 'jc'), 'val')] ?? 'left',
+    before: pt(twipsOf(decideAttr(pPr, 'spacing', 'before'))),
+    after: pt(twipsOf(decideAttr(pPr, 'spacing', 'after'))),
+    ...(typeof lineHeight === 'number' && { lineHeight }), // an exact height has no place in a style here
+    size,
+    ...(font && { font }),
+  };
+}

@@ -1,6 +1,7 @@
 /** Backup of every document as one JSON file, and restoring from such a file. */
 
 import { sanitize } from '../core/html.js';
+import { normalizeStyles } from '../core/docStyles.js';
 import { normalizePage } from '../core/page.js';
 
 const FORMAT = 'onword-backup';
@@ -8,7 +9,8 @@ const VERSION = 1;
 const MAX_TITLE = 120;
 
 /**
- * @typedef {{ title: string, snippet: string, page?: import('../core/page.js').PageSetup, html: string }} BackupDocument
+ * @typedef {{ title: string, snippet: string, page?: import('../core/page.js').PageSetup,
+ *   styles?: import('../core/docStyles.js').StyleOverrides, html: string }} BackupDocument
  * @typedef {{ format: string, version: number, exportedAt: string, documents: BackupDocument[] }} Backup
  */
 
@@ -16,7 +18,7 @@ const MAX_TITLE = 120;
 export function createBackup(store) {
   const documents = store
     .index()
-    .map(({ id, title, snippet, page }) => ({ title, snippet, page, html: store.read(id) }));
+    .map(({ id, title, snippet, page, styles }) => ({ title, snippet, page, styles, html: store.read(id) }));
   return { format: FORMAT, version: VERSION, exportedAt: new Date().toISOString(), documents };
 }
 
@@ -38,6 +40,7 @@ export function restoreBackup(store, backup) {
       html: sanitize(doc.html),
       snippet: String(doc.snippet || ''),
       page: doc.page && normalizePage(doc.page),
+      styles: doc.styles && normalizeStyles(doc.styles),
     });
     if (!created) break; // storage is full; the store has already reported it
     restored++;

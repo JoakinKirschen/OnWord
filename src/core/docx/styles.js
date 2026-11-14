@@ -84,6 +84,11 @@ export function readStyleSheet(doc) {
   return {
     /** The HTML tag a paragraph style becomes. */
     tag: (/** @type {string | null} */ id) => tags.get(id) || (id ? tagForStyle(id, '') : 'p'),
+    /** The paragraph style standing for a tag: `preferred` (Word's English id) if it does, else the first that does. */
+    idFor(/** @type {string} */ tag, /** @type {string} */ preferred) {
+      if (tags.get(preferred) === tag) return preferred;
+      return [...tags].find(([, value]) => value === tag)?.[0] ?? null;
+    },
     /** What every paragraph starts from. @returns {TextChains} */
     defaults: () => ({ pPr: present([kid(defaults, 'pPr')]), rPr: present([kid(runDefaults, 'rPr')]) }),
     /** @returns {TextChains} */

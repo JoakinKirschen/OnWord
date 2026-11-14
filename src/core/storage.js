@@ -7,6 +7,7 @@ const versionsKey = (/** @type {string} */ id) => 'onword:versions:' + id;
 
 /**
  * @typedef {import('./page.js').PageSetup} PageSetup
+ * @typedef {import('./docStyles.js').StyleOverrides} StyleOverrides
  * @typedef {object} DocMeta
  * @property {string} id
  * @property {string} title
@@ -14,6 +15,7 @@ const versionsKey = (/** @type {string} */ id) => 'onword:versions:' + id;
  * @property {number} updated
  * @property {string} snippet
  * @property {PageSetup} [page]
+ * @property {StyleOverrides} [styles] what the document changes about its paragraph styles
  * @property {number} [rev] server stores only: the revision the local copy is based on
  * @property {'owner' | 'edit' | 'view'} [role] server stores only: what the signed-in user may do
  * @property {string} [owner] server stores only: name of the owner
@@ -44,14 +46,14 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
   const read = (/** @type {string} */ id) => storage.getItem(docKey(id)) ?? EMPTY_DOC;
 
   /**
-   * @param {{ title?: string, html?: string, snippet?: string, page?: PageSetup }} [options]
+   * @param {{ title?: string, html?: string, snippet?: string, page?: PageSetup, styles?: StyleOverrides }} [options]
    * @returns {DocMeta | null} null when storage is full
    */
-  function create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page } = {}) {
+  function create({ title = 'Untitled document', html = EMPTY_DOC, snippet = '', page, styles } = {}) {
     const now = Date.now();
     const id = now.toString(36) + Math.random().toString(36).slice(2, 8);
     /** @type {DocMeta} */
-    const entry = { id, title, created: now, updated: now, snippet, ...(page && { page }) };
+    const entry = { id, title, created: now, updated: now, snippet, ...(page && { page }), ...(styles && { styles }) };
     try {
       storage.setItem(docKey(entry.id), html);
       saveIndex([...index(), entry]);
@@ -88,7 +90,8 @@ export function createDocumentStore({ storage, onQuotaExceeded }) {
   function duplicate(/** @type {string} */ id) {
     const src = meta(id);
     if (!src) return null;
-    return create({ title: 'Copy of ' + src.title, html: read(id), snippet: src.snippet, page: src.page });
+    const { snippet, page, styles } = src;
+    return create({ title: 'Copy of ' + src.title, html: read(id), snippet, page, styles });
   }
 
   function remove(/** @type {string} */ id) {

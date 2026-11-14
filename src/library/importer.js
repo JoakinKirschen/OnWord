@@ -11,7 +11,7 @@ const plainText = (/** @type {string} */ html) =>
 /**
  * Converts a file to document content, by extension. Unknown types are read as plain text.
  * @param {File} file
- * @returns {Promise<{ html: string, page?: import('../core/page.js').PageSetup }>}
+ * @returns {Promise<{ html: string, page?: import('../core/page.js').PageSetup, styles?: import('../core/docStyles.js').StyleOverrides }>}
  */
 async function convert(file) {
   const type = extension(file.name);
@@ -44,12 +44,13 @@ export function initImporter({ input, store, commands, toast, navigate, refresh 
   }
 
   async function importDocument(/** @type {File} */ file) {
-    const { html, page } = await convert(file);
+    const { html, page, styles } = await convert(file);
     const entry = store.create({
       title: file.name.replace(/\.[^.]+$/, '') || 'Imported document',
       html: html || EMPTY_DOC,
       snippet: plainText(html).slice(0, SNIPPET_LENGTH),
       page,
+      ...(styles && Object.keys(styles).length && { styles }),
     });
     if (entry) navigate('#/d/' + entry.id);
   }

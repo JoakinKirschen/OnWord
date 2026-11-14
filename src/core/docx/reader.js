@@ -2,6 +2,7 @@
 
 import { sanitize } from '../html.js';
 import { readZip } from '../zip.js';
+import { readDocStyles } from './docStyles.js';
 import { readComments, readFootnotes } from './notes.js';
 import { readParagraph } from './paragraph.js';
 import { inlineHtml, noteId } from './runs.js';
@@ -210,7 +211,7 @@ function textWidth(/** @type {Element} */ body) {
 
 /**
  * @param {ArrayBuffer | Uint8Array} source the .docx file
- * @returns {Promise<{ html: string, page?: import('../page.js').PageSetup }>}
+ * @returns {Promise<{ html: string, page?: import('../page.js').PageSetup, styles: import('../docStyles.js').StyleOverrides }>}
  */
 export async function readDocx(source) {
   const files = await readZip(source);
@@ -238,5 +239,9 @@ export async function readDocx(source) {
     return `<li id="fn-${noteId(id)}">${text.trim() || '<br>'}</li>`;
   });
   const footnotes = items.length ? `<ol class="footnotes">${items.join('')}</ol>` : '';
-  return { html: sanitize(html + footnotes), page: readSection(body, { files, parts: relationships.parts }) };
+  return {
+    html: sanitize(html + footnotes),
+    page: readSection(body, { files, parts: relationships.parts }),
+    styles: readDocStyles(sheet),
+  };
 }

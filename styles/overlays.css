@@ -188,3 +188,39 @@
 .symbol-grid button:hover {
   background: var(--surface-2);
 }
+.dlg-checks {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+.dlg-checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.dlg-checks input,
+.dlg input[type='color'] {
+  width: auto;
+}
+.dlg input[type='color'] {
+  height: 36px;
+  min-width: 60px;
+  padding: 2px;
+}
+/* The look of a style, on paper whatever the app's theme. */
+.style-preview {
+  background: #fff;
+  color: #000;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  height: 88px;
+  overflow: hidden;
+}
+.style-preview p {
+  margin: 0;
+}
