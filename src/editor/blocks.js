@@ -80,7 +80,8 @@ export const indentsOf = (block) => ({
 
 /** @param {HTMLElement} block @param {Indents} indents */
 export function setIndents(block, { left, right, firstLine }) {
-  const px = (/** @type {number} */ value) => (value ? `${Math.round(value)}px` : '');
+  // Hundredths of a pixel keep centimetre positions exact enough for Word's twips (15 to the pixel).
+  const px = (/** @type {number} */ value) => (Math.round(value * 100) ? `${+value.toFixed(2)}px` : '');
   block.style.marginLeft = px(left);
   block.style.marginRight = px(right);
   block.style.textIndent = px(firstLine);

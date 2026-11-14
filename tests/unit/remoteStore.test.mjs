@@ -112,5 +112,28 @@ test('a copy is made by the server and listed locally right away', async () => {
   await settle();
   api.answer({ rev: 1 });
   await settle();
-  assert.deepEqual(api.calls[1], ['docs/copy', { id: doc.id, newId: copy.id }]);
+  assert.deepEqual(api.calls[1], ['docs/copy', { id: doc.id, newId: copy.id, title: 'Copy of Plan', template: false }]);
+});
+
+test('a copy can be kept as a template, under a title of its own', async () => {
+  const { api, store } = setup();
+  const doc = store.create({ title: 'Plan' });
+  const template = store.duplicate(doc.id, { title: 'Plan', template: true });
+  assert.equal(template.template, true);
+  const copy = store.duplicate(template.id);
+  assert.equal(copy.template, true, 'a copy of a template is a template');
+  assert.equal(store.syncState(template.id), 'saving', 'not on the server until the copy is made');
+  await settle();
+  api.answer({ rev: 1 }); // created
+  await settle();
+  api.answer({ rev: 1 }); // copied as a template; only now is it copied in turn
+  await settle();
+  api.answer({ rev: 1 });
+  await settle();
+  assert.equal(store.syncState(template.id), 'saved');
+  assert.equal(api.calls.length, 3);
+  assert.equal(api.calls[0][1].template, false);
+  const copied = (id) => api.calls.find(([route, body]) => route === 'docs/copy' && body.newId === id)?.[1];
+  assert.deepEqual(copied(template.id), { id: doc.id, newId: template.id, title: 'Plan', template: true });
+  assert.deepEqual(copied(copy.id), { id: template.id, newId: copy.id, title: 'Copy of Plan', template: true });
 });

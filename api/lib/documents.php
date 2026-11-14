@@ -6,7 +6,7 @@ declare(strict_types=1);
 const MAX_VERSIONS = 10;
 const MAX_SETTINGS_BYTES = 20000; // page setup and styles, each; a TEXT column holds 64 KB
 const ID_PATTERN = '/^[a-z0-9]{8,32}$/';
-const META = 'd.id, d.title, d.snippet, d.page, d.styles, d.rev, d.created_at, d.updated_at, d.owner_id';
+const META = 'd.id, d.title, d.snippet, d.page, d.styles, d.template, d.rev, d.created_at, d.updated_at, d.owner_id';
 
 function doc_id(array $in, string $field = 'id'): string
 {
@@ -26,6 +26,7 @@ function doc_meta(array $row, string $role, string $owner): array
         'snippet' => $row['snippet'],
         'page' => $row['page'] ? json_decode($row['page'], true) : null,
         'styles' => $row['styles'] ? json_decode($row['styles'], true) : null,
+        'template' => (bool) $row['template'],
         'rev' => (int) $row['rev'],
         'created' => (int) $row['created_at'],
         'updated' => (int) $row['updated_at'],
@@ -65,6 +66,15 @@ function require_owner(PDO $db, array $user, string $id): array
     return $access['row'];
 }
 
+/** A yes/no field as the column stores it: 1 or 0. */
+function flag_field(array $in, string $name): int
+{
+    if (!is_bool($in[$name] ?? null)) {
+        fail(400, 'bad_request', "Field '$name' must be true or false.");
+    }
+    return $in[$name] ? 1 : 0;
+}
+
 /** Validated fields of a document from the request; only the ones that were sent. */
 function doc_fields(array $in, array $config): array
 {
@@ -74,6 +84,9 @@ function doc_fields(array $in, array $config): array
     }
     if (array_key_exists('snippet', $in)) {
         $fields['snippet'] = mb_substr(text_field($in, 'snippet', 100000, false), 0, 500);
+    }
+    if (array_key_exists('template', $in)) {
+        $fields['template'] = flag_field($in, 'template');
     }
     foreach (['page', 'styles'] as $name) { // settings the browser validates; stored as it sends them
         if (array_key_exists($name, $in)) {
@@ -123,13 +136,13 @@ function docs_get(PDO $db, array $user, array $in): array
 function docs_create(PDO $db, array $user, array $in, array $config): array
 {
     $id = doc_id($in);
-    $fields = doc_fields($in, $config) + ['title' => 'Untitled document', 'snippet' => '', 'page' => null, 'styles' => null, 'html' => '<p><br></p>'];
+    $fields = doc_fields($in, $config) + ['title' => 'Untitled document', 'snippet' => '', 'page' => null, 'styles' => null, 'template' => 0, 'html' => '<p><br></p>'];
     if (run($db, 'SELECT 1 FROM documents WHERE id = ?', [$id])->fetch()) {
         fail(409, 'exists', 'A document with this id already exists.');
     }
     $now = now_ms();
-    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, html, rev, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)', [
-        $id, $user['id'], $fields['title'], $fields['snippet'], $fields['page'], $fields['styles'], $fields['html'], $now, $now,
+    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, template, html, rev, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)', [
+        $id, $user['id'], $fields['title'], $fields['snippet'], $fields['page'], $fields['styles'], $fields['template'], $fields['html'], $now, $now,
     ]);
     return ['rev' => 1, 'updated' => $now];
 }
@@ -150,18 +163,21 @@ function docs_update(PDO $db, array $user, array $in, array $config): array
     return ['rev' => $rev, 'updated' => $now];
 }
 
+/** Copies a document, by default as "Copy of …" and a template only if the original is one. */
 function docs_copy(PDO $db, array $user, array $in): array
 {
     $id = doc_id($in);
     $copy = doc_id($in, 'newId');
     $row = doc_access($db, $user, $id)['row'];
+    $title = array_key_exists('title', $in) ? text_field($in, 'title', 200) : mb_substr('Copy of ' . $row['title'], 0, 200);
+    $template = array_key_exists('template', $in) ? flag_field($in, 'template') : (int) $row['template'];
     if (run($db, 'SELECT 1 FROM documents WHERE id = ?', [$copy])->fetch()) {
         fail(409, 'exists', 'A document with this id already exists.');
     }
     $now = now_ms();
-    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, html, rev, created_at, updated_at)
-        SELECT ?, ?, ?, snippet, page, styles, html, 1, ?, ? FROM documents WHERE id = ?', [
-        $copy, $user['id'], mb_substr('Copy of ' . $row['title'], 0, 200), $now, $now, $id,
+    run($db, 'INSERT INTO documents (id, owner_id, title, snippet, page, styles, template, html, rev, created_at, updated_at)
+        SELECT ?, ?, ?, snippet, page, styles, ?, html, 1, ?, ? FROM documents WHERE id = ?', [
+        $copy, $user['id'], $title, $template, $now, $now, $id,
     ]);
     return ['rev' => 1, 'updated' => $now];
 }

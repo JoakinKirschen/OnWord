@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { text, useApp, waitSaved } from './harness.mjs';
+import { menu, text, useApp, waitSaved } from './harness.mjs';
 
 const { openApp } = useApp();
 const cards = (page) => page.locator('.card').count();
@@ -84,6 +84,7 @@ test('templates create a pre-filled document', async () => {
     'Meeting notes',
     'Résumé',
     'Project brief',
+    'New template',
   ]);
   await page.click('.template[data-arg="meeting"]');
   await page.waitForSelector('#editorView:not([hidden])');
@@ -95,6 +96,101 @@ test('templates create a pre-filled document', async () => {
     'Notes',
     'Action items',
   ]);
+  assert.deepEqual(page.errors, []);
+});
+
+const goHome = async (page, { changed = true } = {}) => {
+  if (changed) await waitSaved(page);
+  await page.click('.doc-bar .brand');
+  await page.waitForSelector('#home:not([hidden])');
+};
+const templateNames = (page) => page.locator('.template-item .template-name').allTextContents();
+/** Opens the options of the template named `name` and picks `command`. */
+async function templateMenu(page, name, command) {
+  await page.locator('.template-item', { hasText: name }).hover();
+  await page.locator('.template-item', { hasText: name }).locator('.template-more').click();
+  await page.click(`.pop [data-act="${command}"]`);
+}
+
+test('templates of your own: create, use, edit, rename, delete', async () => {
+  const page = await openApp();
+  page.on('dialog', (dialog) => dialog.accept(dialog.type() === 'prompt' ? 'Invoice' : undefined));
+
+  await page.click('[data-act="library.newTemplate"]');
+  await page.waitForSelector('#editorView:not([hidden])');
+  assert.ok(await page.isVisible('#templateBadge'), 'the editor says it is a template');
+  await page.fill('#title', 'Site report');
+  await page.click('#editor');
+  await page.keyboard.type('Weather and attendees');
+  await goHome(page);
+  assert.deepEqual((await templateNames(page)).slice(5), ['Site report']);
+  assert.match(await page.textContent('.template-item:nth-child(6) .template-page'), /Weather and attendees/);
+  assert.equal(await page.locator('.card').count(), 0, 'templates are not listed with the documents');
+
+  await page.click('.template-item:nth-child(6) .template');
+  await page.waitForSelector('#editorView:not([hidden])');
+  assert.ok(await page.isHidden('#templateBadge'), 'a document made from it is an ordinary document');
+  assert.equal(await page.inputValue('#title'), 'Site report');
+  assert.equal(await text(page), 'Weather and attendees');
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(' today');
+  await goHome(page);
+  assert.equal(await page.locator('.card').count(), 1);
+
+  await templateMenu(page, 'Site report', 'library.open');
+  await page.waitForSelector('#editorView:not([hidden])');
+  assert.equal(await text(page), 'Weather and attendees', 'the template did not change with the document');
+  await page.click('#editor');
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(', and photos');
+  await goHome(page);
+  await page.click('.template-item:nth-child(6) .template');
+  await page.waitForSelector('#editorView:not([hidden])');
+  assert.equal(await text(page), 'Weather and attendees, and photos', 'new documents follow the edited template');
+  await goHome(page, { changed: false });
+
+  await templateMenu(page, 'Site report', 'library.rename');
+  assert.deepEqual((await templateNames(page)).slice(5), ['Invoice']);
+  await templateMenu(page, 'Invoice', 'library.delete');
+  assert.deepEqual((await templateNames(page)).slice(5), []);
+  assert.equal(await page.locator('.card').count(), 2, 'documents made from it stay');
+  assert.deepEqual(page.errors, []);
+});
+
+test('templates from a built-in one and from a document', async () => {
+  const page = await openApp();
+  await templateMenu(page, 'Letter', 'library.customise');
+  await page.waitForSelector('#editorView:not([hidden])');
+  assert.ok(await page.isVisible('#templateBadge'));
+  assert.equal(await page.inputValue('#title'), 'Letter');
+  await page.click('#editor');
+  await page.keyboard.press('Control+Home');
+  await page.keyboard.type('ACME Ltd. ');
+  await goHome(page);
+  assert.deepEqual(await templateNames(page), [
+    'Blank',
+    'Letter',
+    'Meeting notes',
+    'Résumé',
+    'Project brief',
+    'Letter',
+  ]);
+  assert.ok(await page.isHidden('.template-item:nth-child(1) .template-more'), 'Blank has no options');
+
+  await page.click('.template[data-arg="brief"]');
+  await page.waitForSelector('#editorView:not([hidden])');
+  await page.fill('#title', 'Bridge');
+  await menu(page, 'File', 'file.saveAsTemplate');
+  assert.match(await page.textContent('#toast'), /“Bridge” is now also a template/);
+  assert.ok(await page.isHidden('#templateBadge'), 'the document itself stays a document');
+  await goHome(page);
+  assert.deepEqual((await templateNames(page)).slice(5), ['Bridge', 'Letter']);
+  assert.match(await page.textContent('.template-item:nth-child(7) .template-page'), /^ACME Ltd\. /);
+
+  await page.click('.card-more');
+  await page.click('.pop [data-act="library.saveAsTemplate"]');
+  assert.deepEqual((await templateNames(page)).slice(5), ['Bridge', 'Bridge', 'Letter']);
+  assert.equal(await page.locator('.card').count(), 1);
   assert.deepEqual(page.errors, []);
 });
 
@@ -125,5 +221,15 @@ test('backup downloads every document and restores into another browser', async 
   await other.click('.card >> nth=0');
   await other.waitForSelector('#editorView:not([hidden])');
   assert.ok((await text(other)).length > 50, 'content was restored');
-  assert.deepEqual([...page.errors, ...other.errors], []);
+  await other.click('.doc-bar .brand');
+  await other.click('[data-act="library.newTemplate"]');
+  await other.waitForSelector('#editorView:not([hidden])');
+  await other.fill('#title', 'Kept template');
+  await goHome(other);
+  const [again] = await Promise.all([other.waitForEvent('download'), other.click('[data-act="library.backup"]')]);
+  const third = await openApp();
+  await third.setInputFiles('#importInput', { ...backup, buffer: await readFile(await again.path()) });
+  await third.waitForSelector('.card');
+  assert.deepEqual((await templateNames(third)).slice(5), ['Kept template'], 'templates stay templates');
+  assert.deepEqual([...page.errors, ...other.errors, ...third.errors], []);
 });

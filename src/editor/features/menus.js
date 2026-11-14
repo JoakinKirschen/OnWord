@@ -9,6 +9,7 @@ const MENUS = {
   File: [
     { label: 'New document', act: 'library.new' },
     { label: 'Make a copy', act: 'file.copy' },
+    { label: 'Save as template', act: 'file.saveAsTemplate' },
     { label: 'Import file…', act: 'library.import' },
     '-',
     { label: 'Download as Word (.docx)', act: 'file.downloadDocx' },

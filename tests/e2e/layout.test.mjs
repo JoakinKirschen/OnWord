@@ -32,13 +32,48 @@ test('ruler markers set the indents of the current paragraph', async () => {
   assert.equal(await firstStyle(page), 'margin-left: 48px; text-indent: 24px; margin-right: 96px;');
   assert.equal(await markerX(page, 'firstLine'), paperLeft + 96 + 48 + 24, 'markers follow the paragraph');
 
+  await dragMarker(page, 'hanging', 24);
+  assert.equal(
+    await firstStyle(page),
+    'margin-left: 72px; margin-right: 96px;',
+    'the hanging indent moves the other lines and leaves the first line where it was',
+  );
+  assert.equal(await markerX(page, 'firstLine'), paperLeft + 96 + 72);
+  await dragMarker(page, 'hanging', 24);
+  assert.equal(await firstStyle(page), 'margin-left: 96px; margin-right: 96px; text-indent: -24px;', 'hanging');
+
   await dragMarker(page, 'left', -500);
-  assert.match(await firstStyle(page), /^text-indent: 24px; margin-right: 96px;$/, 'indent cannot go past the margin');
+  assert.equal(
+    await firstStyle(page),
+    'margin-left: 24px; margin-right: 96px; text-indent: -24px;',
+    'the first line cannot go past the margin',
+  );
 
   await page.keyboard.press('Control+End');
   await page.keyboard.press('Enter');
   await menu(page, 'View', 'view.ruler');
   assert.ok(await page.isHidden('#ruler'));
+  assert.deepEqual(page.errors, []);
+});
+
+test('on an A4 page the ruler is in centimetres and markers snap to quarter centimetres', async () => {
+  const page = await openEditor();
+  await menu(page, 'File', 'page.setup');
+  await page.selectOption('#pageSize', 'a4');
+  await page.click('#pageDlg .primary');
+  await page.waitForFunction(() => document.querySelector('#paper').getBoundingClientRect().width < 800);
+  await page.keyboard.type('Metric');
+  const labels = await page.locator('#rulerScale span').allTextContents();
+  assert.deepEqual(labels.slice(0, 3), ['2', '1', '1'], 'counted outwards into the left margin');
+  assert.equal(labels.at(-1), '18');
+
+  await dragMarker(page, 'left', 40); // a little more than one centimetre
+  assert.equal(await firstStyle(page), 'margin-left: 37.8px;', '1 cm: 567 twips in Word');
+  await page.keyboard.down('Alt');
+  await dragMarker(page, 'left', 5);
+  await page.keyboard.up('Alt');
+  const free = parseFloat((await firstStyle(page)).replace('margin-left:', ''));
+  assert.ok(free > 41 && free < 45, `Alt drags without snapping, as in Word (${free}px)`);
   assert.deepEqual(page.errors, []);
 });
 
@@ -177,7 +212,11 @@ test('page count follows the content and the page size', async () => {
   await waitSaved(page);
   await page.reload();
   assert.match(await page.textContent('#counts'), /^2 pages · /, 'measured correctly when a document opens');
-  assert.equal(await page.locator('#rulerScale span').count(), 6, 'the ruler is numbered for 6.5 inches of text');
+  assert.deepEqual(
+    await page.locator('#rulerScale span').allTextContents(),
+    ['1', '2', '3', '4', '5', '6', '7'],
+    'numbered in inches from the left margin, into the right margin as in Word',
+  );
   await page.click('#editor');
   await page.keyboard.press('Control+Enter');
   assert.match(await html(page), /<hr class="page-break">/, 'Ctrl+Enter inserts a page break');
