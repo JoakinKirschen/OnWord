@@ -356,8 +356,14 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - Features that keep generated content inside the document (table of contents, footnote numbers) rebuild
   it in an event handler without calling `ctx.changed()` again; they must only touch the DOM when the
   result differs, or they would loop.
-- Headers and footers are a single line of plain text with `{page}` / `{pages}` tokens, printed through
-  `@page` margin boxes (the only place CSS exposes page counters; Chromium 131+).
+- Headers and footers are a single line of plain text in a left, centre and right part (`RunningText`),
+  with `{page}` / `{pages}` tokens, printed through the `@page` margin boxes of the same names (the only
+  place CSS exposes page counters; Chromium 131+). With `firstPage` set, the first page shows
+  `firstHeader` / `firstFooter` instead (`@page :first`, empty parts as `content: none`). In Word the
+  parts are separated by tabs at a centre and a right tab stop, as Word's own Header style does, and the
+  first page's are `type="first"` references with `<w:titlePg/>`; the reader fills the parts in tab
+  order, and puts text without tabs where its paragraph is aligned. `normalizePage()` still reads the
+  older `{ text, align }` form.
 - State that is a view preference, not document content (formatting marks, painter cursor), goes in a
   class on `#editor` itself — never inside it, where it would be saved with the document.
 - Classes, ids and `data-*` attributes are stripped from foreign HTML except those listed in

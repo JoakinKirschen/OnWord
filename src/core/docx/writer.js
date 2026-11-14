@@ -1,6 +1,6 @@
 /** Converts document content (a DOM subtree) to a .docx file. */
 
-import { PX_PER_INCH, normalizePage, pageGeometry } from '../page.js';
+import { PX_PER_INCH, isBlank, normalizePage, pageGeometry } from '../page.js';
 import { writeZip } from '../zip.js';
 import { inlineRuns, textRun } from './inline.js';
 import { stylesXml } from './docStyles.js';
@@ -13,6 +13,7 @@ import {
   documentRels,
   numbering,
   partFile,
+  partType,
   ROOT_RELS,
   STYLE,
   XML_HEADER,
@@ -166,12 +167,18 @@ export async function writeDocx(content, { page, styles } = {}) {
   const addPart = (/** @type {import('./parts.js').OptionalPart} */ kind, /** @type {string} */ xml) => {
     optional.push(kind);
     extraParts.push({ name: 'word/' + partFile(kind), data: xml });
-    return relate(kind, partFile(kind));
+    return relate(partType(kind), partFile(kind));
   };
-  /** @type {{ header?: string, footer?: string }} */
+  /** @type {{ header?: string, footer?: string, firstHeader?: string, firstFooter?: string }} */
   const refs = {};
-  for (const kind of /** @type {const} */ (['header', 'footer'])) {
-    if (setup[kind].text) refs[kind] = addPart(kind, runningXml(kind, setup[kind]));
+  const width = contentWidth * TWIPS_PER_PX;
+  for (const kind of /** @type {const} */ (['header', 'footer', 'firstHeader', 'firstFooter'])) {
+    const first = kind.startsWith('first');
+    if (first && !setup.firstPage) continue;
+    // A blank first-page header is still written: without one Word would show nothing there anyway,
+    // but other programs fall back to the default header.
+    if (isBlank(setup[kind]) && !first) continue;
+    refs[kind] = addPart(kind, runningXml(/header/i.test(kind) ? 'header' : 'footer', setup[kind], width));
   }
   if (notes.length) addPart('footnotes', footnotesXml(notes.map((note) => inlineRuns(note, {}, state.pkg))));
   if (comments.length) addPart('comments', commentsXml(comments));

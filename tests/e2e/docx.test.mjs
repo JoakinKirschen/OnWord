@@ -122,11 +122,13 @@ test('a document survives export to .docx and re-import', async () => {
   await page.selectOption('#pageColumns', '2');
   await page.click('#pageDlg .primary');
   await menu(page, 'File', 'page.headerFooter');
-  await page.fill('#headerText', 'Draft & confidential');
-  await page.selectOption('#headerAlign', 'left');
-  await page.fill('#footerText', 'Page {page} of {pages}');
+  await page.fill('#header-left', 'Draft & confidential');
+  await page.fill('#header-right', 'v2');
+  await page.fill('#footer-center', 'Page {page} of {pages}');
+  await page.check('#firstPageOwn');
+  await page.fill('#firstHeader-center', 'Cover');
   await page.click('#headerFooterDlg .primary');
-  await page.waitForFunction(() => document.querySelector('#pageFooter').textContent !== '');
+  await page.waitForFunction(() => document.querySelector('#pageHeader').textContent === 'Cover');
 
   const [download] = await Promise.all([page.waitForEvent('download'), menu(page, 'File', 'file.downloadDocx')]);
   assert.equal(download.suggestedFilename(), 'Untitled document.docx');
@@ -137,9 +139,19 @@ test('a document survives export to .docx and re-import', async () => {
   await page.waitForSelector('#home:not([hidden])');
   await importDocx(page, 'Round trip.docx', file);
   assert.equal(strip(await html(page)), strip(source));
-  assert.equal(await page.textContent('#pageHeader'), 'Draft & confidential');
-  assert.equal(await page.evaluate(() => document.querySelector('#pageHeader').style.textAlign), 'left');
-  assert.match(await page.textContent('#pageFooter'), /^Page 1 of \d+$/);
+  assert.deepEqual(await page.locator('#pageHeader span').allTextContents(), ['', 'Cover', '']);
+  await menu(page, 'File', 'page.headerFooter');
+  assert.deepEqual(
+    await page.evaluate(() =>
+      ['header-left', 'header-center', 'header-right', 'footer-center', 'firstHeader-center'].map(
+        (id) => document.getElementById(id).value,
+      ),
+    ),
+    ['Draft & confidential', '', 'v2', 'Page {page} of {pages}', 'Cover'],
+  );
+  assert.ok(await page.isChecked('#firstPageOwn'));
+  await page.click('#headerFooterDlg [value="cancel"]');
+  assert.equal(await page.textContent('#pageFooter'), '', 'the first page has its own, empty footer');
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#editor')).columnCount), '2');
   assert.equal(
     await page.evaluate(() => document.querySelector('#sheet').style.getPropertyValue('--page-w')),

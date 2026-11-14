@@ -19,7 +19,23 @@
 .page-band:hover {
   background: #f1f2f7;
 }
-.paper:hover .page-band:empty::before {
+/* Left, centre and right parts; the centre stays in the middle however long the others are. */
+.page-band:not(.blank) {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+}
+.page-band span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.page-band .band-center {
+  text-align: center;
+}
+.page-band .band-right {
+  text-align: right;
+}
+.paper:hover .page-band.blank::before {
   content: attr(title);
   opacity: 0.55;
 }

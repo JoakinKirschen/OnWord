@@ -298,15 +298,12 @@
   <dialog id="headerFooterDlg" class="dlg wide">
     <form method="dialog">
       <h2>Header and footer</h2>
-      <div class="dlg-row">
-        <label>Header<input id="headerText" type="text" maxlength="200" placeholder="Shown at the top of every page"></label>
-        <label>Align<select id="headerAlign">
-          <option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></label>
-      </div>
-      <div class="dlg-row">
-        <label>Footer<input id="footerText" type="text" maxlength="200" placeholder="Shown at the bottom of every page"></label>
-        <label>Align<select id="footerAlign">
-          <option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select></label>
+      <fieldset class="running-line"><legend>Header</legend><input id="header-left" type="text" maxlength="200" placeholder="Left" aria-label="Header, left"><input id="header-center" type="text" maxlength="200" placeholder="Centre" aria-label="Header, centre"><input id="header-right" type="text" maxlength="200" placeholder="Right" aria-label="Header, right"></fieldset>
+      <fieldset class="running-line"><legend>Footer</legend><input id="footer-left" type="text" maxlength="200" placeholder="Left" aria-label="Footer, left"><input id="footer-center" type="text" maxlength="200" placeholder="Centre" aria-label="Footer, centre"><input id="footer-right" type="text" maxlength="200" placeholder="Right" aria-label="Footer, right"></fieldset>
+      <label class="dlg-check"><input id="firstPageOwn" type="checkbox"> Different first page</label>
+      <div id="firstPageFields" hidden>
+        <fieldset class="running-line"><legend>First page header</legend><input id="firstHeader-left" type="text" maxlength="200" placeholder="Left" aria-label="First page header, left"><input id="firstHeader-center" type="text" maxlength="200" placeholder="Centre" aria-label="First page header, centre"><input id="firstHeader-right" type="text" maxlength="200" placeholder="Right" aria-label="First page header, right"></fieldset>
+        <fieldset class="running-line"><legend>First page footer</legend><input id="firstFooter-left" type="text" maxlength="200" placeholder="Left" aria-label="First page footer, left"><input id="firstFooter-center" type="text" maxlength="200" placeholder="Centre" aria-label="First page footer, centre"><input id="firstFooter-right" type="text" maxlength="200" placeholder="Right" aria-label="First page footer, right"></fieldset>
       </div>
       <p class="dlg-hint">Use <code>{page}</code> for the page number and <code>{pages}</code> for the page count.</p>
       <div class="dlg-actions">

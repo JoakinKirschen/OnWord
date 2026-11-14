@@ -148,7 +148,7 @@ test('paged view: sheets, per-page footers and blocks moved to the next page', a
   for (let i = 0; i < 30; i++) await page.keyboard.press('Enter');
   await page.keyboard.type('last');
   assert.equal(await page.locator('.page-gap').count(), 1);
-  assert.deepEqual(await page.locator('.page-band:not(:empty)').allTextContents(), ['Page 1 of 2', 'Page 2 of 2']);
+  assert.deepEqual(await page.locator('.page-band:not(.blank)').allTextContents(), ['Page 1 of 2', 'Page 2 of 2']);
 
   const layout = await page.evaluate(() => {
     const paper = document.querySelector('#paper').getBoundingClientRect();

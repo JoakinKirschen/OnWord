@@ -224,3 +224,31 @@
 .style-preview p {
   margin: 0;
 }
+.dlg fieldset.running-line {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+}
+.running-line legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0;
+  margin-bottom: 4px;
+}
+.running-line input {
+  margin-top: 0;
+}
+.dlg label.dlg-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.dlg-check input {
+  width: auto;
+  margin: 0;
+}
