@@ -20,6 +20,36 @@ Every user-facing change comes with a test in the same change (see Testing).
 
 The app must be served over HTTP (`npm start`); ES modules do not load from `file://`.
 
+## One shared branch — everything is merged by the end of every session
+
+The owner's standing instruction: **all work lives on one branch, `claude/compassionate-lamport-6oah12`**
+(the repository's default branch; there is no `main`). Several sessions work on this repository, often
+at the same time, each on a branch of its own. Nothing may be left only on a session branch.
+
+At the start of a session:
+
+1. `git fetch origin` and start from the latest `claude/compassionate-lamport-6oah12`.
+2. Look at the open pull requests and at the other `claude/*` branches with commits the shared branch does
+   not have. Do not start work that one of them already covers; build on it once it is merged instead.
+
+At the end of every session — not only when a feature is finished:
+
+1. Merge the latest shared branch into your branch (`git merge origin/claude/compassionate-lamport-6oah12`)
+   and resolve any conflicts. Never rebase or force-push: other sessions may have pulled your commits.
+2. Run `npm run verify`; it must pass.
+3. Push, open a pull request into `claude/compassionate-lamport-6oah12` (or update the open one), wait for
+   CI to pass, and merge it with **squash**. If your session's branch *is* the shared branch, push to it
+   and check that CI passes on that push.
+4. Confirm nothing is left behind: `git fetch origin` and check that each `claude/*` branch you touched has
+   no changes the shared branch lacks (`git diff origin/claude/compassionate-lamport-6oah12 <branch>`
+   shows only what later merges added).
+5. If something prevents merging (CI fails for a reason outside your change, a conflict needs the owner,
+   a schema change collides with another session's), do not leave silently: tell the owner what is
+   unmerged, where, and why.
+
+Schema changes need extra care because two sessions can each claim the next `SCHEMA_VERSION` with
+different tables. Fetch immediately before bumping it, and merge a schema change as soon as it passes.
+
 ## Layout
 
 ```

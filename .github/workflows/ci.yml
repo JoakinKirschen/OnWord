@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # The shared branch all work is merged into (see CLAUDE.md); there is no main.
+    branches: [claude/compassionate-lamport-6oah12]
   pull_request:
 
 permissions:
