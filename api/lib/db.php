@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /** Database connection and schema. Works on MySQL/MariaDB (production) and SQLite (tests). */
 
-const SCHEMA_VERSION = 6; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
-// 5: articles removed from a project but kept; 6: site reviews and their photos
+const SCHEMA_VERSION = 7; // 2: specifications and their articles; 3: contractors' offers; 4: document styles;
+// 5: articles removed from a project but kept; 6: site reviews and their photos; 7: single sign-on
 
 function load_config(): array
 {
@@ -21,6 +21,9 @@ function load_config(): array
         'registration_code' => '',
         'max_registrations_per_hour' => 10,
         'client_ip_header' => '',
+        'allow_passwords' => true,
+        'sso' => [],
+        'site_url' => '',
         'max_document_bytes' => 5 * 1024 * 1024,
         'max_photo_bytes' => 4 * 1024 * 1024,
         'anthropic_api_key' => '',
@@ -65,6 +68,7 @@ function ensure_schema(PDO $db): void
             email VARCHAR(190) NOT NULL UNIQUE,
             name VARCHAR(100) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
+            sso_subject VARCHAR(255) NULL,
             created_at BIGINT NOT NULL
         )",
         "CREATE TABLE IF NOT EXISTS documents (
@@ -151,6 +155,9 @@ function ensure_schema(PDO $db): void
     }
     if ($version !== false && (int) $version < 5) {
         add_column($db, 'ALTER TABLE articles ADD COLUMN removed INT NOT NULL DEFAULT 0');
+    }
+    if ($version !== false && (int) $version < 7) {
+        add_column($db, 'ALTER TABLE users ADD COLUMN sso_subject VARCHAR(255) NULL');
     }
     $db->exec('DELETE FROM schema_info');
     $db->prepare('INSERT INTO schema_info (version) VALUES (?)')->execute([SCHEMA_VERSION]);

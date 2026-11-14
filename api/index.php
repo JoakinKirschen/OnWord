@@ -10,6 +10,7 @@ declare(strict_types=1);
 require __DIR__ . '/lib/http.php';
 require __DIR__ . '/lib/db.php';
 require __DIR__ . '/lib/auth.php';
+require __DIR__ . '/lib/sso.php';
 require __DIR__ . '/lib/documents.php';
 require __DIR__ . '/lib/specs.php';
 require __DIR__ . '/lib/prices.php';
@@ -23,6 +24,8 @@ const ROUTES = [
     'POST auth/register' => ['auth_register', false],
     'POST auth/login' => ['auth_login', false],
     'POST auth/logout' => ['auth_logout', false],
+    'GET auth/sso' => ['auth_sso_start', false],
+    'GET auth/sso/callback' => ['auth_sso_callback', false],
     'GET docs/list' => ['docs_list', true],
     'GET docs/get' => ['docs_get', true],
     'POST docs/create' => ['docs_create', true],

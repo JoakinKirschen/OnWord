@@ -30,12 +30,14 @@
   <div class="account-card">
     <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><span>OnWord</span></div>
     <h1 id="accountTitle">Sign in</h1>
+    <p id="accountError" class="account-error" role="alert"></p>
+    <div id="accountSso" class="account-sso" hidden></div>
+    <p id="accountOr" class="account-or" hidden><span>or</span></p>
     <form id="accountForm">
       <label data-only="register">Name<input name="name" type="text" maxlength="100" autocomplete="name" required></label>
       <label>Email<input name="email" type="email" maxlength="190" autocomplete="username" required></label>
       <label>Password<input name="password" type="password" required></label>
       <label data-only="code">Registration code<input name="code" type="text" maxlength="200" required></label>
-      <p id="accountError" class="account-error" role="alert"></p>
       <button id="accountSubmit" class="btn primary">Sign in</button>
     </form>
     <p id="accountAlt" class="account-alt"><span id="accountPrompt"></span> <button id="accountSwitch" class="link-btn" type="button"></button></p>

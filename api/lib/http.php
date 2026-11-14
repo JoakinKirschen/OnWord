@@ -17,6 +17,14 @@ function respond(array $data, int $status = 200): never
     exit;
 }
 
+/** Sends the browser elsewhere (sign-on only: everything else answers with JSON). */
+function redirect(string $url): never
+{
+    header('Cache-Control: no-store');
+    header('Location: ' . $url, true, 302);
+    exit;
+}
+
 /** Ends the request with an error. `$code` is a stable identifier the client can act on. */
 function fail(int $status, string $code, string $message = ''): never
 {

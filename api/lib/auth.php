@@ -58,7 +58,25 @@ function auth_me(PDO $db, ?array $user, array $in, array $config): array
         ],
         // Whether the AI reader for contractors' offers is set up (an API key is configured).
         'ai' => $config['anthropic_api_key'] !== '',
+        'passwords' => (bool) $config['allow_passwords'],
+        'sso' => sso_public($config),
+        'ssoError' => sso_error(),
     ];
+}
+
+/** Why the last single sign-on did not work, once; null when it did or there was none. */
+function sso_error(): ?string
+{
+    $error = $_SESSION['sso_error'] ?? null;
+    unset($_SESSION['sso_error']);
+    return $error;
+}
+
+function require_passwords(array $config): void
+{
+    if (!$config['allow_passwords']) {
+        fail(403, 'passwords_off', 'On this site you sign in with your work account.');
+    }
 }
 
 /** Why a password will not do, or null when it will. */
@@ -94,6 +112,7 @@ function record_attempt(PDO $db, string $email, string $ip): void
 
 function auth_register(PDO $db, ?array $user, array $in, array $config): array
 {
+    require_passwords($config);
     if (!$config['allow_registration']) {
         fail(403, 'registration_closed', 'New accounts cannot be created on this site.');
     }
@@ -128,6 +147,7 @@ function auth_register(PDO $db, ?array $user, array $in, array $config): array
 
 function auth_login(PDO $db, ?array $user, array $in, array $config): array
 {
+    require_passwords($config);
     $email = strtolower(text_field($in, 'email', 190));
     $password = is_string($in['password'] ?? null) ? $in['password'] : '';
     $ip = client_ip($config);

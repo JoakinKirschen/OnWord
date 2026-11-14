@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { fakeOidc } from './fakeOidc.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SCREENS = '#home:not([hidden]), #editorView:not([hidden]), #account:not([hidden])';
@@ -23,7 +24,7 @@ const hasPhp = (() => {
   }
 })();
 
-let php, browser, base, claude;
+let php, browser, base, claude, oidc;
 
 /**
  * A stand-in for the Claude API, so the AI reader is tested without a key or network. It keeps the last
@@ -74,8 +75,13 @@ before(async () => {
   const config = process.env.ONWORD_TEST_CONFIG || join(dir, 'config.php');
   if (!process.env.ONWORD_TEST_CONFIG) {
     claude = await fakeClaude();
+    oidc = await fakeOidc();
+    // Two sign-on providers: a work account limited to its domain, and one open to anybody.
+    const provider = (id, label, domains) =>
+      `['id' => '${id}', 'label' => '${label}', 'issuer' => '${oidc.url}/${id}', 'client_id' => 'onword-${id}', 'client_secret' => 'test-secret', 'domains' => [${domains}]]`;
+    const sso = `'sso' => [${provider('work', 'Work account', "'work.test'")}, ${provider('open', 'Google', '')}]`;
     // Visitors' addresses come from a header, so that each test browser is a connection of its own.
-    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}', 'client_ip_header' => 'HTTP_X_TEST_IP'`;
+    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}', 'client_ip_header' => 'HTTP_X_TEST_IP', ${sso}`;
     writeFileSync(config, `<?php return [${settings}];`);
   }
   const port = await freePort();
@@ -101,6 +107,7 @@ after(async () => {
   await browser?.close();
   php?.kill();
   claude?.server.close();
+  oidc?.server.close();
 });
 
 /** A separate browser (own cookies), like another person or another computer. */
@@ -564,7 +571,7 @@ test('site reviews and their photos on the server, for the project owner only', 
 
 test('an older database gets the columns added since', { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG }, () => {
   const file = join(mkdtempSync(join(tmpdir(), 'onword-upgrade-')), 'old.sqlite');
-  // The documents and articles tables as schema version 3 created them.
+  // The users, documents and articles tables as schema version 3 created them.
   const script = `require '${join(ROOT, 'api/lib/db.php')}';
       $db = new PDO('sqlite:${file}', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
       $db->exec('CREATE TABLE schema_info (version INT NOT NULL)');
@@ -575,14 +582,18 @@ test('an older database gets the columns added since', { skip: !hasPhp || !!proc
       $db->exec('CREATE TABLE articles (id VARCHAR(32) NOT NULL PRIMARY KEY, spec_id VARCHAR(32) NOT NULL,
         parent_id VARCHAR(32) NULL, number VARCHAR(60) NOT NULL, title VARCHAR(300) NOT NULL, unit VARCHAR(30) NOT NULL,
         html TEXT NOT NULL, source_id VARCHAR(32) NULL, line_data TEXT NOT NULL, price DOUBLE NOT NULL DEFAULT 0)');
+      $db->exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email VARCHAR(190) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL, password_hash VARCHAR(255) NOT NULL, created_at BIGINT NOT NULL)');
       ensure_schema($db);
       $columns = fn ($table) => array_column($db->query("PRAGMA table_info($table)")->fetchAll(), 'name');
       echo json_encode([(int) $db->query('SELECT version FROM schema_info')->fetchColumn(),
-        in_array('styles', $columns('documents')), in_array('removed', $columns('articles'))]);`;
-  const [version, hasStyles, hasRemoved] = JSON.parse(execFileSync('php', ['-r', script]).toString());
+        in_array('styles', $columns('documents')), in_array('removed', $columns('articles')),
+        in_array('sso_subject', $columns('users'))]);`;
+  const [version, hasStyles, hasRemoved, hasSso] = JSON.parse(execFileSync('php', ['-r', script]).toString());
+  assert.equal(hasSso, true, 'accounts can be linked to a sign-on provider');
   assert.equal(hasStyles, true);
   assert.equal(hasRemoved, true, 'articles taken out of a project are kept');
-  assert.ok(version >= 5);
+  assert.ok(version >= 7);
 });
 
 /** A bare API client with its own cookie and address, like a script someone runs against the site. */
@@ -650,6 +661,68 @@ test('sign-in and registration are throttled without locking anyone out', { skip
   assert.deepEqual(await attempt(10, 'blue horse battery'), [429, 'too_many_attempts'], 'ten attempts an hour');
 });
 
+test(
+  'single sign-on: new and existing accounts, allowed domains, and sign-ins that must fail',
+  { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG },
+  async () => {
+    const page = await visitor();
+    /** Plays one sign-in through the given provider's button; resolves when the app shows a screen. */
+    const signOn = async (label) => {
+      await page.click(`.sso-btn:has-text("${label}")`);
+      await page.waitForSelector('#home:not([hidden]), #account:not([hidden])');
+    };
+    const signOut = async () => {
+      await page.click('[data-act="account.signOut"]');
+      await page.waitForSelector('#account:not([hidden])');
+    };
+    assert.deepEqual(await page.locator('.sso-btn').allInnerTexts(), [
+      'Sign in with Work account',
+      'Sign in with Google',
+    ]);
+    assert.ok(await page.isVisible('#accountForm'), 'passwords are still allowed here');
+
+    // A first sign-in with a work account creates the account, named after the provider's profile.
+    oidc.user = { sub: 'work-1', email: `ann.${RUN}@work.test`, name: 'Ann Work' };
+    await signOn('Work account');
+    assert.equal(await page.textContent('#userName'), 'Ann Work');
+    await page.click('[data-act="library.new"]');
+    await page.waitForSelector('#editorView:not([hidden])');
+    await page.click('.doc-bar .brand');
+    await signOut();
+    oidc.user = { ...oidc.user, name: 'Renamed at the provider' };
+    await signOn('Work account');
+    assert.equal(await page.textContent('#userName'), 'Ann Work', 'the same account the next time');
+    assert.equal(await page.locator('.card').count(), 1, 'with its documents');
+    await signOut();
+
+    // An address outside the work domain, an unverified one, a cancelled and a forged sign-in are refused.
+    const refused = async (label, user, message, forge = false) => {
+      oidc.user = user;
+      oidc.forge = forge;
+      await signOn(label);
+      assert.ok(await page.isVisible('#account'), message.source);
+      assert.match(await page.textContent('#accountError'), message);
+      oidc.forge = false;
+    };
+    await refused('Work account', { sub: 'work-2', email: `bob.${RUN}@else.test` }, /may not sign in here/);
+    await refused('Google', { sub: 'g-1', email: `eve.${RUN}@gmail.test`, email_verified: false }, /may not sign in/);
+    await refused('Google', null, /cancelled or refused/);
+    await refused('Google', { sub: 'g-2', email: `mal.${RUN}@gmail.test` }, /did not work/, true);
+    await page.goto(`${base}api/sso.php?code=stolen&state=guessed`);
+    await page.waitForSelector('#account:not([hidden])');
+    assert.match(await page.textContent('#accountError'), /not started here/, 'a sign-in it did not start');
+
+    // A provider without domains signs in to the account that already has the address.
+    const lena = apiClient('198.51.100.20');
+    await lena.start();
+    await lena.post('auth/register', { name: 'Lena', email: email('lena'), password: 'blue horse battery' });
+    oidc.user = { sub: 'g-3', email: email('lena'), name: 'Lena Google' };
+    await signOn('Google');
+    assert.equal(await page.textContent('#userName'), 'Lena', 'linked to the existing account');
+    assert.deepEqual(page.errors, []);
+  },
+);
+
 test('the API refuses requests without a session or security token', { skip: !hasPhp }, async () => {
   const api = (route, init) =>
     fetch(`${base}api/index.php?r=${route}`, init).then(async (r) => [r.status, (await r.json()).error]);
@@ -658,4 +731,5 @@ test('the API refuses requests without a session or security token', { skip: !ha
   assert.deepEqual(await api('offers/list&specId=abcdefgh'), [401, 'signed_out']);
   assert.deepEqual(await api('auth/login', { method: 'POST', body: '{}' }), [403, 'csrf']);
   assert.deepEqual(await api('nothing/here'), [404, 'not_found']);
+  assert.deepEqual(await api('auth/sso&provider=nobody'), [404, 'not_found']);
 });

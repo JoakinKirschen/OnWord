@@ -170,7 +170,7 @@ async function start() {
   createAccount({
     root: $('#account', document),
     api,
-    registration: session.registration,
+    session,
     onSignedIn: (/** @type {import('./core/api.js').User} */ user) => startOnServer(user, ai),
   }).show();
 }
