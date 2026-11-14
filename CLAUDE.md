@@ -44,9 +44,9 @@ src/
                         (measurement arithmetic), output (document and CSV), prices (price library),
                         offers (reading, matching and comparing contractors' offers), aiReader
                         (client of the server's AI reader), localStore, remoteStore
-    docx/               Word import/export: reader (+ runs, xml) and writer (+ inline, parts);
-                        paragraph, section, tables and notes (footnotes, comments, table of
-                        contents) convert in both directions
+    docx/               Word import/export: reader (+ runs, styles, xml) and writer (+ inline,
+                        parts); paragraph, section, tables (+ cells: widths, borders, padding) and
+                        notes (footnotes, comments, table of contents) convert in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
   library/              the document list screen: library, templates, importer (files), backup,
                         sharing
@@ -73,8 +73,8 @@ tests/
   unit/                 node:test, no browser — pure logic in core/ (including core/spec/) and
                         editor/pagination.js
   e2e/                  node:test + Playwright, one file per area; harness.mjs holds shared setup
-  fixtures/             files written by other programs for import tests: .docx (python-docx, pandoc),
-                        .xlsx (openpyxl)
+  fixtures/             files written by other programs for import tests: .docx (python-docx, pandoc;
+                        styled-letter.docx is hand-written after a Google Docs export), .xlsx (openpyxl)
 tools/                  development scripts (not shipped): architecture check, site packaging
 ```
 
@@ -269,7 +269,8 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   specification do not flow into it.
 - The look of a document is defined in three places that must change together: `styles/document.css`
   (editor), `EXPORT_CSS` in `features/exporter.js` (HTML download) and `STYLES` in `core/docx/parts.js`
-  (Word download).
+  (Word download). `BODY` in `core/docx/parts.js` holds the plain paragraph's font, size, line height
+  and spacing that the Word reader compares against.
 - Word support is hand-written (`core/zip.js` + `core/docx/`) because the app takes no dependencies. It
   covers what the editor can produce: headings, character and paragraph formatting, lists, checklists,
   tables with merged cells, links, embedded images, rules, page breaks, page setup, header and footer,
@@ -277,6 +278,21 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   (endnotes, text boxes, floating shapes, section-specific layouts, formatting changes in tracked
   revisions) is dropped or flattened. When the editor gains a block or format, add it to the writer, the reader and
   the round-trip test in `tests/e2e/docx.test.mjs` in the same change.
+- The Word reader follows Word's style cascade (`core/docx/styles.js`): document defaults, then the table
+  style, the paragraph style (along its `basedOn` chain), character styles and finally direct formatting.
+  Plain paragraphs, list items and table cells state in inline style only where the result differs from
+  the editor's plain paragraph (`BODY`); the paragraph mark's size and font go on the block, runs state
+  only their differences. Headings, quotes and code keep the editor's look and take only direct
+  formatting. Word's "single" line spacing is the font's own line height, about 1.15 em, so Word line
+  multiples are scaled by 1.15 in both directions (`SINGLE_LINE_CSS`); exact heights become `pt`.
+- Imported tables keep their geometry as inline styles: column widths as `<colgroup>` percentages
+  (`features/tables.js` keeps them in step when columns are added or removed), the table's width as a
+  percentage, and per cell borders (`none` where Word has none), padding, shading and vertical alignment —
+  only where they differ from the editor's default cell. The writer turns them back into `w:tblGrid`,
+  `w:tcBorders`, `w:tcMar`, `w:shd` and `w:vAlign`, and writes the editor's own padding as the table's
+  cell margins so plain tables round-trip unchanged.
+- A paragraph becomes a checklist item only when it is indented and starts with ☐/☑, as the writer
+  writes them; a ballot box in ordinary text (a form's options in a table) stays text.
 - The app's "Title" is `<h1>`, "Subtitle" is `<p class="subtitle">` and "Heading 1–4" are `<h2>`–`<h5>`;
   Word's Title/Subtitle/Heading 1–4 styles map to those in both directions.
 - Paragraph formatting lives in the block's inline style: `text-align`, `line-height`, `margin-left` /

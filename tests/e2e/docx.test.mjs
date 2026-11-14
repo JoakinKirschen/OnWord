@@ -16,18 +16,23 @@ async function importDocx(page, name, buffer) {
 }
 
 test('imports a document written by python-docx', async () => {
+  const BODY = 'style="line-height: 1.32; margin-bottom: 10pt;"';
+  const ITEM = 'style="line-height: 1.32;"';
+  const CELL = 'style="border: none; padding: 0pt 5.4pt;"';
   const page = await openApp();
   await importDocx(page, 'Fixture.docx', await readFile(new URL('python-docx.docx', FIXTURES)));
   assert.equal(await page.inputValue('#title'), 'Fixture');
   assert.equal(
     await html(page),
+    // python-docx's template: 1.15 lines and 10pt after each paragraph; tables without a style have no borders.
     '<h1>Fixture title</h1><h2>Section one</h2><h3>Sub section</h3>' +
-      '<p>Plain <b>bold</b> <i>italic</i> <span style="color: #C0352B; font-size: 18pt">red big</span> &amp; &lt;escaped&gt;</p>' +
-      '<p style="text-align: center;">Centered</p>' +
-      '<ul><li>bullet one</li><li>bullet two</li></ul><ol><li>number one</li><li>number two</li></ol>' +
+      `<p ${BODY}>Plain <b>bold</b> <i>italic</i> <span style="color: #C0352B; font-size: 18pt">red big</span> &amp; &lt;escaped&gt;</p>` +
+      '<p style="text-align: center; line-height: 1.32; margin-bottom: 10pt;">Centered</p>' +
+      `<ul><li ${ITEM}>bullet one</li><li ${ITEM}>bullet two</li></ul><ol><li ${ITEM}>number one</li><li ${ITEM}>number two</li></ol>` +
       '<blockquote>A quotation</blockquote>' +
-      '<table style="width: 100%;"><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>' +
-      '<hr class="page-break"><p>After the break</p>',
+      `<table style="width: 100%;"><tbody><tr><td ${CELL}><p ${BODY}>a</p></td><td ${CELL}><p ${BODY}>b</p></td></tr>` +
+      `<tr><td ${CELL}><p ${BODY}>c</p></td><td ${CELL}><p ${BODY}>d</p></td></tr></tbody></table>` +
+      `<hr class="page-break"><p ${BODY}>After the break</p>`,
   );
   assert.equal(await page.evaluate(() => document.querySelector('#sheet').style.getPropertyValue('--page-w')), '794px');
   assert.deepEqual(page.errors, []);
@@ -39,12 +44,47 @@ test('imports a document written by pandoc (nested lists, links, code)', async (
   const result = await html(page);
   assert.match(result, /<h2>Pandoc title<\/h2>/);
   assert.match(result, /Some <i>emphasis<\/i>, <b>strong<\/b> and a <a href="https:\/\/example.org">link<\/a>\./);
-  assert.match(
-    result,
-    /<ul><li>a<ul><li>nested<\/li><\/ul><\/li><li>b<\/li><\/ul><ol><li>one<\/li><li>two<\/li><\/ol>/,
+  const item = '<li style="line-height: 1.15; margin-top: 1.8pt; margin-bottom: 1.8pt; font-size: 12pt;">';
+  assert.ok(
+    result.includes(
+      `<ul>${item}a<ul>${item}nested</li></ul></li>${item}b</li></ul><ol>${item}one</li>${item}two</li></ol>`,
+    ),
   );
   assert.match(result, /<blockquote>quoted<\/blockquote>/);
   assert.match(result, /<pre>code line<\/pre>/);
+  assert.deepEqual(page.errors, []);
+});
+
+test('imports a letter laid out like a Google Docs export: inherited styles, table geometry, header', async () => {
+  const page = await openApp();
+  await importDocx(page, 'Letter.docx', await readFile(new URL('styled-letter.docx', FIXTURES)));
+  // Document defaults: Arial 9pt, justified, line spacing 260 (1.08 of Word's single line).
+  const body = 'text-align: justify; line-height: 1.25; margin-bottom: 0pt';
+  // In the table, the table style's single spacing and no space after.
+  const inTable = 'style="text-align: justify; line-height: 1.15; margin-bottom: 0pt; font-size: 9pt;"';
+  const expected =
+    `<p style="${body};"><br></p>` + // empty, with every border switched off: not a horizontal line
+    '<h2>Letter heading</h2>' +
+    `<p style="${body}; font-size: 9pt;">Body text with <span style="color: #C0352B"><b>marked</b></span> and ` +
+    '<span style="font-size: 14pt">larger</span></p>' +
+    '<p style="line-height: 1.25; margin-left: 48px; margin-bottom: 6pt;">Indented</p>' + // style based on a style
+    '<table style="width: 50%;"><colgroup><col style="width: 25.01%;"><col style="width: 74.99%;"></colgroup><tbody>' +
+    '<tr><td style="border-top: none; border-left: none; border-bottom: none; padding: 0pt 5.75pt; background-color: #FFF2CC; vertical-align: middle;">' +
+    `<p ${inTable}>☒ Done</p></td>` +
+    `<td style="border: none; padding: 0pt;"><p ${inTable}>Wide</p></td></tr>` +
+    `<tr><td style="border-top: none; border-left: none; border-bottom: none; padding: 0pt 5.75pt;"><p ${inTable}>☐ Open</p></td>` +
+    '<td style="border-top: none; border-bottom: 1.5pt solid #1A55C9; border-right: none; padding: 0pt 5.75pt;">' +
+    `<p ${inTable}><br></p></td></tr></tbody></table>` +
+    `<p style="${body}; font-size: 9pt;">After the table</p>`;
+  assert.equal(await html(page), expected);
+  assert.equal(await page.textContent('#pageHeader'), 'Our reference A-123 2018-09-28', 'cells keep apart');
+
+  // What was imported comes back the same after a trip through the editor's own .docx.
+  const [download] = await Promise.all([page.waitForEvent('download'), menu(page, 'File', 'file.downloadDocx')]);
+  await page.click('.doc-bar .brand');
+  await page.waitForSelector('#home:not([hidden])');
+  await importDocx(page, 'Again.docx', await readFile(await download.path()));
+  assert.equal(await html(page), expected);
   assert.deepEqual(page.errors, []);
 });
 
@@ -62,6 +102,10 @@ test('a document survives export to .docx and re-import', async () => {
     '<blockquote>A quote</blockquote><pre>line 1<br>  line 2</pre>' +
     '<table style="width: 100%;"><tbody><tr><td>a</td><td><b>b</b></td></tr></tbody></table>' +
     '<table style="width: 100%;"><tbody><tr><td colspan="2">wide</td><td rowspan="2">tall</td></tr><tr><td>x</td><td>y</td></tr></tbody></table>' +
+    '<table style="width: 80%;"><colgroup><col style="width: 30%;"><col style="width: 70%;"></colgroup><tbody>' +
+    '<tr><td style="border: none; padding: 0pt 5pt; background-color: #FFF2CC; vertical-align: middle;">cell</td>' +
+    '<td style="border-bottom: 1.5pt dashed #1A55C9;"><p style="font-size: 9pt;">small</p></td></tr></tbody></table>' +
+    '<p style="line-height: 12pt; font-size: 14pt; font-family: Georgia;">Exact lines</p>' +
     '<p>Noted<sup class="fn-ref" id="fnref-n1">1</sup> and <span class="comment" title="Check this" data-author="Ada" data-date="2026-03-04T05:06:07Z">commented</span>, ' +
     '<ins data-author="Bo" data-date="2026-03-04T05:06:07Z">added</ins><del data-author="Bo" data-date="2026-03-04T05:06:07Z">removed</del>.</p>' +
     '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="dot" style="width: 40px; height: auto;"></p>' +

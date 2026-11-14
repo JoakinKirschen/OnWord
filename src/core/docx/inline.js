@@ -94,6 +94,12 @@ function runProperties(/** @type {Format} */ f) {
   return parts.length ? `<w:rPr>${parts.join('')}</w:rPr>` : '';
 }
 
+/** Run properties for the size and font a block sets for all its text: the properties of its paragraph mark. */
+export function blockRunProperties(/** @type {HTMLElement} */ el) {
+  const { size, font } = styleFormat(el.style);
+  return runProperties({ size, font });
+}
+
 const run = (/** @type {string} */ content, /** @type {Format} */ format) =>
   `<w:r>${runProperties(format)}${content}</w:r>`;
 

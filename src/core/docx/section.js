@@ -64,7 +64,9 @@ function readRunning(/** @type {Document | null} */ doc) {
   let cached = false; // inside the stored result of a complex field, which the token replaces
   for (const node of doc.getElementsByTagName('*')) {
     const name = node.localName;
-    if (name === 'fldSimple') text += fieldToken(attr(node, 'instr'));
+    if (name === 'p')
+      text += ' '; // paragraphs and table cells must not run together
+    else if (name === 'fldSimple') text += fieldToken(attr(node, 'instr'));
     else if (name === 'instrText') text += fieldToken(node.textContent);
     else if (name === 'fldChar') cached = attr(node, 'fldCharType') === 'separate';
     else if (name === 'tab') text += ' ';
