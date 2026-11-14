@@ -17,6 +17,17 @@ export const DOCUMENT_NAMESPACES =
   'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
   'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
 
+/** The look of a plain paragraph in styles/document.css; imported paragraphs only state how they differ. */
+export const BODY = { font: 'Arial', size: 11, lineHeight: 1.5, after: 8 };
+export const SINGLE_LINE = 240; // w:spacing line units for Word's single spacing
+// Word's single spacing is the font's own line height (ascent + descent + gap), about 1.15 em for Arial,
+// Times New Roman and most text fonts, so Word's multiples are scaled by it to look the same in CSS.
+export const SINGLE_LINE_CSS = 1.15;
+
+/** `w:line` for a CSS line-height multiple. */
+export const wordLine = (/** @type {number} */ lineHeight) => Math.round((lineHeight / SINGLE_LINE_CSS) * SINGLE_LINE);
+const line = (/** @type {number} */ lineHeight) => `w:line="${wordLine(lineHeight)}" w:lineRule="auto"`;
+
 /** Paragraph style ids used by the writer, and understood by the reader. */
 export const STYLE = {
   h1: 'Title',
@@ -120,19 +131,19 @@ function tocStyles() {
 /** word/styles.xml — mirrors styles/document.css. */
 export const STYLES = `${XML_HEADER}<w:styles xmlns:w="${WML}">
 <w:docDefaults>
-<w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial" w:eastAsia="Arial"/>${size(11)}<w:lang w:val="en-US"/></w:rPr></w:rPrDefault>
-<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="360" w:lineRule="auto"/></w:pPr></w:pPrDefault>
+<w:rPrDefault><w:rPr><w:rFonts w:ascii="${BODY.font}" w:hAnsi="${BODY.font}" w:cs="${BODY.font}" w:eastAsia="${BODY.font}"/>${size(BODY.size)}<w:lang w:val="en-US"/></w:rPr></w:rPrDefault>
+<w:pPrDefault><w:pPr><w:spacing w:after="${BODY.after * 20}" ${line(BODY.lineHeight)}/></w:pPr></w:pPrDefault>
 </w:docDefaults>
 <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
-${paragraphStyle({ id: 'Title', name: 'Title', pPr: '<w:keepNext/><w:spacing w:before="360" w:after="160" w:line="288" w:lineRule="auto"/>', rPr: size(24) })}
-${heading(1, '<w:spacing w:before="320" w:after="120" w:line="300" w:lineRule="auto"/>', size(18))}
+${paragraphStyle({ id: 'Title', name: 'Title', pPr: `<w:keepNext/><w:spacing w:before="360" w:after="160" ${line(1.2)}/>`, rPr: size(24) })}
+${heading(1, `<w:spacing w:before="320" w:after="120" ${line(1.25)}/>`, size(18))}
 ${heading(2, '<w:spacing w:before="280" w:after="80"/>', `<w:b/><w:color w:val="333333"/>${size(14)}`)}
 ${heading(3, '<w:spacing w:before="240" w:after="80"/>', `<w:b/><w:color w:val="555555"/>${size(12)}`)}
 ${heading(4, '<w:spacing w:before="200" w:after="80"/>', `<w:b/><w:i/><w:color w:val="555555"/>${size(11)}`)}
 ${paragraphStyle({ id: 'Subtitle', name: 'Subtitle', pPr: '<w:spacing w:after="240"/>', rPr: `<w:color w:val="666666"/>${size(14)}` })}
 ${paragraphStyle({ id: 'Quote', name: 'Quote', next: 'Quote', pPr: '<w:pBdr><w:left w:val="single" w:sz="18" w:space="10" w:color="C5C8D4"/></w:pBdr><w:ind w:left="280"/>', rPr: '<w:color w:val="444444"/>' })}
-${paragraphStyle({ id: 'Code', name: 'Code', next: 'Code', pPr: '<w:shd w:val="clear" w:color="auto" w:fill="F3F4F7"/><w:spacing w:line="276" w:lineRule="auto"/>', rPr: `<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/>${size(10)}` })}
-${paragraphStyle({ id: 'FootnoteText', name: 'footnote text', pPr: '<w:spacing w:after="0" w:line="264" w:lineRule="auto"/>', rPr: size(9) })}
+${paragraphStyle({ id: 'Code', name: 'Code', next: 'Code', pPr: `<w:shd w:val="clear" w:color="auto" w:fill="F3F4F7"/><w:spacing ${line(1.45)}/>`, rPr: `<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/>${size(10)}` })}
+${paragraphStyle({ id: 'FootnoteText', name: 'footnote text', pPr: `<w:spacing w:after="0" ${line(1.1)}/>`, rPr: size(9) })}
 ${tocStyles()}
 </w:styles>`;
 

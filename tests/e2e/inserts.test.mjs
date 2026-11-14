@@ -140,3 +140,23 @@ test('tables: merge cells to the right and below, then split', async () => {
   assert.deepEqual(await shape(), ['1x1 1x1 1x1', '1x1 1x1 1x1', '1x1 1x1 1x1']);
   assert.deepEqual(page.errors, []);
 });
+
+test('tables: column widths from an imported table follow added and removed columns', async () => {
+  const page = await openEditor();
+  await page.evaluate(() => {
+    const editor = document.querySelector('#editor');
+    editor.innerHTML =
+      '<table style="width: 100%;"><colgroup><col style="width: 20%;"><col style="width: 80%;"></colgroup>' +
+      '<tbody><tr><td>a</td><td>b</td></tr></tbody></table>';
+    editor.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  });
+  const widths = () => page.$$eval('#editor col', (cols) => cols.map((col) => col.style.width));
+  await page.click('#editor td >> nth=0');
+  await menu(page, 'Table', 'table.edit', 'colRight');
+  assert.equal(await cells(page), 3);
+  assert.deepEqual(await widths(), ['13.33%', '33.33%', '53.33%'], 'the new column takes an equal share');
+  await page.click('#editor td >> nth=1');
+  await menu(page, 'Table', 'table.edit', 'delCol');
+  assert.deepEqual(await widths(), ['20%', '80%']);
+  assert.deepEqual(page.errors, []);
+});

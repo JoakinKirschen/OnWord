@@ -2,7 +2,8 @@
 
 import { toBase64 } from '../base64.js';
 import { esc } from '../html.js';
-import { all, attr, isOn, kid, kids, val } from './xml.js';
+import { decide, decideAttr, isSet } from './styles.js';
+import { all, attr, kid, kids, val } from './xml.js';
 
 const EMU_PER_PX = 9525;
 const TAB = '&emsp;';
@@ -25,49 +26,62 @@ const HIGHLIGHTS = {
 };
 const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif' };
 const HEX = /^[0-9a-f]{6}$/i;
+const BLACK = '000000'; // the editor's own text colour; not worth stating on every run
 const VERTICAL_TAGS = { superscript: 'sup', subscript: 'sub' };
 const PASS_THROUGH = ['smartTag', 'fldSimple', 'sdtContent'];
 
 /**
  * @typedef {{ links: Map<string, string>, images: Map<string, string>, files: Map<string, Uint8Array>,
- *   comments: Map<string, { text: string, author: string, date: string }>, usedNotes: string[] }} Package
+ *   comments: Map<string, { text: string, author: string, date: string }>, usedNotes: string[],
+ *   characterStyle: (id: string | null) => Chain }} Package
  * `links` and `images` map relationship ids to URLs and to paths inside the archive; `usedNotes` collects
- * the ids of the footnotes referenced so far, in order.
- * @typedef {{ pageBreak?: boolean, inLink?: boolean }} Flags
- * `pageBreak` is set by a run that contains a page break.
+ * the ids of the footnotes referenced so far, in order; `characterStyle` gives a character style's levels.
+ * @typedef {{ pageBreak?: boolean, inLink?: boolean, text?: Chain, base?: BaseFont }} Flags
+ * `pageBreak` is set by a run that contains a page break. `text` holds the run properties every run of the
+ * paragraph inherits (document defaults, table and paragraph style); `base` is what the paragraph element
+ * already states.
+ * @typedef {import('./styles.js').Chain} Chain
+ * @typedef {import('./paragraph.js').BaseFont} BaseFont
  */
 
-/** Inline CSS declarations for a run's colour, highlight, size and font. */
-function runCss(/** @type {Element} */ rPr) {
-  const color = val(rPr, 'color');
-  const fill = attr(kid(rPr, 'shd'), 'fill');
-  const highlight = HIGHLIGHTS[val(rPr, 'highlight')] || (HEX.test(fill ?? '') ? '#' + fill : '');
-  const size = Number(val(rPr, 'sz'));
-  const font = attr(kid(rPr, 'rFonts'), 'ascii');
+/** A run's highlight: a named highlight colour or, as other programs write it, shading. */
+function highlightOf(/** @type {Chain} */ rPr) {
+  const fill = attr(decide(rPr, 'shd'), 'fill');
+  return HIGHLIGHTS[attr(decide(rPr, 'highlight'), 'val')] || (HEX.test(fill ?? '') ? '#' + fill : '');
+}
+
+/**
+ * Inline CSS declarations for a run's colour, highlight, size and font. With a `base`, size and font are
+ * only stated where they differ from the paragraph's own.
+ */
+function runCss(/** @type {Chain} */ rPr, /** @type {BaseFont | undefined} */ base) {
+  const color = attr(decide(rPr, 'color'), 'val');
+  const highlight = highlightOf(rPr);
+  const size = Number(decideAttr(rPr, 'sz', 'val')) / 2 || base?.size;
+  const font = decideAttr(rPr, 'rFonts', 'ascii') ?? base?.font;
   return [
-    HEX.test(color ?? '') && `color: #${color}`,
+    HEX.test(color ?? '') && color !== BLACK && `color: #${color}`,
     highlight && `background-color: ${highlight}`,
-    size && `font-size: ${size / 2}pt`,
-    font && `font-family: ${font.replace(/[;"<>]/g, '')}`,
+    size && size !== base?.size && `font-size: ${size}pt`,
+    font && font !== base?.font && `font-family: ${font.replace(/[;"<>]/g, '')}`,
   ].filter(Boolean);
 }
 
 /** Tags for a run's bold, italic, underline, strikethrough and super/subscript. */
-function runTags(/** @type {Element} */ rPr) {
+function runTags(/** @type {Chain} */ rPr) {
   return [
-    isOn(rPr, 'b') && 'b',
-    isOn(rPr, 'i') && 'i',
-    isOn(rPr, 'u') && 'u',
-    (isOn(rPr, 'strike') || isOn(rPr, 'dstrike')) && 's',
-    VERTICAL_TAGS[val(rPr, 'vertAlign')],
+    isSet(rPr, 'b') && 'b',
+    isSet(rPr, 'i') && 'i',
+    isSet(rPr, 'u') && 'u',
+    (isSet(rPr, 'strike') || isSet(rPr, 'dstrike')) && 's',
+    VERTICAL_TAGS[attr(decide(rPr, 'vertAlign'), 'val')],
   ].filter(Boolean);
 }
 
 /** Opening and closing markup for a run's formatting. Inside a link, the link's own look is left to the editor. */
-function wrapping(/** @type {Element | undefined} */ rPr, /** @type {boolean} */ inLink) {
-  if (!rPr) return ['', ''];
-  const css = runCss(rPr).filter((rule) => !inLink || !rule.startsWith('color'));
-  const tags = runTags(rPr).filter((tag) => !inLink || tag !== 'u');
+function wrapping(/** @type {Chain} */ rPr, /** @type {Flags} */ flags) {
+  const css = runCss(rPr, flags.base).filter((rule) => !flags.inLink || !rule.startsWith('color'));
+  const tags = runTags(rPr).filter((tag) => !flags.inLink || tag !== 'u');
   const open = (css.length ? `<span style="${esc(css.join('; '))}">` : '') + tags.map((t) => `<${t}>`).join('');
   const close =
     tags
@@ -117,8 +131,15 @@ function run(/** @type {Element} */ r, /** @type {Package} */ pkg, /** @type {Fl
   }
   if (!html) return '';
   if (kid(r, 'footnoteReference')) return html; // already a superscript; the run's own formatting adds nothing
-  const [open, close] = wrapping(kid(r, 'rPr'), !!flags.inLink);
+  const [open, close] = wrapping(runChain(r, pkg, flags), flags);
   return open + html + close;
+}
+
+/** Every level of a run's formatting: what its paragraph gives it, its character style, its own. */
+function runChain(/** @type {Element} */ r, /** @type {Package} */ pkg, /** @type {Flags} */ flags) {
+  const own = kid(r, 'rPr');
+  if (!flags.text) return own ? [own] : []; // the editor's look of the block rules: only direct formatting
+  return [...flags.text, ...pkg.characterStyle(val(own, 'rStyle')), ...(own ? [own] : [])];
 }
 
 /**

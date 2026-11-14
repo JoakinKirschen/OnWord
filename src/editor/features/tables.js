@@ -1,6 +1,8 @@
 import { $, $$ } from '../../core/dom.js';
 import { insertBlock } from '../blocks.js';
 
+const PERCENT = 100;
+
 /**
  * Table insertion, row/column editing and Tab navigation between cells.
  * @param {import('../editor.js').EditorContext} ctx
@@ -18,6 +20,21 @@ export function initTables(ctx) {
     return td;
   };
   const clamp = (value, max) => Math.min(max, Math.max(1, Number(value) || 1));
+
+  /** Keeps imported column widths (<col>) in step with an added or removed column, still adding up to 100%. */
+  function adjustColumns(table, col, op) {
+    const cols = $$('col', table);
+    if (!cols.length) return;
+    if (op === 'delCol') cols[col]?.remove();
+    else cols[Math.min(col, cols.length - 1)][op === 'colLeft' ? 'before' : 'after'](doc.createElement('col'));
+    const kept = $$('col', table);
+    const known = kept.map((c) => parseFloat(c.style.width) || 0);
+    const sized = known.filter(Boolean);
+    const average = sized.reduce((sum, w) => sum + w, 0) / sized.length || PERCENT;
+    const widths = known.map((w) => w || average); // a new column gets an equal share
+    const total = widths.reduce((sum, w) => sum + w, 0);
+    kept.forEach((c, i) => (c.style.width = `${+((widths[i] / total) * PERCENT).toFixed(2)}%`));
+  }
 
   function insert(rows, cols) {
     const table = doc.createElement('table');
@@ -39,6 +56,7 @@ export function initTables(ctx) {
       for (let i = 0; i < row.cells.length; i++) tr.append(newCell());
       row[op === 'rowAbove' ? 'before' : 'after'](tr);
     } else if (op === 'colLeft' || op === 'colRight') {
+      adjustColumns(table, col, op);
       rows.forEach((r) =>
         r.cells[Math.min(col, r.cells.length - 1)]?.[op === 'colLeft' ? 'before' : 'after'](newCell()),
       );
@@ -52,6 +70,7 @@ export function initTables(ctx) {
       if (row.cells.length === 1) table.remove();
       else {
         selection.caretInto(cell.nextElementSibling || cell.previousElementSibling);
+        adjustColumns(table, col, op);
         rows.forEach((r) => r.cells[col]?.remove());
       }
     } else if (op === 'delTable') table.remove();
