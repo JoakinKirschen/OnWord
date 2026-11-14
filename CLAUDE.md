@@ -56,8 +56,10 @@ different tables. Fetch immediately before bumping it, and merge a schema change
 index.html              static markup for both screens; no inline scripts or handlers
 .htaccess               Apache settings for the web host: MIME type, security policy, caching
 api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
-  index.php             the only entry point: route table, session, CSRF check, error handling
-  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents, specs,
+  index.php             the entry point: route table, session, CSRF check, error handling
+  sso.php               where single sign-on providers send people back (runs index.php)
+  lib/                  http (JSON, session, CSRF), db (connection, schema), auth, sso (single sign-on
+                        with OpenID Connect: Microsoft 365, Google), documents, specs,
                         prices, offers, reviews (site reviews and their photos), ai (the AI reader:
                         calls the Claude API)
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
@@ -191,7 +193,8 @@ wired in `main.js`.
 
 Plain PHP with no framework or Composer packages, so it runs on shared hosting as uploaded.
 
-- `index.php` is the only file meant to be requested. A route is `"METHOD name" => [handler, signed in?]`
+- `index.php` is the only file meant to be requested, apart from `sso.php`, the return address for single
+  sign-on (providers do not accept a query string there). A route is `"METHOD name" => [handler, signed in?]`
   in its `ROUTES` table, addressed as `api/index.php?r=name`. Reads are GET; everything that changes data
   is POST with a JSON body. No PUT/DELETE and no URL rewriting, which some hosts block.
 - A handler is a function `(PDO $db, ?array $user, array $in, array $config): array` in `lib/`; it returns
@@ -207,7 +210,15 @@ Plain PHP with no framework or Composer packages, so it runs on shared hosting a
 - Tests: `tests/e2e/server.test.mjs` starts PHP's built-in server with a temporary SQLite database and
   drives the real UI. Set `ONWORD_TEST_CONFIG` to a config file to run them against MySQL/MariaDB. Any new
   route gets a test there, including what a user without access gets.
-- The only outside service is the Claude API, used by the AI reader (`lib/ai.php`) through PHP's curl
+- Single sign-on (`lib/sso.php`) uses OpenID Connect: the authorization code flow with PKCE, a nonce and
+  state kept in the session, and the ID token's RS256 signature checked against the provider's published
+  keys (`rsa_pem()` turns a JWK into a key openssl reads), as well as its issuer, audience, times and nonce.
+  Providers are listed in `config.php` (`sso`); `auth/me` names them and, once, why the last sign-on failed
+  (`ssoError`). An account is found by `users.sso_subject` (issuer|sub), else by the verified address,
+  which links it; a new one is made only for an address in the provider's `domains`, or, without domains,
+  when registration is open without a code. `allow_passwords: false` leaves single sign-on only. The
+  server tests run a fake provider (`tests/e2e/fakeOidc.mjs`) that signs real tokens.
+- Besides sign-on providers, the only outside service is the Claude API, used by the AI reader (`lib/ai.php`) through PHP's curl
   extension. Its key lives in `config.php` and never reaches the browser; without a key the feature is off
   and `auth/me` says so (`ai: false`). Tests point `anthropic_base_url` at a fake API in the test process,
   so they need no key and no network.

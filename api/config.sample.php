@@ -10,7 +10,8 @@ return [
     'db_user' => 'ACCOUNT_onword',
     'db_password' => 'CHANGE-ME',
 
-    // Whether visitors may create their own account.
+    // Whether visitors may create their own account (with a password, or with single sign-on below when the
+    // provider lists no domains).
     'allow_registration' => true,
     // If set, a new account can only be created by someone who knows this code.
     'registration_code' => '',
@@ -19,6 +20,39 @@ return [
     // Behind a proxy or CDN, the header that carries the visitor's address, e.g. 'HTTP_CF_CONNECTING_IP'
     // for Cloudflare. Leave empty when visitors reach the site directly.
     'client_ip_header' => '',
+
+    // Single sign-on: people sign in with their Microsoft 365 or Google account. Register the site with the
+    // provider and give it this redirect URI: https://YOUR-SITE/api/sso.php
+    //  - Microsoft: Entra admin centre → App registrations → New registration (accounts in this
+    //    organizational directory only), platform Web; then Certificates & secrets → New client secret.
+    //    The issuer holds your Directory (tenant) ID.
+    //  - Google: Google Cloud console → APIs & Services → Credentials → OAuth client ID (web application).
+    // 'domains' lists the email domains that may sign in and get an account the first time. With no domains,
+    // any account the provider vouches for may sign in to an existing account, and get a new one only when
+    // registration is open without a code.
+    'sso' => [
+        // [
+        //     'id' => 'microsoft',
+        //     'label' => 'Microsoft 365',
+        //     'issuer' => 'https://login.microsoftonline.com/YOUR-TENANT-ID/v2.0',
+        //     'client_id' => '',
+        //     'client_secret' => '',
+        //     'domains' => ['example.com'],
+        // ],
+        // [
+        //     'id' => 'google',
+        //     'label' => 'Google',
+        //     'issuer' => 'https://accounts.google.com',
+        //     'client_id' => '',
+        //     'client_secret' => '',
+        //     'domains' => ['example.com'],
+        // ],
+    ],
+    // false: sign in with single sign-on only; the password form is not shown.
+    'allow_passwords' => true,
+    // The site's address, e.g. 'https://docs.example.com', when it cannot be told from the request
+    // (behind some proxies). Single sign-on sends people back to it.
+    'site_url' => '',
 
     // Largest document the server stores, in bytes. Keep it below PHP's post_max_size and
     // MySQL's max_allowed_packet.

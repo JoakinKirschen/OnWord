@@ -1,4 +1,5 @@
-# Only index.php is meant to be requested. The configuration and the library files are not.
+# Only index.php (and sso.php, where sign-on providers send people back) is meant to be requested.
+# The configuration and the library files are not.
 <FilesMatch "^config(\.sample)?\.php$">
   Require all denied
 </FilesMatch>

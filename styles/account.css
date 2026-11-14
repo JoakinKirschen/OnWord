@@ -125,3 +125,29 @@
     grid-template-columns: 1fr;
   }
 }
+/* Single sign-on: one button per provider, above the password form. */
+.account-sso {
+  display: grid;
+  gap: 8px;
+}
+.sso-btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  color: var(--text);
+  padding: 10px 14px;
+}
+.account-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.account-or::before,
+.account-or::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}

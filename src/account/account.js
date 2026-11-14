@@ -1,4 +1,5 @@
 import { $, hit } from '../core/dom.js';
+import { esc } from '../core/html.js';
 
 const NEW_PASSWORD_LENGTH = 10; // MIN_PASSWORD in api/lib/auth.php
 const MODES = {
@@ -17,12 +18,16 @@ const MODES = {
  * @typedef {object} AccountDeps
  * @property {HTMLElement} root
  * @property {import('../core/api.js').Api} api
- * @property {{ open: boolean, code: boolean }} registration whether accounts can be created, and need a code
+ * @property {import('../core/api.js').Session} session what the server offers: registration (and whether it
+ *   needs a code), the password form, single sign-on providers, and why the last sign-on failed
  * @property {(user: import('../core/api.js').User) => void} onSignedIn
  *
  * @param {AccountDeps} deps
  */
-export function createAccount({ root, api, registration, onSignedIn }) {
+export function createAccount({ root, api, session, onSignedIn }) {
+  const registration = session.registration ?? { open: false, code: false };
+  const passwords = session.passwords !== false;
+  const providers = session.sso ?? [];
   const form = $('#accountForm', root),
     message = $('#accountError', root),
     submit = $('#accountSubmit', root);
@@ -37,7 +42,7 @@ export function createAccount({ root, api, registration, onSignedIn }) {
     submit.textContent = texts.submit;
     $('#accountPrompt', root).textContent = texts.prompt;
     $('#accountSwitch', root).textContent = texts.other;
-    $('#accountAlt', root).hidden = !registration.open;
+    $('#accountAlt', root).hidden = !registration.open || !passwords;
     for (const el of form.querySelectorAll('[data-only]')) {
       const wanted = el.dataset.only === 'register' ? mode === 'register' : mode === 'register' && registration.code;
       el.hidden = !wanted;
@@ -72,8 +77,19 @@ export function createAccount({ root, api, registration, onSignedIn }) {
   return {
     show() {
       root.hidden = false;
+      // Single sign-on leaves the page for the provider's, so these are links, not requests.
+      $('#accountSso', root).innerHTML = providers
+        .map(
+          (p) =>
+            `<a class="btn sso-btn" href="api/index.php?r=auth/sso&amp;provider=${encodeURIComponent(p.id)}">Sign in with ${esc(p.label)}</a>`,
+        )
+        .join('');
+      $('#accountSso', root).hidden = !providers.length;
+      $('#accountOr', root).hidden = !providers.length || !passwords;
+      form.hidden = !passwords;
       show('login');
-      field('email').focus();
+      message.textContent = session.ssoError ?? '';
+      if (!form.hidden) field('email').focus();
     },
   };
 }
