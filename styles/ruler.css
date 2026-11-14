@@ -25,11 +25,20 @@
 .ruler[hidden] + .paper {
   margin-top: 22px;
 }
+/* Ticks run across the whole ruler from the left margin outwards, a longer one every half unit. */
 .ruler-scale {
   position: absolute;
-  inset: 0 var(--page-margin, 96px);
-  background: repeating-linear-gradient(to right, currentColor 0 1px, transparent 1px var(--ruler-tick, 12px)) left
-    bottom / 100% 4px no-repeat;
+  inset: 0;
+  background:
+    linear-gradient(to right, currentColor 1px, transparent 1px) var(--ruler-origin, 96px) calc(100% - 4px) /
+      var(--ruler-tick, 12px) 3px repeat-x,
+    linear-gradient(
+        to right,
+        transparent calc(50% - 0.5px),
+        currentColor calc(50% - 0.5px) calc(50% + 0.5px),
+        transparent calc(50% + 0.5px)
+      )
+      var(--ruler-origin, 96px) calc(100% - 4px) / var(--ruler-unit, 96px) 6px repeat-x;
 }
 .ruler-scale span {
   position: absolute;
@@ -51,10 +60,19 @@
   top: 0;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
-.ruler-marker.left,
+/* Word's left side: the hanging indent triangle sits on the left indent box; the box moves both. */
+.ruler-marker.hanging,
 .ruler-marker.right {
   bottom: 0;
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.ruler-marker.hanging {
+  bottom: 5px;
+  height: 7px;
+}
+.ruler-marker.left {
+  bottom: 0;
+  height: 4px;
 }
 .ruler-marker:hover {
   filter: brightness(1.25);

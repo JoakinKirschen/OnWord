@@ -84,8 +84,9 @@ src/
                         borders, padding) and notes (footnotes, comments, table of contents) convert
                         in both directions
   ui/                   reusable widgets shared by screens: popover, toast, theme
-  library/              the document list screen: library, templates, importer (files), backup,
-                        sharing
+  library/              the document list screen: library, templates (the built-in ones), templateBand
+                        (the templates band: using, creating and managing templates), importer (files),
+                        backup, sharing
   account/              the sign-in / create-account screen
   reviews/              the site review screen, for phones and tablets: review (the screen), templates
                         (its markup), photos (shrinking photos before they are stored)
@@ -289,6 +290,14 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
 - HTML that arrives from the server is foreign, because another account may have written it: it goes
   through `sanitize()` in `remoteStore.load()`. The server stores it as it is given.
 - Version snapshots are capped at 10 per document in both stores.
+- A template is a document with `template: true` in its metadata (column `documents.template` on the
+  server), so it is edited, renamed, shared, backed up and deleted like any document; the library lists
+  it in the templates band instead of with the documents, and the editor shows a "Template" badge. Using
+  it creates an ordinary document from its content, page setup and styles (`library.new` with its id;
+  on a server store it is `load()`ed first). The built-in templates (`library/templates.js`) cannot be
+  changed or deleted; "Edit a copy" makes a stored template of one. "Save as template" is
+  `duplicate(id, { title, template: true })`; a copy of a template is a template. A server copy is
+  queued under both ids, so the copy is not loaded, saved or copied before the server has made it.
 - Specifications (`core/spec/`) are a separate kind of data from documents, with their own store
   interface (`SpecStore` in `core/spec/model.js`), which is asynchronous: every call goes to the store,
   and the workspace keeps the open specification in memory and saves changed articles after a short
@@ -398,6 +407,10 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   writes them; a ballot box in ordinary text (a form's options in a table) stays text.
 - The app's "Title" is `<h1>`, "Subtitle" is `<p class="subtitle">` and "Heading 1–4" are `<h2>`–`<h5>`;
   Word's Title/Subtitle/Heading 1–4 styles map to those in both directions.
+- The ruler follows Word's: numbers every inch (Letter, Legal) or centimetre (A4) counted outwards from
+  the left margin, ticks every ⅛ in or ¼ cm, and Word's four markers — first line, hanging (moves the
+  other lines, the first stays), the left indent box (moves both) and right. Markers snap to the ticks;
+  Alt drags freely. Indents are stored to 1/100 px so centimetre positions survive as whole twips.
 - Paragraph formatting lives in the block's inline style: `text-align`, `line-height`, `margin-left` /
   `margin-right` / `text-indent` in px (the ruler's unit) and `margin-top` / `margin-bottom` in pt. Use
   `selectedBlocks()`, `indentsOf()` and `setIndents()` from `editor/blocks.js` rather than

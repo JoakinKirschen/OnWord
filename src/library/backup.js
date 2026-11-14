@@ -1,4 +1,4 @@
-/** Backup of every document as one JSON file, and restoring from such a file. */
+/** Backup of every document and template as one JSON file, and restoring from such a file. */
 
 import { sanitize } from '../core/html.js';
 import { normalizeStyles } from '../core/docStyles.js';
@@ -10,15 +10,20 @@ const MAX_TITLE = 120;
 
 /**
  * @typedef {{ title: string, snippet: string, page?: import('../core/page.js').PageSetup,
- *   styles?: import('../core/docStyles.js').StyleOverrides, html: string }} BackupDocument
+ *   styles?: import('../core/docStyles.js').StyleOverrides, template?: boolean, html: string }} BackupDocument
  * @typedef {{ format: string, version: number, exportedAt: string, documents: BackupDocument[] }} Backup
  */
 
 /** @param {import('../core/storage.js').DocumentStore} store @returns {Backup} */
 export function createBackup(store) {
-  const documents = store
-    .index()
-    .map(({ id, title, snippet, page, styles }) => ({ title, snippet, page, styles, html: store.read(id) }));
+  const documents = store.index().map(({ id, title, snippet, page, styles, template }) => ({
+    title,
+    snippet,
+    page,
+    styles,
+    ...(template && { template }),
+    html: store.read(id),
+  }));
   return { format: FORMAT, version: VERSION, exportedAt: new Date().toISOString(), documents };
 }
 
@@ -41,6 +46,7 @@ export function restoreBackup(store, backup) {
       snippet: String(doc.snippet || ''),
       page: doc.page && normalizePage(doc.page),
       styles: doc.styles && normalizeStyles(doc.styles),
+      template: doc.template === true,
     });
     if (!created) break; // storage is full; the store has already reported it
     restored++;

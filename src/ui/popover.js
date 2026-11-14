@@ -1,6 +1,10 @@
 import { hit, targetOf } from '../core/dom.js';
 import { esc } from '../core/html.js';
 
+/** The "more options" icon of buttons that open a menu. */
+export const MORE_ICON =
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+
 /** Markup for a menu. Items: `'-'` (separator) or `{ label, act, arg?, key?, danger? }`. */
 export const menuHtml = (items) =>
   items
