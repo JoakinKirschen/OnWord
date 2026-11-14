@@ -80,6 +80,20 @@ test('copyArticles keeps the structure across gaps and remembers the source', ()
   );
 });
 
+test('copyArticles adds to a project: under earlier copies, and nothing twice', () => {
+  let n = 0;
+  const project = [{ ...article('p1', '10'), sourceId: 'a' }];
+  const copies = copyArticles(TREE, ['a', 'c', 'e', 'b'], () => `new${++n}`, project);
+  assert.deepEqual(
+    copies.map((c) => [c.id, c.parentId, c.sourceId]),
+    [
+      ['new1', null, 'b'],
+      ['new2', 'p1', 'c'],
+      ['new3', 'p1', 'e'],
+    ],
+  );
+});
+
 test('quantities and amounts', () => {
   const measured = article('m', '1', null, {
     unit: 'm²',

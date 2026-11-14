@@ -107,9 +107,11 @@ test('a project takes articles from a master and shows where it differs', async 
   await newMaster(page, 'Standard');
   await addArticle(page, { title: 'Earthworks', text: 'Master text.' });
   await addArticle(page, { child: true, title: 'Trench', unit: 'm' });
+  assert.ok(await page.isHidden('#specTabs'), 'a master has nothing to pick from');
   await page.click('#articleTree .tree-item >> nth=0');
   await page.click('.spec-tree-tools [data-act="spec.addArticle"]');
   await page.fill(field('title'), 'Roofing');
+  await addArticle(page, { child: true, title: 'Tiles' });
   await saved(page);
 
   await page.click('.spec-bar .brand');
@@ -122,6 +124,7 @@ test('a project takes articles from a master and shows where it differs', async 
     '1 Earthworks',
     '1.1 Trench',
     '2 Roofing',
+    '2.1 Tiles',
   ]);
   await page.uncheck('#projectArticles label:has-text("Roofing") input');
   await page.click('#projectDlg .primary');
@@ -134,6 +137,39 @@ test('a project takes articles from a master and shows where it differs', async 
     ['1\nEarthworks', '1.1\nTrench'],
     'only the chosen articles, with their structure',
   );
+
+  // The Master tab adds what was left out, under the copies the project already has.
+  await page.click('[data-act="spec.side"][data-arg="master"]');
+  assert.ok(await page.isHidden('#articleTree'));
+  const picks = page.locator('#masterTree .pick-item');
+  assert.deepEqual(await picks.allInnerTexts(), [
+    '1\nEarthworks\nin project',
+    '1.1\nTrench\nin project',
+    '2\nRoofing',
+    '2.1\nTiles',
+  ]);
+  assert.ok(
+    await page.isDisabled('#masterTree input[value]:checked >> nth=0'),
+    'what the project has cannot be added again',
+  );
+  assert.ok(await page.isDisabled('#masterAdd'));
+  await page.check('#masterTree .pick-item:has-text("Tiles") input');
+  assert.ok(await page.isChecked('#masterTree .pick-item:has-text("Roofing") input'), 'with the article above it');
+  assert.equal(await page.textContent('#masterAdd'), 'Add to project (2)');
+  await page.click('#masterAdd');
+  assert.ok(await page.isVisible('#articleTree'), 'back on the project once added');
+  assert.deepEqual(await tree(page), ['1\nEarthworks', '1.1\nTrench', '2\nRoofing', '2.1\nTiles']);
+  assert.equal(await page.inputValue(field('title')), 'Roofing', 'the first added article is opened');
+  assert.equal(await page.textContent('#articleSource'), 'Same as the master specification.');
+  await saved(page);
+  await page.reload();
+  await page.waitForSelector('#specView:not([hidden])');
+  assert.deepEqual(await tree(page), ['1\nEarthworks', '1.1\nTrench', '2\nRoofing', '2.1\nTiles'], 'stored');
+  await page.click('[data-act="spec.side"][data-arg="master"]');
+  assert.equal(await page.locator('#masterTree .pick-item.present').count(), 4);
+  await page.click('[data-act="spec.side"][data-arg="project"]');
+  await page.click('#articleTree .tree-item >> nth=2');
+  await page.click('[data-act="spec.deleteArticle"]');
   await page.click('#articleTree .tree-item >> nth=0');
   assert.equal(await page.textContent('#articleSource'), 'Same as the master specification.');
 

@@ -113,12 +113,17 @@ export function suggestNumber(/** @type {Article[]} */ articles, /** @type {stri
  * @param {Article[]} articles the master's articles
  * @param {Iterable<string>} chosenIds
  * @param {() => string} makeId
+ * @param {Article[]} [existing] what the project already has: a master article copied before is not copied
+ *   again, and new copies hang under the earlier copies of their ancestors
  * @returns {Article[]}
  */
-export function copyArticles(articles, chosenIds, makeId) {
-  const chosen = new Set(chosenIds);
+export function copyArticles(articles, chosenIds, makeId, existing = []) {
+  /** @type {Map<string, string>} master id → id of its copy */
+  const earlier = new Map(existing.filter((a) => a.sourceId).map((a) => [a.sourceId, a.id]));
+  const chosen = new Set([...chosenIds].filter((id) => !earlier.has(id)));
   const byId = new Map(articles.map((a) => [a.id, a]));
-  const copies = new Map(articles.filter((a) => chosen.has(a.id)).map((a) => [a.id, makeId()]));
+  const copies = new Map(earlier);
+  for (const a of articles) if (chosen.has(a.id)) copies.set(a.id, makeId());
   const nearest = (/** @type {string | null} */ id) => {
     for (let at = byId.get(id); at; at = byId.get(at.parentId)) if (copies.has(at.id)) return copies.get(at.id);
     return null;
