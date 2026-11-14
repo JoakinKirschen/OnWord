@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="styles/images.css">
 <link rel="stylesheet" href="styles/history.css">
 <link rel="stylesheet" href="styles/review.css">
+<link rel="stylesheet" href="styles/reviews.css">
 <link rel="stylesheet" href="styles/print.css">
 </head>
 <body>
@@ -108,6 +109,29 @@
 </div>
 
 <!-- ───────────── Specifications: workspace ───────────── -->
+<div id="reviewView" class="view review-view" hidden>
+  <header class="review-bar">
+    <a id="reviewBack" class="icon-btn" href="#/specs" title="Back to the project" aria-label="Back to the project">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <div class="review-head">
+      <h1 id="reviewTitle">Site review</h1>
+      <span id="reviewProject"></span>
+    </div>
+    <span id="reviewState" class="save-state" aria-live="polite"></span>
+  </header>
+  <main id="reviewBody" class="review-body"></main>
+  <footer class="review-actions">
+    <button class="btn" data-act="site.addObservation">+ Observation</button>
+    <button class="btn primary" data-act="site.report">Create report</button>
+  </footer>
+  <input id="photoInput" type="file" accept="image/*" multiple hidden>
+  <datalist id="weatherOptions">
+    <option value="Sunny"></option><option value="Cloudy"></option><option value="Rain"></option>
+    <option value="Wind"></option><option value="Snow"></option><option value="Frost"></option>
+  </datalist>
+</div>
+
 <div id="specView" class="view" hidden>
   <header class="spec-bar">
     <a class="brand" href="#/specs" title="All specifications" aria-label="All specifications"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="currentColor"/><path d="M10 10h12M10 16h12M10 22h7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></a>
@@ -126,6 +150,7 @@
       <button class="btn sm" data-act="spec.view" data-arg="quantities">Bill of quantities</button>
       <button class="btn sm" data-act="spec.view" data-arg="prices">Prices</button>
       <button class="btn sm" data-act="spec.view" data-arg="offers">Offers</button>
+      <button class="btn sm" data-act="spec.view" data-arg="reviews">Site reviews</button>
       <button class="btn sm" data-act="spec.compose" title="Make a document of this specification, to print or export">Create document</button>
     </div>
   </header>
@@ -154,6 +179,7 @@
     <section id="quantitiesPanel" class="spec-panel" hidden></section>
     <section id="pricesPanel" class="spec-panel" hidden></section>
     <section id="offersPanel" class="spec-panel" hidden></section>
+    <section id="reviewsPanel" class="spec-panel" hidden></section>
   </div>
   <dialog id="removeDlg" class="dlg wide" aria-labelledby="removeTitle">
     <form method="dialog">

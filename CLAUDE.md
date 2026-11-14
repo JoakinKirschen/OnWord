@@ -58,11 +58,12 @@ index.html              static markup for both screens; no inline scripts or han
 api/                    server part (PHP 8.1+, PDO; MySQL/MariaDB in production, SQLite in tests)
   index.php             the only entry point: route table, session, CSRF check, error handling
   lib/                  http (JSON, session, CSRF), db (connection, schema), auth, documents, specs,
-                        prices, offers, ai (the AI reader: calls the Claude API)
+                        prices, offers, reviews (site reviews and their photos), ai (the AI reader:
+                        calls the Claude API)
   config.sample.php     copied to config.php on the host; config.php is never committed or packaged
 styles/                 one stylesheet per area, linked from index.html (base, library, editor, document,
-                        account, specs, offers, overlays, outline, ruler, page, find, images,
-                        history, review, print)
+                        account, specs, offers, reviews (site reviews), overlays, outline, ruler,
+                        page, find, images, history, review (comments, changes), print)
 src/
   main.js               composition root: creates services, wires them, routes. Nothing imports it.
   core/                 no UI, no knowledge of screens: dom, events, commands, html (escape/sanitise),
@@ -73,7 +74,9 @@ src/
     spec/               specifications: model (articles, tree, numbering, quantities), formula
                         (measurement arithmetic), output (document and CSV), prices (price library),
                         offers (reading, matching and comparing contractors' offers), aiReader
-                        (client of the server's AI reader), localStore, remoteStore
+                        (client of the server's AI reader), reviews (site reviews: visits with
+                        observations and photos), reviewOutput (a review as a report document),
+                        localStore, remoteStore
     docx/               Word import/export: reader (+ runs, styles, xml) and writer (+ inline,
                         parts); paragraph, section, docStyles (styles.xml), numbering (lists), tables (+ cells: widths,
                         borders, padding) and notes (footnotes, comments, table of contents) convert
@@ -82,11 +85,14 @@ src/
   library/              the document list screen: library, templates, importer (files), backup,
                         sharing
   account/              the sign-in / create-account screen
+  reviews/              the site review screen, for phones and tablets: review (the screen), templates
+                        (its markup), photos (shrinking photos before they are stored)
   specs/                the specification screens: list (+ new-project dialog), workspace (article
                         tree, article form, bill of quantities), articleText (editing an article's
                         text), masterPicker (a project's Master / Project sidebar tabs), articleChanges
                         (+ removal: taking articles out, with its warning, and bringing them in),
-                        outputs (CSV, document), templates (their markup), prices
+                        outputs (CSV, document), views (the workspace's tabs), siteReviews (a
+                        project's list of site reviews), templates (their markup), prices
                         (price library note and view), offers (comparison of offers) and
                         offerImport (the import dialog), saver (saving the open specification)
   editor/
@@ -121,11 +127,12 @@ tools/                  development scripts (not shipped): architecture check, s
 | `library/` | `core/`, `ui/`, `library/` |
 | `account/` | `core/`, `ui/`, `account/` |
 | `specs/` | `core/`, `ui/`, `specs/` |
+| `reviews/` | `core/`, `ui/`, `reviews/` |
 | `editor/*.js` | `core/`, `ui/`, `editor/` |
 | `editor/features/*` | `core/`, `ui/`, `editor/*.js` — **never another feature** |
 | `main.js` | anything; nothing imports `main.js` |
 
-- `library/`, `account/`, `specs/` and `editor/` never import each other. Only `editor/editor.js` imports features.
+- `library/`, `account/`, `specs/`, `reviews/` and `editor/` never import each other. Only `editor/editor.js` imports features.
 - Dependencies point downwards only. If two features need the same code, move it down a layer
   (`editor/` helper, `ui/`, or `core/`); do not import sideways.
 
@@ -138,7 +145,8 @@ Features are decoupled. They share exactly three channels:
    `data-act="name"` (optional `data-arg`) runs that command on click — that is how buttons and menu items
    are wired, so never add per-button click handlers for actions.
    Names are `area.verb`: `app.*`, `library.*`, `file.*`, `edit.*`, `format.*`, `insert.*`, `table.*`,
-   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*`, `account.*`, `spec.*`. Registering a duplicate name throws.
+   `link.*`, `image.*`, `find.*`, `view.*`, `history.*`, `page.*`, `review.*` (comments and tracked
+   changes), `account.*`, `spec.*`, `site.*` (site reviews). Registering a duplicate name throws.
 2. **Events** (`ctx.events`) — notifications a feature may react to: `open`, `input`, `change`,
    `selection`, `dismiss`, `layout`, `pages`. They are documented at the top of `editor/editor.js`; add new ones there.
 3. **`ctx`** — the context object every feature receives: `root`, `content`, `scroller`, `selection`,
@@ -292,6 +300,19 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   number, then by a title only one article has. Lines that match nothing are kept with the offer and
   shown, never dropped silently. Amounts are compared for the project's own quantities; a contractor's
   different quantity is marked. "Use prices" copies an offer's unit prices into the project.
+- Site reviews are visits to a project's site (`core/spec/reviews.js`), stored per project like offers
+  (`reviews()` / `saveReview()` on the spec store; table `reviews` on the server, owner only). A review
+  holds the visit (date, attendees, weather, notes) and observations: location, status (OK, remark,
+  defect), text, an optional project article, photos and follow-up (action, due date, done). A new review
+  takes over the open observations (not OK, not done) of the latest one, without their photos, and
+  remembers in `from` the review that first noted them. Photos are shrunk in the browser
+  (`reviews/photos.js`) to JPEG data URLs and stored apart from the review (`savePhoto()` / `photos()`;
+  table `review_photos`), each once, before the review refers to it; saving a review drops the photos
+  it no longer refers to. Anything shown as a photo must pass `isPhotoData()` (JPEG or PNG data URL), and
+  the server accepts nothing else. The review screen (`#/r/<project>/<review>`) is laid out for a phone:
+  one column, 44px targets, 16px fields (larger ones keep phones from zooming in), actions fixed at the
+  bottom. "Create report" makes an ordinary document (`reviewToHtml()`) with smaller copies of the
+  photos, which then has the editor's Word, PDF and HTML export.
 - The AI reader is for what the spreadsheet reader cannot do: PDFs and unusual layouts. The browser sends
   the file (a PDF as base64, a sheet as tab-separated text) to `ai/read`; the server adds the project's
   articles from the database and asks Claude for the priced lines as JSON (structured outputs), each with

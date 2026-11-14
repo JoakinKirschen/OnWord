@@ -483,6 +483,77 @@ test(
   },
 );
 
+/** Calls the API from a signed-in page, as the app does: JSON, with the session's security token. */
+const call = (page, route, body) =>
+  page.evaluate(
+    async ([r, b]) => {
+      const me = await (await fetch('api/index.php?r=auth/me')).json();
+      const init = b
+        ? {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': me.csrf },
+            body: JSON.stringify(b),
+          }
+        : {};
+      const response = await fetch(`api/index.php?r=${r}`, init);
+      return [response.status, await response.json()];
+    },
+    [route, body],
+  );
+
+test('site reviews and their photos on the server, for the project owner only', { skip: !hasPhp }, async () => {
+  const PHOTO =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const owner = await visitor();
+  await register(owner, 'Sam', email('sam'));
+  await owner.waitForSelector('#home:not([hidden])');
+  const [, { spec }] = await call(owner, 'specs/create', { id: 'projectsam1', kind: 'project', title: 'Site' });
+  const review = {
+    id: 'reviewsam1',
+    number: 1,
+    date: '2026-11-14',
+    attendees: 'Sam',
+    observations: [
+      { id: 'obs00001', location: 'Hall', status: 'defect', photos: [{ id: 'photo0001', caption: 'crack' }] },
+      { id: 'obs00002', status: 'nonsense', due: 'soon', photos: [{ id: 'bad id!' }] },
+    ],
+  };
+  assert.deepEqual(await call(owner, 'reviews/save', { specId: spec.id, review }), [200, { ok: true }]);
+  const photo = (id, data) => ({ specId: spec.id, reviewId: review.id, id, data });
+  assert.deepEqual(await call(owner, 'photos/add', photo('photo0001', PHOTO)), [200, { ok: true }]);
+  assert.deepEqual((await call(owner, 'photos/add', photo('photo0002', 'data:text/html;base64,PGI+')))[0], 400);
+
+  const [, { reviews }] = await call(owner, `reviews/list&specId=${spec.id}`);
+  assert.equal(reviews.length, 1);
+  assert.deepEqual(
+    reviews[0].observations.map((o) => [o.status, o.due, o.photos]),
+    [
+      ['defect', '', [{ id: 'photo0001', caption: 'crack' }]],
+      ['remark', '', []],
+    ],
+    'what the server keeps is cleaned',
+  );
+  const photos = (page) => call(page, `photos/list&specId=${spec.id}&reviewId=${review.id}`);
+  assert.deepEqual(await photos(owner), [200, { photos: { photo0001: PHOTO } }]);
+
+  // Another account sees none of it, as if it did not exist.
+  const other = await visitor();
+  await register(other, 'Tom', email('tom'));
+  await other.waitForSelector('#home:not([hidden])');
+  assert.equal((await call(other, `reviews/list&specId=${spec.id}`))[0], 404);
+  assert.equal((await photos(other))[0], 404);
+  assert.equal((await call(other, 'reviews/save', { specId: spec.id, review }))[0], 404);
+  assert.equal((await call(other, 'reviews/delete', { specId: spec.id, id: review.id }))[0], 404);
+
+  // A photo the review no longer refers to is dropped; deleting the review takes its photos along.
+  const without = { ...review, observations: [{ ...review.observations[0], photos: [] }] };
+  await call(owner, 'reviews/save', { specId: spec.id, review: without });
+  assert.deepEqual(await photos(owner), [200, { photos: {} }]);
+  assert.deepEqual(await call(owner, 'reviews/delete', { specId: spec.id, id: review.id }), [200, { ok: true }]);
+  assert.equal((await photos(owner))[0], 404);
+  assert.deepEqual([...owner.errors, ...other.errors], []);
+});
+
 test('an older database gets the columns added since', { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG }, () => {
   const file = join(mkdtempSync(join(tmpdir(), 'onword-upgrade-')), 'old.sqlite');
   // The documents and articles tables as schema version 3 created them.

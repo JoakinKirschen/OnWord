@@ -15,7 +15,7 @@ const MAX_LINES = 250;
 function layerOf(file) {
   if (file === 'main.js') return 'main';
   if (file.startsWith('editor/features/')) return 'feature';
-  return file.split('/')[0]; // core | ui | library | account | specs | editor
+  return file.split('/')[0]; // core | ui | library | account | specs | reviews | editor
 }
 
 /** Which layers each layer may import from. */
@@ -25,9 +25,10 @@ const ALLOWED = {
   library: ['core', 'ui', 'library'],
   account: ['core', 'ui', 'account'],
   specs: ['core', 'ui', 'specs'],
+  reviews: ['core', 'ui', 'reviews'],
   editor: ['core', 'ui', 'editor', 'feature'], // only editor.js may import features (checked below)
   feature: ['core', 'ui', 'editor'], // never another feature
-  main: ['core', 'ui', 'library', 'account', 'specs', 'editor'],
+  main: ['core', 'ui', 'library', 'account', 'specs', 'reviews', 'editor'],
 };
 
 const walk = (dir) =>

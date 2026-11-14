@@ -16,6 +16,7 @@ import { createEditor } from './editor/editor.js';
 import { initImporter } from './library/importer.js';
 import { createLibrary } from './library/library.js';
 import { initSharing } from './library/sharing.js';
+import { createReviewScreen } from './reviews/review.js';
 import { createSpecList } from './specs/list.js';
 import { createWorkspace } from './specs/workspace.js';
 import { createPopover } from './ui/popover.js';
@@ -65,22 +66,32 @@ function startApp(store, specStore, user, aiReader = null) {
   const specDeps = { specStore, commands, toast, navigate };
   const specList = createSpecList({ root: $('#specsHome', document), dialog: $('#projectDlg', document), ...specDeps });
   const workspace = createWorkspace({ root: $('#specView', document), documents: store, aiReader, ...specDeps });
+  const review = createReviewScreen({ root: $('#reviewView', document), documents: store, ...specDeps });
   let navigation = 0;
 
+  /** Opens what a hash names; resolves to whether it exists. */
+  function open(/** @type {string} */ kind, /** @type {string} */ id, /** @type {string} */ sub) {
+    if (kind === 'd') return store.load(id).then((ok) => ok && editor.open(id));
+    if (kind === 's') return workspace.open(id, sub);
+    if (kind === 'r') return review.open(id, sub);
+    return Promise.resolve(false);
+  }
+
   /**
-   * Shows the screen named by the URL hash: `#/d/<id>` a document, `#/s/<id>` a specification,
-   * `#/specs` the list of specifications, anything else the library.
+   * Shows the screen named by the URL hash: `#/d/<id>` a document, `#/s/<id>` a specification (and
+   * `#/s/<id>/<view>` one of its views), `#/r/<project id>/<review id>` a site review, `#/specs` the list
+   * of specifications, anything else the library.
    */
   async function route() {
     const turn = ++navigation;
     popover.close();
     editor.close();
-    await workspace.hide();
-    const [, kind, id] = location.hash.match(/^#\/([ds])\/([\w-]+)$/) ?? [];
+    await Promise.all([workspace.hide(), review.hide()]);
+    const [, kind, id, sub = ''] = location.hash.match(/^#\/([dsr])\/([\w-]+)(?:\/([\w-]+))?$/) ?? [];
     // A server store has to fetch the content before it can be shown.
-    const found = kind === 'd' ? (await store.load(id)) && editor.open(id) : kind === 's' && (await workspace.open(id));
+    const found = await open(kind, id, sub);
     if (turn !== navigation) return; // the user has moved on meanwhile
-    const specs = kind === 's' || location.hash.startsWith('#/specs');
+    const specs = kind === 's' || kind === 'r' || location.hash.startsWith('#/specs');
     if (kind && !found) history.replaceState(null, '', specs ? '#/specs' : '#/');
     if (found || specs) library.hide();
     else library.show();
@@ -90,7 +101,10 @@ function startApp(store, specStore, user, aiReader = null) {
 
   commands.register({
     async 'account.signOut'() {
-      if ((store.pending() || workspace.pending()) && !confirm('Some changes are not saved yet. Sign out anyway?'))
+      if (
+        (store.pending() || workspace.pending() || review.pending()) &&
+        !confirm('Some changes are not saved yet. Sign out anyway?')
+      )
         return;
       await api.post('auth/logout');
       location.replace(location.pathname);
@@ -105,7 +119,8 @@ function startApp(store, specStore, user, aiReader = null) {
   addEventListener('beforeunload', (e) => {
     editor.saveNow();
     workspace.hide();
-    if (store.pending() || workspace.pending()) e.preventDefault(); // asks before leaving with unsaved work
+    review.hide();
+    if (store.pending() || workspace.pending() || review.pending()) e.preventDefault(); // asks before leaving with unsaved work
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) editor.saveNow();

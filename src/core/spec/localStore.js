@@ -1,6 +1,7 @@
 import { newId } from '../ids.js';
 import { copyArticles, subtree } from './model.js';
 import { collectPrices } from './prices.js';
+import { normalizeReview, photoIds } from './reviews.js';
 
 const KEY = 'onword:specs';
 
@@ -12,13 +13,14 @@ const KEY = 'onword:specs';
 export function createLocalSpecStore({ storage }) {
   /**
    * @returns {{ specs: import('./model.js').Spec[], articles: Record<string, import('./model.js').Article[]>,
-   *   offers: Record<string, import('./offers.js').Offer[]> }}
+   *   offers: Record<string, import('./offers.js').Offer[]>, reviews: Record<string, import('./reviews.js').SiteReview[]>,
+   *   photos: Record<string, Record<string, string>> }} `photos`: per review, image by photo id
    */
   function read() {
     try {
-      return { specs: [], articles: {}, offers: {}, ...JSON.parse(storage.getItem(KEY)) };
+      return { specs: [], articles: {}, offers: {}, reviews: {}, photos: {}, ...JSON.parse(storage.getItem(KEY)) };
     } catch {
-      return { specs: [], articles: {}, offers: {} };
+      return { specs: [], articles: {}, offers: {}, reviews: {}, photos: {} };
     }
   }
   /** Applies `change` to the stored data. @template T @param {(data: ReturnType<typeof read>) => T} change */
@@ -58,6 +60,8 @@ export function createLocalSpecStore({ storage }) {
         data.specs = data.specs.filter((s) => s.id !== id);
         delete data.articles[id];
         delete data.offers[id];
+        for (const review of data.reviews[id] ?? []) delete data.photos[review.id];
+        delete data.reviews[id];
       }),
     saveArticle: async (specId, article) =>
       update((data) => {
@@ -89,6 +93,27 @@ export function createLocalSpecStore({ storage }) {
     removeOffer: async (specId, offerId) =>
       update((data) => {
         data.offers[specId] = (data.offers[specId] ?? []).filter((o) => o.id !== offerId);
+      }),
+    reviews: async (specId) => (read().reviews[specId] ?? []).map(normalizeReview),
+    saveReview: async (specId, review) =>
+      update((data) => {
+        const list = (data.reviews[specId] ??= []);
+        const index = list.findIndex((r) => r.id === review.id);
+        if (index < 0) list.push(review);
+        else list[index] = review;
+        const used = photoIds(review);
+        const photos = data.photos[review.id] ?? {};
+        data.photos[review.id] = Object.fromEntries(Object.entries(photos).filter(([id]) => used.has(id)));
+      }),
+    removeReview: async (specId, reviewId) =>
+      update((data) => {
+        data.reviews[specId] = (data.reviews[specId] ?? []).filter((r) => r.id !== reviewId);
+        delete data.photos[reviewId];
+      }),
+    photos: async (_specId, reviewId) => read().photos[reviewId] ?? {},
+    savePhoto: async (_specId, reviewId, { id, data: image }) =>
+      update((data) => {
+        (data.photos[reviewId] ??= {})[id] = image;
       }),
   };
 }

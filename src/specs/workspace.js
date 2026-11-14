@@ -9,6 +9,8 @@ import { createOffers } from './offers.js';
 import { initOutputs } from './outputs.js';
 import { createPriceLibrary } from './prices.js';
 import { createSaver } from './saver.js';
+import { createSiteReviews } from './siteReviews.js';
+import { createViews } from './views.js';
 import { articleHtml, linesHtml, number, quantitiesHtml, sourceHtml, totalsText, treeHtml } from './templates.js';
 
 const NOTHING = '<p class="spec-empty">Choose an article in the list, or add one.</p>';
@@ -30,9 +32,6 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   const doc = root.ownerDocument;
   const tree = $('#articleTree', root),
     panel = $('#articlePanel', root),
-    quantities = $('#quantitiesPanel', root),
-    pricesPanel = $('#pricesPanel', root),
-    offersPanel = $('#offersPanel', root),
     search = $('#articleSearch', root),
     state = $('#specState', root);
   const inputs = { title: $('#specTitle', root), phase: $('#specPhase', root), lot: $('#specLot', root) };
@@ -44,7 +43,17 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
   /** Master articles by id, to tell whether a project article still matches. @type {Map<string, import('../core/spec/model.js').Article>} */
   let sources = new Map();
   let selectedId = null;
-  const views = { articles: panel, quantities, prices: pricesPanel, offers: offersPanel };
+  const views = createViews({
+    root,
+    commands,
+    panels: {
+      articles: ['#articlePanel', null],
+      quantities: ['#quantitiesPanel', () => quantitiesHtml(articles)],
+      prices: ['#pricesPanel', () => library.viewHtml()],
+      offers: ['#offersPanel', () => offers.viewHtml()],
+      reviews: ['#reviewsPanel', () => siteReviews.viewHtml()],
+    },
+  });
 
   const selected = () => articles.find((a) => a.id === selectedId);
   const editable = () => !!spec?.mine;
@@ -89,6 +98,9 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     },
   });
 
+  const redraw = () => views.show('reviews');
+  const siteReviews = createSiteReviews({ specStore, commands, toast, navigate, target, redraw });
+
   function drawTree() {
     tree.innerHTML = treeHtml(articles, { selectedId, filter: search.value, sources });
   }
@@ -111,34 +123,25 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     article.lines.forEach((line, i) => ($(`[data-result="${i}"]`, panel).textContent = number(evaluate(line.formula))));
     library.drawNote($('#articleLibrary', panel), article);
   }
-  function show(/** @type {keyof typeof views} */ view) {
-    for (const [name, element] of Object.entries(views)) element.hidden = name !== view;
-    if (view === 'quantities') quantities.innerHTML = quantitiesHtml(articles);
-    if (view === 'prices') pricesPanel.innerHTML = library.viewHtml();
-    if (view === 'offers') offersPanel.innerHTML = offers.viewHtml();
-    for (const tab of $$('[data-act="spec.view"]', root)) tab.classList.toggle('on', tab.dataset.arg === view);
-  }
   /** Gives articles a new unit price and redraws what shows it. */
   function setPrices(/** @type {[import('../core/spec/model.js').Article, number][]} */ prices) {
     for (const [article, price] of prices) {
       article.price = price;
       changed(article.id);
     }
-    const current = /** @type {keyof typeof views} */ (Object.keys(views).find((name) => !views[name].hidden));
-    if (current === 'articles') drawArticle();
-    else show(current);
+    if (views.current() === 'articles') drawArticle();
+    else views.show(views.current());
   }
 
   function select(/** @type {string | null} */ id) {
     selectedId = id;
-    show('articles');
+    views.show('articles');
     drawTree();
     drawArticle();
   }
 
   commands.register({
     'spec.select': select,
-    'spec.view': (view) => show(Object.hasOwn(views, view) ? view : 'articles'),
     /** Adds an article at the top level, or with `where` "child" under the selected one. */
     'spec.addArticle'(where) {
       if (!editable()) return toast('Only the owner can change this specification.');
@@ -203,7 +206,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
 
   return {
     /** Loads and shows a specification. Resolves to false when it does not exist. */
-    async open(/** @type {string} */ id) {
+    async open(/** @type {string} */ id, /** @type {string} */ shown = '') {
       const loaded = await specStore.get(id);
       if (!loaded) return false;
       spec = loaded.spec;
@@ -213,6 +216,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
         spec.masterId ? specStore.get(spec.masterId).catch(() => null) : null,
         library.load(),
         offers.load(),
+        siteReviews.load(),
       ]);
       sources = new Map((master?.articles ?? []).map((a) => [a.id, a]));
       for (const [name, input] of Object.entries(inputs)) {
@@ -220,7 +224,8 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
         input.disabled = !spec.mine;
       }
       $('#specKind', root).textContent = spec.kind === 'master' ? 'Master specification' : 'Project';
-      $('#specProject', root).hidden = $('[data-arg="offers"]', root).hidden = spec.kind !== 'project';
+      const projectOnly = $$('#specProject, [data-arg="offers"], [data-arg="reviews"]', root);
+      for (const element of projectOnly) element.hidden = spec.kind !== 'project';
       $('#specReadOnly', root).hidden = spec.mine;
       state.textContent = '';
       search.value = '';
@@ -228,6 +233,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       root.hidden = false;
       doc.title = spec.title + ' – OnWord';
       select(null);
+      if (views.has(shown)) views.show(shown);
       return true;
     },
     /** Hides the workspace, saving first. */
