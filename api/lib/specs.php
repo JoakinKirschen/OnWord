@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 const MAX_LINES = 500;
 const SPEC_COLUMNS = 's.id, s.owner_id, s.kind, s.title, s.master_id, s.phase, s.lot, s.updated_at';
-const ARTICLE_COLUMNS = 'id, parent_id, number, title, unit, html, source_id, line_data, price';
+const ARTICLE_COLUMNS = 'id, parent_id, number, title, unit, html, source_id, line_data, price, removed';
 
 function spec_out(array $row, array $user): array
 {
@@ -37,6 +37,7 @@ function article_out(array $row): array
         'sourceId' => $row['source_id'],
         'lines' => json_decode($row['line_data'], true) ?: [],
         'price' => (float) $row['price'],
+        'removed' => (bool) $row['removed'],
     ];
 }
 
@@ -188,15 +189,16 @@ function articles_save(PDO $db, array $user, array $in, array $config): array
         empty($a['sourceId']) ? null : doc_id($a, 'sourceId'),
         clean_lines($a['lines'] ?? []),
         (float) ($a['price'] ?? 0),
+        empty($a['removed']) ? 0 : 1,
     ];
     $owner = run($db, 'SELECT spec_id FROM articles WHERE id = ?', [$id])->fetchColumn();
     if ($owner !== false && $owner !== $specId) {
         fail(409, 'exists', 'This article belongs to another specification.');
     }
     if ($owner === false) {
-        run($db, 'INSERT INTO articles (parent_id, number, title, unit, html, source_id, line_data, price, id, spec_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [...$values, $id, $specId]);
+        run($db, 'INSERT INTO articles (parent_id, number, title, unit, html, source_id, line_data, price, removed, id, spec_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [...$values, $id, $specId]);
     } else {
-        run($db, 'UPDATE articles SET parent_id = ?, number = ?, title = ?, unit = ?, html = ?, source_id = ?, line_data = ?, price = ? WHERE id = ?', [...$values, $id]);
+        run($db, 'UPDATE articles SET parent_id = ?, number = ?, title = ?, unit = ?, html = ?, source_id = ?, line_data = ?, price = ?, removed = ? WHERE id = ?', [...$values, $id]);
     }
     touch_spec($db, $specId);
     return ['ok' => true];

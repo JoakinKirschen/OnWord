@@ -3,6 +3,7 @@
 const SAVE_DELAY_MS = 500;
 
 /**
+ * @typedef {ReturnType<typeof createSaver>} Saver
  * @typedef {object} SaverDeps
  * @property {import('../core/spec/model.js').SpecStore} specStore
  * @property {HTMLElement} state the indicator that says "Saving…", "Saved" or "Not saved"

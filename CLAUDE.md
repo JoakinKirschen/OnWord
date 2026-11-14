@@ -84,8 +84,9 @@ src/
   account/              the sign-in / create-account screen
   specs/                the specification screens: list (+ new-project dialog), workspace (article
                         tree, article form, bill of quantities), articleText (editing an article's
-                        text), masterPicker (a project's Master / Project sidebar tabs), templates
-                        (their markup), prices
+                        text), masterPicker (a project's Master / Project sidebar tabs), articleChanges
+                        (+ removal: taking articles out, with its warning, and bringing them in),
+                        outputs (CSV, document), templates (their markup), prices
                         (price library note and view), offers (comparison of offers) and
                         offerImport (the import dialog), saver (saving the open specification)
   editor/
@@ -268,10 +269,16 @@ Types are JSDoc comments checked by `tsc`; there are no `.ts` files and nothing 
   chosen master articles; `sourceId` remembers the original so the workspace can show where a project
   differs and reset an article to the master text. Copies keep the tree even when a level in between was
   not chosen (`copyArticles()` in the browser, `copy_master_articles()` on the server — keep them alike).
-  Later, the Master tab of a project's sidebar adds more master articles: `copyArticles()` with the
-  project's articles as `existing` skips what the project already has and hangs the new copies under
-  the earlier copies of their ancestors; ticking an article there also ticks the ancestors the project
-  lacks. These copies are saved one by one like any other article.
+  Later, the Master tab of a project's sidebar changes which master articles the project has: its boxes
+  are ticked where the project has a copy, ticking also ticks what is under an article and the articles
+  above it, unticking unticks what is under it, and "Apply" adds and removes in one go.
+- Removing articles always takes what is under them and shows the warning in `removal.js`, which lists
+  every article that goes. `planRemoval()` decides: an article from the master, and one the user added
+  under a master article that goes as well, is kept with `removed: true` (column `articles.removed` on the
+  server) so that ticking it again brings it back with its text, measurements and price
+  (`bringIn()`, which re-hangs it under the copy of its nearest master ancestor and copies the rest);
+  anything else is deleted. The workspace keeps removed articles apart from those in use; they are
+  saved like the others but never shown, measured, priced or put in the price library.
 - Articles form a tree through `parentId`. Numbers are free text set by the user; siblings are shown in
   natural number order ("2" before "10"). An article with a unit is measured: its quantity is the sum of
   its measurement lines, each an arithmetic formula (`core/spec/formula.js`, no `eval`). Only measured

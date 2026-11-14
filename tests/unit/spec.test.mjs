@@ -5,9 +5,11 @@ import { createLocalSpecStore } from '../../src/core/spec/localStore.js';
 import {
   amountOf,
   blankArticle,
+  bringIn,
   copyArticles,
   differsFromSource,
   outline,
+  planRemoval,
   quantityOf,
   subtree,
   suggestNumber,
@@ -178,4 +180,45 @@ test('local store: masters, projects built from chosen articles, removal of a br
   );
   await store.remove(project.id);
   assert.equal(await store.get(project.id), null);
+});
+
+test('planRemoval keeps what can come back from the master and deletes the rest', () => {
+  const project = [
+    { ...article('p', '10'), sourceId: 'a' },
+    { ...article('q', '10.1', 'p'), sourceId: 'c' },
+    article('own', '10.2', 'p'), // the user's, under a master article
+    article('mine', '20'), // the user's, at the top
+    article('sub', '20.1', 'mine'),
+  ];
+  const all = planRemoval(project, ['p', 'mine']);
+  assert.deepEqual([...all.gone].sort(), ['mine', 'own', 'p', 'q', 'sub']);
+  assert.deepEqual(
+    all.kept.map((a) => a.id),
+    ['p', 'q', 'own'],
+    'the own article goes with its master article',
+  );
+  assert.deepEqual(all.deleted, ['mine'], 'one deletion takes what is under it along');
+  const alone = planRemoval(project, ['own']);
+  assert.deepEqual([alone.kept, alone.deleted], [[], ['own']], 'nothing would bring it back while p stays');
+});
+
+test('bringIn restores removed copies as they were, under the right parent, and copies the rest', () => {
+  let n = 0;
+  const removed = [
+    { ...article('q', '10.3', 'gone-parent'), sourceId: 'd', removed: true, html: '<p>edited</p>' },
+    { ...article('own', '10.3.9', 'q'), removed: true },
+  ];
+  const kept = [{ ...article('p', '10'), sourceId: 'a' }];
+  const { restored, copies } = bringIn(TREE, ['d', 'e'], () => `new${++n}`, { articles: kept, removed });
+  assert.deepEqual(
+    restored.map((a) => [a.id, a.parentId, a.removed, a.html]),
+    [
+      ['q', 'p', false, '<p>edited</p>'],
+      ['own', 'q', false, '<p><br></p>'],
+    ],
+  );
+  assert.deepEqual(
+    copies.map((c) => [c.id, c.parentId, c.sourceId]),
+    [['new1', 'q', 'e']],
+  );
 });

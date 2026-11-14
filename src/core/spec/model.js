@@ -15,6 +15,7 @@ import { evaluate } from './formula.js';
  * @property {string | null} sourceId in a project: the master article it was taken from
  * @property {Line[]} lines
  * @property {number} price unit price
+ * @property {boolean} [removed] in a project: taken out, but kept with its changes to be brought back
  *
  * @typedef {object} Spec
  * @property {string} id
@@ -131,6 +132,67 @@ export function copyArticles(articles, chosenIds, makeId, existing = []) {
   return articles
     .filter((a) => chosen.has(a.id))
     .map((a) => ({ ...a, id: copies.get(a.id), parentId: nearest(a.parentId), sourceId: a.id, lines: [] }));
+}
+
+/**
+ * What removing articles (with everything under them) from a project does. Articles from the master, and
+ * what the user added under one that goes as well, are kept with their changes so that ticking the master
+ * article again brings them back; the rest are deleted.
+ * @param {Article[]} articles the project's articles in use
+ * @param {string[]} ids the articles the user chose to remove
+ * @returns {{ gone: Set<string>, kept: Article[], deleted: string[] }} `gone`: every article that leaves
+ *   the project; `deleted`: the tops of the parts that are deleted for good
+ */
+export function planRemoval(articles, ids) {
+  const byId = new Map(articles.map((a) => [a.id, a]));
+  const gone = new Set(ids.flatMap((id) => [...subtree(articles, id)]));
+  // Kept: an article from the master, or one the user added under a master article that goes too, so that
+  // it comes back with that article.
+  const keep = (/** @type {Article | undefined} */ a) => {
+    for (let at = a; at; at = byId.get(at.parentId)) if (at.sourceId) return gone.has(at.id);
+    return false;
+  };
+  const kept = articles.filter((a) => gone.has(a.id) && keep(a));
+  const lost = (/** @type {string | null} */ id) => gone.has(id) && !keep(byId.get(id));
+  const deleted = articles.filter((a) => lost(a.id) && !lost(a.parentId));
+  return { gone, kept, deleted: deleted.map((a) => a.id) };
+}
+
+/**
+ * Brings master articles into a project. One the project removed before comes back as it was left, with
+ * the articles the user added under it; the others are copied. Each hangs under the project's copy of
+ * its nearest master ancestor.
+ * @param {Article[]} master the master's articles
+ * @param {Iterable<string>} chosenIds master ids
+ * @param {() => string} makeId
+ * @param {{ articles: Article[], removed: Article[] }} project the articles in use and those kept aside
+ * @returns {{ restored: Article[], copies: Article[] }}
+ */
+export function bringIn(master, chosenIds, makeId, { articles, removed }) {
+  const chosen = new Set(chosenIds);
+  const revived = new Set(removed.filter((a) => a.sourceId && chosen.has(a.sourceId)).map((a) => a.id));
+  // The user's own articles under a revived one come back with it.
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const a of removed) {
+      if (a.sourceId || revived.has(a.id) || !revived.has(a.parentId)) continue;
+      revived.add(a.id);
+      grew = true;
+    }
+  }
+  const restored = removed.filter((a) => revived.has(a.id)).map((a) => ({ ...a, removed: false }));
+  const copies = copyArticles(master, chosen, makeId, [...articles, ...restored]);
+  const copyOf = new Map(
+    [...articles, ...restored, ...copies].filter((a) => a.sourceId).map((a) => [a.sourceId, a.id]),
+  );
+  const byId = new Map(master.map((a) => [a.id, a]));
+  for (const a of restored.filter((r) => r.sourceId)) {
+    let parent = byId.get(byId.get(a.sourceId)?.parentId);
+    while (parent && !copyOf.has(parent.id)) parent = byId.get(parent.parentId);
+    a.parentId = parent ? copyOf.get(parent.id) : null;
+  }
+  return { restored, copies };
 }
 
 /** The measured quantity of an article: the sum of its lines. NaN when a line is not valid arithmetic. */

@@ -336,6 +336,35 @@ test(
       'each price comes with the quantity it was given for',
     );
 
+    // Taking an article out of the project keeps it, with its measurements and price, but out of the prices.
+    await reader.click('.spec-bar .brand');
+    await reader.click('#projectList a');
+    await reader.waitForSelector('#specView:not([hidden])');
+    await reader.click('[data-act="spec.side"][data-arg="master"]');
+    await reader.uncheck('#masterTree .pick-item:has-text("Paving") input');
+    await reader.click('#masterApply');
+    await reader.click('#removeDlg [value="remove"]');
+    await reader.waitForSelector('#masterTree .pick-item.removing', { state: 'detached' });
+    await specSaved(reader);
+    await reader.reload();
+    await reader.waitForSelector('#specView:not([hidden])');
+    assert.equal(await reader.locator('#articleTree .tree-item').count(), 0);
+    await reader.click('.spec-bar .brand');
+    await reader.click('#masterList a');
+    await reader.waitForSelector('#specView:not([hidden])');
+    await reader.click('[data-act="spec.view"][data-arg="prices"]');
+    assert.deepEqual(await prices(reader), ['1\tPaving\tm²\t0\t—\t0\t\t\t\t'], 'a removed article has no price');
+    await reader.click('.spec-bar .brand');
+    await reader.click('#projectList a');
+    await reader.waitForSelector('#specView:not([hidden])');
+    await reader.click('[data-act="spec.side"][data-arg="master"]');
+    await reader.check('#masterTree .pick-item:has-text("Paving") input');
+    await reader.click('#masterApply');
+    await reader.waitForSelector('#articleTree:visible');
+    assert.equal(await reader.textContent('#articleQuantity'), '48 m²', 'brought back as it was');
+    assert.equal(await reader.inputValue('#articlePanel [data-field="price"]'), '30');
+    await specSaved(reader);
+
     // The project is not visible to the master's author, and the API refuses writes to someone else's master.
     await author.click('.spec-bar .brand');
     await author.waitForSelector('#projectList');
@@ -456,7 +485,7 @@ test(
 
 test('an older database gets the columns added since', { skip: !hasPhp || !!process.env.ONWORD_TEST_CONFIG }, () => {
   const file = join(mkdtempSync(join(tmpdir(), 'onword-upgrade-')), 'old.sqlite');
-  // The documents table as schema version 3 created it, before documents had styles.
+  // The documents and articles tables as schema version 3 created them.
   const script = `require '${join(ROOT, 'api/lib/db.php')}';
       $db = new PDO('sqlite:${file}', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
       $db->exec('CREATE TABLE schema_info (version INT NOT NULL)');
@@ -464,12 +493,17 @@ test('an older database gets the columns added since', { skip: !hasPhp || !!proc
       $db->exec('CREATE TABLE documents (id VARCHAR(32) NOT NULL PRIMARY KEY, owner_id INT NOT NULL,
         title VARCHAR(200) NOT NULL, snippet TEXT NOT NULL, page TEXT NULL, html TEXT NOT NULL,
         rev INT NOT NULL DEFAULT 1, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL)');
+      $db->exec('CREATE TABLE articles (id VARCHAR(32) NOT NULL PRIMARY KEY, spec_id VARCHAR(32) NOT NULL,
+        parent_id VARCHAR(32) NULL, number VARCHAR(60) NOT NULL, title VARCHAR(300) NOT NULL, unit VARCHAR(30) NOT NULL,
+        html TEXT NOT NULL, source_id VARCHAR(32) NULL, line_data TEXT NOT NULL, price DOUBLE NOT NULL DEFAULT 0)');
       ensure_schema($db);
-      $columns = array_column($db->query('PRAGMA table_info(documents)')->fetchAll(), 'name');
-      echo json_encode([(int) $db->query('SELECT version FROM schema_info')->fetchColumn(), in_array('styles', $columns)]);`;
-  const [version, hasStyles] = JSON.parse(execFileSync('php', ['-r', script]).toString());
+      $columns = fn ($table) => array_column($db->query("PRAGMA table_info($table)")->fetchAll(), 'name');
+      echo json_encode([(int) $db->query('SELECT version FROM schema_info')->fetchColumn(),
+        in_array('styles', $columns('documents')), in_array('removed', $columns('articles'))]);`;
+  const [version, hasStyles, hasRemoved] = JSON.parse(execFileSync('php', ['-r', script]).toString());
   assert.equal(hasStyles, true);
-  assert.ok(version >= 4);
+  assert.equal(hasRemoved, true, 'articles taken out of a project are kept');
+  assert.ok(version >= 5);
 });
 
 test('the API refuses requests without a session or security token', { skip: !hasPhp }, async () => {
