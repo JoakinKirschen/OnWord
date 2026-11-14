@@ -69,6 +69,15 @@ test('an unknown document address falls back to the library', async () => {
 
 test('templates create a pre-filled document', async () => {
   const page = await openApp();
+  assert.equal(await page.textContent('.template-band h2'), 'Start a new document', 'a section of their own');
+  assert.ok(
+    await page.evaluate(
+      () =>
+        document.querySelector('.template-band').getBoundingClientRect().bottom <=
+        document.querySelector('.home-head').getBoundingClientRect().top,
+    ),
+    'above the documents',
+  );
   assert.deepEqual(await page.locator('.template-name').allTextContents(), [
     'Blank',
     'Letter',
