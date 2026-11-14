@@ -74,7 +74,8 @@ before(async () => {
   const config = process.env.ONWORD_TEST_CONFIG || join(dir, 'config.php');
   if (!process.env.ONWORD_TEST_CONFIG) {
     claude = await fakeClaude();
-    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}'`;
+    // Visitors' addresses come from a header, so that each test browser is a connection of its own.
+    const settings = `'dsn' => 'sqlite:${join(dir, 'test.sqlite')}', 'anthropic_api_key' => 'test-key', 'anthropic_base_url' => '${claude.url}', 'client_ip_header' => 'HTTP_X_TEST_IP'`;
     writeFileSync(config, `<?php return [${settings}];`);
   }
   const port = await freePort();
@@ -103,8 +104,15 @@ after(async () => {
 });
 
 /** A separate browser (own cookies), like another person or another computer. */
+let visitors = 0;
+/** A different documentation-range address for every visitor (TEST-NET-3, RFC 5737). */
+const testIp = () => `203.0.113.${++visitors}`;
+
 async function visitor() {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 850 } });
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 850 },
+    extraHTTPHeaders: { 'X-Test-IP': testIp() },
+  });
   const page = await context.newPage();
   page.errors = [];
   page.on('pageerror', (e) => page.errors.push(e.message));
@@ -575,6 +583,71 @@ test('an older database gets the columns added since', { skip: !hasPhp || !!proc
   assert.equal(hasStyles, true);
   assert.equal(hasRemoved, true, 'articles taken out of a project are kept');
   assert.ok(version >= 5);
+});
+
+/** A bare API client with its own cookie and address, like a script someone runs against the site. */
+function apiClient(ip) {
+  let cookie = '';
+  let csrf = '';
+  async function send(route, body) {
+    const response = await fetch(`${base}api/index.php?r=${route}`, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, 'X-Test-IP': ip, cookie },
+      body: body && JSON.stringify(body),
+    });
+    const set = response.headers.getSetCookie().map((c) => c.split(';')[0]);
+    if (set.length) cookie = set.join('; ');
+    const data = await response.json();
+    if (data.csrf) csrf = data.csrf;
+    return [response.status, data.error ?? 'ok'];
+  }
+  return { get: (route) => send(route), post: (route, body) => send(route, body), start: () => send('auth/me') };
+}
+
+test('sign-in and registration are throttled without locking anyone out', { skip: !hasPhp }, async () => {
+  const victim = apiClient('198.51.100.1');
+  await victim.start();
+  const account = { name: 'Vic', email: email('vic'), password: 'blue horse battery' };
+  assert.deepEqual(await victim.post('auth/register', account), [200, 'ok']);
+  await victim.post('auth/logout', {});
+
+  // Someone else guessing the password is stopped, without the owner being locked out.
+  const guesser = apiClient('198.51.100.2');
+  await guesser.start();
+  for (let i = 0; i < 8; i++) {
+    assert.deepEqual(await guesser.post('auth/login', { email: account.email, password: `guess ${i}` }), [
+      401,
+      'bad_credentials',
+    ]);
+  }
+  assert.deepEqual(await guesser.post('auth/login', { email: account.email, password: account.password }), [
+    429,
+    'too_many_attempts',
+  ]);
+  assert.deepEqual(await victim.post('auth/login', account), [200, 'ok'], 'the owner can still sign in');
+
+  // One connection trying address after address is stopped too.
+  const sprayer = apiClient('198.51.100.3');
+  await sprayer.start();
+  for (let i = 0; i < 30; i++) await sprayer.post('auth/login', { email: `nobody${i}@example.com`, password: 'x' });
+  assert.deepEqual(await sprayer.post('auth/login', { email: email('other'), password: 'x' }), [
+    429,
+    'too_many_attempts',
+  ]);
+
+  // Passwords that are guessed first are refused; registration attempts are limited per connection.
+  const registrar = apiClient('198.51.100.4');
+  await registrar.start();
+  const attempt = (n, password) => registrar.post('auth/register', { name: 'Reg', email: email(`reg${n}`), password });
+  const weak = ['short1', 'password2024!', 'qwertyuiop', 'aaaaaaaaaaaa', `my reg4.${RUN} pass`]; // the last: the address
+  for (const [n, password] of weak.entries()) {
+    assert.deepEqual(await attempt(n, password), [400, 'weak_password'], password);
+  }
+  for (let n = 5; n < 10; n++) {
+    assert.deepEqual(await attempt(n, 'blue horse battery'), [200, 'ok']);
+    await registrar.post('auth/logout', {});
+  }
+  assert.deepEqual(await attempt(10, 'blue horse battery'), [429, 'too_many_attempts'], 'ten attempts an hour');
 });
 
 test('the API refuses requests without a session or security token', { skip: !hasPhp }, async () => {

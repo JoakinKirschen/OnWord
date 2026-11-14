@@ -1,5 +1,6 @@
 import { $, hit } from '../core/dom.js';
 
+const NEW_PASSWORD_LENGTH = 10; // MIN_PASSWORD in api/lib/auth.php
 const MODES = {
   login: { title: 'Sign in', submit: 'Sign in', route: 'auth/login', other: 'Create an account', prompt: 'New here?' },
   register: {
@@ -43,6 +44,8 @@ export function createAccount({ root, api, registration, onSignedIn }) {
       $('input', el).disabled = !wanted; // disabled fields are neither required nor submitted
     }
     field('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    // The server has the final word; an account made under older rules can still sign in.
+    field('password').minLength = mode === 'register' ? NEW_PASSWORD_LENGTH : 0;
     message.textContent = '';
   }
 

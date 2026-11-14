@@ -4,7 +4,18 @@ AddDefaultCharset utf-8
 # ES modules are refused by browsers unless they are served as JavaScript.
 AddType text/javascript .js
 
+# Passwords and the sign-in cookie must never travel unencrypted: plain http is sent to https. Remove
+# these lines only on a site without a certificate, which should then not be used with accounts.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
 <IfModule mod_headers.c>
+  # Once seen over https, browsers keep to https for this site for a year.
+  Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
   Header set X-Content-Type-Options "nosniff"
   Header set Referrer-Policy "same-origin"
   # Scripts may only come from this site. Inline styles are needed for document formatting, and

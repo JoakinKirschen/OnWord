@@ -14,6 +14,11 @@ return [
     'allow_registration' => true,
     // If set, a new account can only be created by someone who knows this code.
     'registration_code' => '',
+    // Attempts to create an account per connection (IP address) and hour; wrong codes count too.
+    'max_registrations_per_hour' => 10,
+    // Behind a proxy or CDN, the header that carries the visitor's address, e.g. 'HTTP_CF_CONNECTING_IP'
+    // for Cloudflare. Leave empty when visitors reach the site directly.
+    'client_ip_header' => '',
 
     // Largest document the server stores, in bytes. Keep it below PHP's post_max_size and
     // MySQL's max_allowed_packet.
