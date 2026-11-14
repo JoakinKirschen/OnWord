@@ -139,10 +139,57 @@
   border-radius: 7px;
   background: var(--surface);
 }
-#articleTree {
+#articleTree,
+#masterTree {
   flex: 1;
   overflow: auto;
   padding: 6px;
+}
+/* A project's sidebar: the master to pick articles from, and the project's own tree (masterPicker.js). */
+.spec-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+.spec-tabs[hidden] {
+  display: none;
+}
+.spec-tabs button {
+  flex: 1;
+  padding: 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.spec-tabs button.on {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.spec-side {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.spec-side[hidden] {
+  display: none;
+}
+.pick-item input {
+  flex: none;
+  margin: 0;
+  align-self: center;
+}
+.pick-item.present {
+  color: var(--muted);
+  cursor: default;
+}
+.tree-note {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
 }
 .tree-item {
   display: flex;

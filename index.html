@@ -129,11 +129,24 @@
   </header>
   <div class="spec-body">
     <aside class="spec-tree" aria-label="Articles">
-      <div class="spec-tree-tools">
-        <input id="articleSearch" type="search" placeholder="Search articles" aria-label="Search articles">
-        <button class="btn sm" data-act="spec.addArticle">+ Article</button>
+      <div id="specTabs" class="spec-tabs" role="tablist" hidden>
+        <button role="tab" data-act="spec.side" data-arg="master">Master</button>
+        <button role="tab" data-act="spec.side" data-arg="project">Project</button>
       </div>
-      <nav id="articleTree"></nav>
+      <div id="masterSide" class="spec-side" role="tabpanel" aria-label="Master specification" hidden>
+        <div class="spec-tree-tools">
+          <input id="masterSearch" type="search" placeholder="Search the master" aria-label="Search the master">
+          <button id="masterAdd" class="btn sm primary" data-act="spec.addFromMaster" disabled>Add to project</button>
+        </div>
+        <nav id="masterTree"></nav>
+      </div>
+      <div id="projectSide" class="spec-side" role="tabpanel" aria-label="Project">
+        <div class="spec-tree-tools">
+          <input id="articleSearch" type="search" placeholder="Search articles" aria-label="Search articles">
+          <button class="btn sm" data-act="spec.addArticle">+ Article</button>
+        </div>
+        <nav id="articleTree"></nav>
+      </div>
     </aside>
     <section id="articlePanel" class="spec-panel"></section>
     <section id="quantitiesPanel" class="spec-panel" hidden></section>

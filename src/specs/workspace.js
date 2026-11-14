@@ -1,10 +1,11 @@
 import { $, $$, hit } from '../core/dom.js';
 import { download } from '../core/download.js';
-import { sanitize } from '../core/html.js';
 import { newId } from '../core/ids.js';
 import { evaluate } from '../core/spec/formula.js';
 import { blankArticle, subtree, suggestNumber } from '../core/spec/model.js';
 import { quantitiesCsv, specToHtml } from '../core/spec/output.js';
+import { initArticleText } from './articleText.js';
+import { createMasterPicker } from './masterPicker.js';
 import { createOffers } from './offers.js';
 import { createPriceLibrary } from './prices.js';
 import { createSaver } from './saver.js';
@@ -59,6 +60,19 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     dialog: $('#offerDlg', root),
     input: $('#offerInput', root),
     save: saver.save,
+  });
+
+  const picker = createMasterPicker({
+    root,
+    commands,
+    toast,
+    master: () => [...sources.values()],
+    articles: () => articles,
+    add(copies) {
+      articles.push(...copies);
+      copies.forEach((a) => changed(a.id));
+      select(copies[0].id);
+    },
   });
 
   function drawTree() {
@@ -179,19 +193,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
     drawDerived(article);
     changed(article.id);
   });
-  // Formatting buttons act on the text selection, which a normal click would take away.
-  panel.addEventListener('mousedown', (e) => {
-    const button = hit(e, '[data-format]');
-    if (!button) return;
-    e.preventDefault();
-    doc.execCommand(button.dataset.format);
-  });
-  panel.addEventListener('paste', (e) => {
-    const html = hit(e, '#articleText') && e.clipboardData?.getData('text/html');
-    if (!html) return;
-    e.preventDefault();
-    doc.execCommand('insertHTML', false, sanitize(html));
-  });
+  initArticleText(panel);
   search.addEventListener('input', drawTree);
   for (const [name, input] of Object.entries(inputs)) {
     input.addEventListener('input', () => {
@@ -221,6 +223,7 @@ export function createWorkspace({ root, specStore, documents, commands, toast, n
       $('#specReadOnly', root).hidden = spec.mine;
       state.textContent = '';
       search.value = '';
+      picker.reset(spec.kind === 'project' && spec.mine && sources.size > 0);
       root.hidden = false;
       doc.title = spec.title + ' – OnWord';
       select(null);

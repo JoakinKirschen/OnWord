@@ -42,6 +42,29 @@ export function treeHtml(articles, { selectedId, filter, sources }) {
   return `<p class="spec-empty">${needle ? 'No article matches.' : 'No articles yet. Add the first one.'}</p>`;
 }
 
+/**
+ * The master's articles to choose from, for adding to a project. Articles the project already has are
+ * ticked and cannot be chosen again.
+ * @param {Article[]} articles the master's articles
+ * @param {{ filter: string, ticked: Set<string>, present: Set<string> }} view `present`: master ids the
+ *   project has copies of
+ */
+export function masterTreeHtml(articles, { filter, ticked, present }) {
+  const needle = filter.trim().toLowerCase();
+  const rows = outline(articles)
+    .filter(({ article }) => !needle || `${article.number} ${article.title}`.toLowerCase().includes(needle))
+    .map(({ article, depth }) => {
+      const has = present.has(article.id);
+      const state = has ? ' checked disabled' : ticked.has(article.id) ? ' checked' : '';
+      return `<label class="tree-item pick-item${has ? ' present' : ''}" style="padding-left: ${8 + (needle ? 0 : depth) * INDENT}px">
+        <input type="checkbox" value="${article.id}"${state}>
+        <span class="tree-number">${esc(article.number)}</span><span class="tree-title">${esc(article.title) || '<i>Untitled</i>'}</span>
+        ${has ? '<span class="tree-note">in project</span>' : ''}</label>`;
+    });
+  if (rows.length) return rows.join('');
+  return `<p class="spec-empty">${needle ? 'No article matches.' : 'The master has no articles.'}</p>`;
+}
+
 function lineRow(
   /** @type {import('../core/spec/model.js').Line} */ line,
   /** @type {number} */ index,
